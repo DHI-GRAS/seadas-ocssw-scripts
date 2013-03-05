@@ -1,0 +1,56 @@
+==========================================================================
+                   Help notes for modis_L1A_extract
+==========================================================================
+
+Usage: 
+    modis_L1A_extract.py [OPTIONS] L1AFILE [-g GEOFILE] [-o EXTRACTFILE] -n NORTH -s SOUTH -w WEST -e EAST
+        if GEOFILE is not provided, assumed to be basename of L1AFILE + '.GEO'
+            or
+    modis_L1A_extract.py --par parameter_file [OPTIONS]
+    
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -p PARFILE, --parfile=PARFILE
+                        Parameter file containing program inputs
+  -o EXTRACTFILE, --output=EXTRACTFILE
+                        Output L1A extract filename - defaults to L1AFILE.sub
+  -g GEOFILE, --geofile=GEOFILE
+                        INPUT L1A GEOFILE filename - defaults to basename of
+                        L1AFILE +'.GEO'
+  -n NORTH, --north=NORTH
+                        Northernmost desired latitude
+  -s SOUTH, --south=SOUTH
+                        Southernmost desired latitude
+  -w WEST, --west=WEST  Westernmost desired longitude
+  -e EAST, --east=EAST  Easternmost desired longitude
+  --extract_geo=EXGEO   extract geolocation filename
+  -v, --verbose         print status messages
+  --log                 Save processing log file(s)
+
+==========================================================================
+
+The modis_L1A_extract.py script extracts a Level 1A subscene from an Aqua or
+Terra L1A and GEO file. If an output GEO file is specified, the script will
+also create a GEO file corresponding to the new L1A subscene, since the
+original GEO file will not work with the new subscene. 
+
+==========================================================================
+
+======================================
+Explanation of command line arguments:
+======================================
+
+L1AFILE (required)
+Input MODIS Aqua or Terra L1A file to be extracted.
+
+GEOFILE (required)
+Input MODIS Aqua or Terra Geolocation file.  If not provided on command line,
+the basename of the L1AFILE + '.GEO' is assumed.
+
+EXTRACTFILE (required)
+Filename of the output L1A extracted subscene.  If not provided, L1AFILE.sub is
+used.
+
+==========================================================================

@@ -1,0 +1,9 @@
+#!/bin/csh -f
+
+set arg1 = $1
+if ("$arg1" == "-em") then
+   seadas -em  -c -b $2
+else
+   seadas -c -b $1
+endif
+

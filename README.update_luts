@@ -1,0 +1,57 @@
+==========================================================================
+                   Help notes for update_luts.py
+==========================================================================
+
+Usage: 
+    update_luts.py [OPTIONS] MISSION
+
+    MISSION is either seawifs, aqua, terra, or aquarius
+
+Options:
+  --version      show program's version number and exit
+  -h, --help     show this help message and exit
+  -v, --verbose  print status messages
+
+==========================================================================
+
+The update_luts.py script compares local MODIS L1B calibration LUTs to those on
+an ftp server, and downloads newer remote LUTs if they are found. This script
+can be run as a cronjob or manually, to keep LUTs up-to-date.
+
+It is recommended to run this script as a daily cronjob. Remember to invoke a
+shell to run the script within cron in order to set the MODISL1DB environment
+variables. Example daily crontab lines for csh shell users:
+
+0 0 * * * /bin/csh -c "/path_to_scripts/modis_update_luts.py aqua"
+0 0 * * * /bin/csh -c "/path_to_scripts/modis_update_luts.py terra"
+
+The default location of the calibration LUTs are: 
+$SEADAS/run/var/modisa/cal/OPER (Aqua)
+$SEADAS/run/var/modist/cal/OPER (Terra)  
+
+It is MANDATORY that all three LUTS (reflective, emissive, and qa) reside in
+the same directory.
+
+When run with either aqua or terra as the mission, the utcpole.dat and
+leapsec.dat files are also updated.
+
+==========================================================================
+
+======================================
+Explanation of command line arguments:
+======================================
+
+satellite_name (required)
+Specify the satellite as either "aqua" or "terra" (case-insensitive).
+
+-quiet (optional)
+No messages are printed to stdout unless a newer LUT is found on the
+remote server or an error occurs.
+
+-disable-download (optional)
+Disable the automatic download feature of new LUTs from the ftp server.
+
+--verbose (optional)
+Enable verbose output messages for all LUT downloads.
+
+==========================================================================

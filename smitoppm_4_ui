@@ -1,0 +1,10 @@
+echo
+if [ $# -ne 2 ]
+then
+    echo "Usage - $0   x    y"
+    echo "        Where x is the input smi file and y is the ppm file that I will generate."
+    exit 1
+fi
+    smitoppm $1 > $2
+exit 0
+

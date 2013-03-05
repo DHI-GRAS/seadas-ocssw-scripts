@@ -1,0 +1,92 @@
+==========================================================================
+                Help notes for modis_L1A.py
+==========================================================================
+Usage: 
+    modis_L1A.py [OPTIONS] MODIS_L0_file
+            or
+    modis_L1A.py --par parameter_file [OPTIONS]
+    
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -p PARFILE, --parfile=PARFILE
+                        Parameter file containing program inputs
+  -o L1AFILE, --output=L1AFILE
+                        Output L1A filename - defaults to
+                        '(A|T)YYYYDDDHHMMSS.L1A_LAC'
+  -m MISSION, --mission=MISSION
+                        MODIS mission - A(qua) or T(erra)
+  -s STARTNUDGE, --startnudge=STARTNUDGE
+                        Level-0 start-time offset (seconds)
+  -e STOPNUDGE, --stopnudge=STOPNUDGE
+                        Level-0 stop-time offset (seconds)
+  -n NEXT, --nextgranule=NEXT
+                        Next L0 granule (for geolocation of last scan; sets
+                        stopnudge=0)
+  -v, --verbose         print status messages
+  --log                 Save processing log file(s)
+  -d, --disableL0fix    Disable use of l0fix_modis utility for corrupt packets
+
+
+==========================================================================
+
+The modis_L1A.py script creates a MODIS formatted Aqua or Terra Level 1A file
+from a Production Data Set (PDS) formatted MODIS Level 0 file. Unless the
+"-satellite" option is specified, the input filename must match one of the
+following patterns in order for the platform to be determined:
+
+  -Aqua L0 filenames:  a*, A*, MOD00.P*, or P1540064*
+  -Terra L0 filenames: t*, T*, MOD00.A*, or P0420064*
+
+If no output filename is specified, the filename will be constructed
+using the AYYYYDDDHHMMSS.L1A_LAC or TYYYYDDDHHMMSS.L1A_LAC format
+where YYYYDDDHHMMSS is the calculated pass start time. A default
+Level 1A file output directory can be defined by setting the MODIS L1A
+environment variable.
+
+==========================================================================
+
+======================================
+Explanation of command line arguments:
+======================================
+
+MODIS_L0_PDS_file (required)
+Input MODIS Aqua/Terra L0 file for generating the L1A file.
+
+-o L1A_file (optional)
+Output filename for the MODIS L1A HDF file.
+
+-n next_granule_filename (optional)
+Next L0 granule filename. This option allows geolocation of the input
+L0 file's last scanline, and automatically sets stopnudge to 0.
+
+-disable-fix_L0 (optional)
+Disable automatic use of the l0fix_modis utility if a corrupt or wrong-sized
+Level 0 packet is detected by the l0cnst_write_modis binary, while
+attempting to generate the constructor file. If this option is used and
+such an error is detected, processing will stop. Otherwise, an attempt
+will be made to create a new Level 0 file with the problem packet(s)
+removed, and if successful processing will proceed.
+
+-startnudge n (optional) (default=10)
+Specifies the Level-0 start-time offset (seconds). This is the number of
+seconds of data to remove from the beginning of the L0 file to avoid
+geolocation problems due to unavailable leading packets. Partial scan
+lines will not be retained.
+
+-stopnudge n (optional) (default=10)
+Specifies the Level-0 stop-time offset (seconds). This is the number of
+seconds of data to remove from the end of the L0 file to avoid geolocation
+problems due to unavailable trailing packets. Partial scan will not be
+retained.
+
+--mission aqua/terra (may be required)
+Only required if filename does not match one of the patterns specified
+above for determination of the platform.
+
+--log (optional)
+Save the Level 1A processing LogStatus, LogReport and LogUser files.
+(All logs are deleted by default if processing completes without a fatal error.)
+
+==========================================================================

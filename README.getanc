@@ -1,0 +1,120 @@
+==========================================================================
+  Help notes for the getanc ancillary determination and retrieval script
+==========================================================================
+
+Usage: 
+    getanc.py [OPTIONS] FILE
+          or
+    -s,--start YYYYDDDHHMMSS [-e,--end YYYDDDHHMMSS]  [OPTIONS]
+
+      FILE  Input L1A or L1B file
+
+    NOTE: Currently NO2 climatological data is used for OBPG operational
+          processing, so to match OBPG distributed data products, the default
+          behaviour disables NO2 searching.
+
+    This program queries an OBPG server and optionally downloads the optimal
+    ancillary data files for Level-1 to Level-2 processing. If an input file
+    is specified the start and end times are determined automatically, otherwise
+    a start time must be provided by the user.
+
+    A text file (with the extension '.anc') is created containing parameters
+    that can be directly used as input to the l2gen program for optimal Level-1
+    to Level-2 processing, e.g.:
+
+         l2gen ifile=<infile> ofile=<outfile> par=<the *.anc text file>
+
+    EXIT STATUS:
+        0  : all optimal ancillary files exist and are present on the locally
+        99 : an error was encountered; no .anc parameter text file was created
+        31 : no ancillary files currently exist corresponding to the start
+             time and therefore no .anc parameter text file was created
+      1-30 : bitwise value indicating one or more files are not optimal:
+
+             bit 0 set = missing one or more MET files
+             bit 1 set = missing one or more OZONE files
+             bit 2 set = no SST file found
+             bit 3 set = no NO2 file found
+             bit 4 set = no ICE file found
+
+    e.g. STATUS=11 indicates there are missing optimal MET, OZONE, and NO2 files
+
+    
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -s START, --start=START
+                        Time of the first scanline (if used, no input file is
+                        required)
+  -e STOP, --stop=STOP  Time of last scanline
+  --ancdir=ANCDIR       Use a custom directory tree for ancillary files
+  --ancdb=ANCDB         Use a custom file for ancillary database
+  -c, --curdir          Download ancillary files directly into current working
+                        directory
+  -d, --disable-download
+                        Disable download of ancillary files not found on hard
+                        disk
+  -r, --refreshDB       Remove existing database records and re-query for
+                        ancillary files
+  -i, --ice             Do not search for sea-ice ancillary data
+  -n, --no2             Search for NO2 ancillary data
+  -t, --sst             Do not search for SST ancillary data
+  -v, --verbose         print status messages
+  --noprint             Supress printing the resulting list of files to the
+                        screen
+
+==========================================================================
+
+======================================
+Explanation of command line arguments:
+======================================
+
+FILE (required if -start YYYYDDDHHMMSS not specified)
+Input L1A or L1B file fo which ancillary data file detection is desired.
+
+-start YYYYDDDHHMMSS (required if L1A_or_L1B_file not specified)
+The time of the first scan line in the satellite pass.
+
+--disable-download (optional)
+Turn off the automatic downloading functionality. The local system will
+still be searched.
+
+==========================================================================
+
+================================================
+Examples of the contents of a *.anc text file:
+================================================
+
+"S2001006165940.L1A_GAC.anc":
+met1=/home/seadas/anc/2001/006/N200100612_MET_NCEPN_6h.hdf
+met2=/home/seadas/anc/2001/006/N200100618_MET_NCEPN_6h.hdf
+met3=/home/seadas/anc/2001/006/N200100618_MET_NCEPN_6h.hdf
+ozone1=/home/seadas/anc/2001/006/N200100600_O3_TOMSOMI_24h.hdf
+ozone2=/home/seadas/anc/2001/007/N200100700_O3_TOMSOMI_24h.hdf
+ozone3=/home/seadas/anc/2001/007/N200100700_O3_TOMSOMI_24h.hdf
+sstfile=/home/seadas/anc/2001/006/N2001006_SST_OIV2AV_24h.nc
+no2file=/home/seadas/anc/2001/006/N200100600_NO2_GOME_24h.hdf
+icefile=/home/seadas/anc/2001/006/N200100600_SEAICE_NSIDC_24h.hdf
+
+==========================================================================
+
+================================================
+getanc Unix shell script for processing SeaWiFS:
+================================================
+
+#!/bin/sh
+for FILE in S*.L1A_GAC
+do
+  BASE=`echo $FILE |awk -F. '{ print $1 }'`
+  L2FILE=${BASE}.L2
+
+  # determine ancillary data
+  # the getanc command creates FILE.anc in l2gen's par file format
+  getanc.py $FILE
+
+  # process the L1B subscene to L2
+  echo "Processing $FILE to Level 2.."
+  l2gen ifile=$FILE ofile1=$L2FILE par=${FILE}.anc >$BASE.log
+done
+

@@ -1,0 +1,112 @@
+==========================================================================
+                    Help notes for modis_GEO.py
+==========================================================================
+Usage: 
+    modis_GEO.py [OPTIONS] MODIS_L1A_file
+            or
+    modis_GEO.py --par parameter_file [OPTIONS]
+    
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -p PARFILE, --parfile=PARFILE
+                        Parameter file containing program inputs
+  -o GEOFILE, --output=GEOFILE
+                        Output filename
+  -a ATT1, --att1=ATT1  Input attitude file 1 (chronological)
+  -A ATT2, --att2=ATT2  Input attitude file 2 (chronological)
+  -e EPH1, --eph1=EPH1  Input ephemeris file 1 (chronological)
+  -E EPH2, --eph2=EPH2  Input ephemeris file 2 (chronological)
+  --ancdir=ANCDIR       Use a custom directory tree for ancillary files
+  --ancdb=ANCDB         Use a custom file for ancillary database
+  --threshold=THRESHOLD
+                        % of geo-populated pixels required to pass geocheck
+                        validation test
+  -r, --refreshDB       Remove existing database records and re-query for
+                        ancillary files
+  -d, --enable-dem      Enable MODIS terrain elevation correction
+  -v, --verbose         print status messages
+  --log                 Save processing log file(s)
+
+==========================================================================
+
+The modis_GEO.py script creates a MODIS formatted Aqua or Terra Geolocation
+file. A MODIS formatted Level 1A file is required as input.
+
+If no output filename is specified, the filename will be
+constructed using the AYYYYDDDHHMMSS.GEO or TYYYYDDDHHMMSS.GEO format
+where YYYYDDDHHMMSS is the calculated pass start time. A default
+Geolocation file output directory can be defined by setting the MODIS_GEO
+environment variable.
+
+In order to successfully create a Geolocation file from a Level 1A file,
+corresponding attitude and ephemeris files are required (unless the Terra
+embedded Onboard (TONS) real-time attitude/ephemeris is being used). These
+files can be created locally with the GBAD processor, or can be manually
+downloaded, though it is recommended to simply allow MODISL1DB to
+automatically fetch the required files via its built-in wget program.
+To learn how to manually retrieve these files, please consult the SeaDAS
+Ancillary Data Info page:
+
+http://oceancolor.gsfc.nasa.gov/seadas/doc/toplevel/anc_info.html#ATTEPH
+
+NOTE: Two MODIS ancillary data files utcpole.dat and leapsec.dat reside in
+the $SEADAS/var/modis/ directory and must be kept up-to-date. Though
+this script will automatically download them if they're over 14 days old,
+it is still suggested that they be updated on a weekly basis by running
+the modis_update_utcpole_leapsec.csh script as a cron job. To quantify the
+errors caused by not updating these files (called "latency") Peter
+Noerdlinger has prepared an excellent document:
+
+http://newsroom.gsfc.nasa.gov/sdptoolkit/latency.html
+
+The utcpole.dat and leapsec.dat files are available here:
+
+http://oceandata.sci.gsfc.nasa.gov/Ancillary/LUTs/modis/utcpole.dat
+http://oceandata.sci.gsfc.nasa.gov/Ancillary/LUTs/modis/leapsec.dat
+
+==========================================================================
+
+======================================
+Explanation of command line arguments:
+======================================
+
+MODIS_L1A_file (required)
+Input MODIS L1A file for generating the Geolocation file.
+
+-o GEO_file (optional)
+Output filename for the MODIS GEO HDF file.
+
+-a1 attitude_file1 (optional)
+Input attitude file 1 (chronologically before attitude_file2)
+
+-a2 attitude_file2 (optional)
+Input attitude file 2 (chronologically after attitude_file1)
+
+-e1 ephemeris_file1 (optional)
+Input ephemeris file 1 (chronologically before ephemeris_file2)
+
+-e2 ephemeris_file2 (optional)
+Input ephemeris file 2 (chronologically after ephemeris_file1)
+
+--verbose (optional)
+Enable verbose wget output messages from attempted attitude/ephemeris
+downloads.
+
+-enable-dem (optional) Enable terrain elevation correction (including
+processing over land and lakes.) MODIS DEM files are available in the
+seadas_dem_modis.tar.gz distribution file.
+
+--threshold n (optional) (default=95)
+Specifies the percent of geo-populated pixels required to pass the
+geocheck validation test. The geocheck validation test calculates the
+percentage of pixels that were not successfully geolocated, and if this
+percentage is less than geocheck_threshold, the processing will assume
+failure and will not delete temporary processing and log files.
+
+--log (optional)
+Save the Geolocation processing LogStatus, LogReport and LogUser files.
+(All logs are deleted by default if processing completes without a fatal error.)
+
+==========================================================================

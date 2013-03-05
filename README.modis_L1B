@@ -1,0 +1,102 @@
+==========================================================================
+                   Help notes for modis_L1B.py
+==========================================================================
+
+Usage: 
+    modis_L1B.py [OPTIONS] L1AFILE [GEOFILE]
+        if GEOFILE is not provided, assumed to be basename of L1AFILE + '.GEO'
+            or
+    modis_L1B.py --par parameter_file [OPTIONS]
+    
+
+Options:
+  --version             show program's version number and exit
+  -h, --help            show this help message and exit
+  -p PARFILE, --parfile=PARFILE
+                        Parameter file containing program inputs
+  -o 1KMFILE, --okm=1KMFILE
+                        Output MODIS L1B 1KM HDF filename
+  -k HKMFILE, --hkm=HKMFILE
+                        Output MODIS L1B HKM HDF filename
+  -q QKMFILE, --qkm=QKMFILE
+                        Output MODIS L1B QKM HDF filename
+  -c OBCFILE, --obc=OBCFILE
+                        Output MODIS L1B OBC HDF filename
+  -l LUTVER, --lutver=LUTVER
+                        L1B LUT version number
+  -d LUTDIR, --lutdir=LUTDIR
+                        Path of directory containing LUT files
+  -x, --del-km          Delete 1km resolution L1B file
+  -y, --del-hkm         Delete 500m resolution L1B file
+  -z, --del-qkm         Delete 250m resolution L1B file
+  --keep-obc            Delete 250m resolution L1B file
+  -v, --verbose         print status messages
+  --log                 Save processing log file(s)
+
+==========================================================================
+
+The modis_L1B.py script creates 3 MODIS formatted Aqua or Terra Level 1B files
+of 1km, 500m, and 250m resolution. It requires a MODIS formatted Level 1A file
+and its corresponding Geolocation file as input.
+
+If no output filename is specified, the filename will be
+constructed using the AYYYYDDDHHMMSS or TYYYYDDDHHMMSS prefix format
+where YYYYDDDHHMMSS is the calculated pass start time. The Level 1B
+filenames will be given ".L1B_LAC", ".L1B_HKM", and ".L1B_QKM" suffixes
+for the 1km, 500m, and 250m resolutions respectively. A default Level 1B
+file output directory can be defined by setting the MODIS_L1B environment
+variable.
+
+If the calibration LUTs are not specified on the command line, the LUTs
+residing in the default directory will be used during L1B processing.
+
+The default locations of the calibration LUTs are:
+$SEADAS/run/var/modisa/cal/OPER (Aqua)
+$SEADAS/run/var/modist/cal/OPER (Terra) 
+
+It is MANDATORY that all three LUTS (reflective, emissive, and qa) reside in the
+same directory.
+
+==========================================================================
+
+======================================
+Explanation of command line arguments:
+======================================
+
+L1AFILE (required)
+Input MODIS Aqua or Terra L1A file for generating the L1B files.
+
+GEOFILE (required)
+Input MODIS Aqua or Terra Geolocation file for generating the L1B files.
+
+-o L1B_1KM_filename (optional)
+Output filename for the 1km resolution L1B file.
+
+-h L1B_HKM_filename (optional)
+Output filename for the 500m resolution L1B file.
+
+-q L1B_QKM_filename (optional)
+Output filename for the 250m resolution L1B file.
+
+--lutver LUTVER (optional)
+User-specified LUT version number to be used in L1B processing. All three
+LUTS (reflective, emissive, and qa) MUST reside in the same directory.
+
+--lutdir LUTDIR (optional)
+User-specified LUT directory to be used in L1B processing. All three
+LUTS (reflective, emissive, and qa) MUST reside in this directory.
+
+--del-1km (optional)
+Delete the 1km resolution L1B file.
+
+--del-hkm (optional)
+Delete the 500m resolution L1B file.
+
+--del-qkm (optional)
+Delete the 250m resolution L1B file.
+
+--log (optional)
+Save the Level 1B processing LogStatus, LogReport and LogUser files.
+(All logs are deleted by default if processing completes without a fatal error.)
+
+==========================================================================
