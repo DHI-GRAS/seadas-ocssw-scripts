@@ -15,7 +15,32 @@ import re
 import subprocess
 import sys
 
+def convert_millisecs_to_time_str(millisecs):
+    """
+    Converts a number of milliseconds to a string representing the time of day.
+    """
+    secs = millisecs / 1000
+    hrs = secs / 3600
+    secs = secs - (hrs * 3600)
+    mins = secs / 60
+    secs = secs - (mins * 60)
+    tm_str = '{0:02}{1:02}{2:02}'.format(hrs, mins, secs)
+    return tm_str
+
+def convert_year_day_milli_to_timestamp(yr, doy, millisecs):
+    """
+    Return a timestamp in the YYYYDDDHHMMSS form from a given year (yr), day
+    of year (doy) and milliseconds (after 00:00 - millisecs).
+    """
+    time_str = convert_millisecs_to_time_str(millisecs)
+    timestamp = '{0:04}{1:03}{2}'.format(yr, doy, time_str)
+    return timestamp
+
 class ObpgFileTyper(object):
+    """
+    A class containing methods for finding the type of an OBPG file (e.g.
+    MODIS L2b, SeaWiFS L1A, Aquarius L3m, etc.
+    """
 
     def __init__(self, fpath):
         """
@@ -39,14 +64,15 @@ class ObpgFileTyper(object):
         an attribute in the file.
         """
         # Todo: Check that MERIS' and Python's month abbreviations match up ...
-        month_abbrs = dict((v.upper(), k) for k, v in enumerate(calendar.month_abbr))
-        yr = int(time_str[7:11])
+        month_abbrs = dict((v.upper(), k) for k, v in
+                            enumerate(calendar.month_abbr))
+        year = int(time_str[7:11])
         mon = int(month_abbrs[time_str[3:6]])
         dom = int(time_str[0:2])
         hrs = int(time_str[12:14])
         mins = int(time_str[15:17])
         secs = int(time_str[18:20])
-        dt_obj = datetime.datetime(yr, mon, dom, hrs, mins, secs)
+        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
 
     def _create_modis_l1_timestamp(self, rng_date, rng_time):
@@ -56,43 +82,42 @@ class ObpgFileTyper(object):
         is of form YYYYDDDHHMMSS, where YYYY = year, DDD = day of year,
         HH = hour, MM = minute, and SS = second.
         """
-        yr = int(rng_date[0:4])
+        year = int(rng_date[0:4])
         mon = int(rng_date[5:7])
         dom = int(rng_date[8:10])
         hrs = int(rng_time[0:2])
         mins = int(rng_time[3:5])
         secs = int(rng_time[6:8])
-        dt_obj = datetime.datetime(yr, mon, dom, hrs, mins, secs)
+        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
 
     def _create_octs_l1_timestamp(self, dt_str):
         """
         Creates a timestamp for an OCTS L1.
         """
-        yr = int(dt_str[0:4])
+        year = int(dt_str[0:4])
         mon = int(dt_str[4:6])
         dom = int(dt_str[6:8])
         hrs = int(dt_str[9:11])
         mins = int(dt_str[12:14])
         secs = int(dt_str[15:17])
-        dt_obj = datetime.datetime(yr, mon, dom, hrs, mins, secs)
+        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
 
     def _create_viirs_l1_timestamp(self, sdate, stime):
         """
         Creates timestamp for VIIRS L1.
         """
-        yr = int(sdate[0:4])
+        year = int(sdate[0:4])
         mon = int(sdate[4:6])
         dom = int(sdate[6:8])
         hrs = int(stime[0:2])
         mins = int(stime[2:4])
         secs = int(stime[4:6])
-        dt_obj = datetime.datetime(yr, mon, dom, hrs, mins, secs)
+        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
-#        return '-'.join([sdate[0:4],sdate[4:6],sdate[6:8]]) + 'T' + ':'.join([stime[0:2],stime[2:4],stime[4:len(stime)]])
 
-    def _get_data_from_ancillary_attributes(self):
+    def _get_data_from_anc_attributes(self):
         """
         Processes Ancillary data files.
         """
@@ -116,38 +141,49 @@ class ObpgFileTyper(object):
         """
         Get the instrument and file type from the attributes for an L1 file.
         """
-        file_type = 'unknown'
+        file_type = 'Level 1'
         instrument = 'unknown'
+        possible_levels = {'Level 1A': 'Level 1A', 'Level-1A': 'Level 1A',
+                           'L1A': 'Level 1A', 'L1a': 'Level 1A',
+                           'Level 1B': 'Level 1B', 'Level-1B': 'Level 1B',
+                           'L1B': 'Level 1B', 'L1b': 'Level 1B'}
+        ks = known_sensors
         if title.find('Level 1') != -1:
             working_title = title.replace('Level 1', 'Level-1')
         else:
             working_title = title
+        working_title = re.sub("""^['"](.*)['"].*;$""", '\g<1>', working_title)
         title_parts = working_title.split()
-        if title_parts[1].find('Level-1') != -1 or \
-           title_parts[1].find('Level 1') != -1:
-            if title_parts[1].find('Level-1A') != -1 or \
-               title_parts[1].find('Level 1A') != -1:
-                file_type = 'Level 1A'
-            elif title_parts[1].find('Level-1B') != -1:
-                file_type = 'Level 1B'
-            else:
-                file_type = 'Level 1'
-            instrument = title_parts[0].strip()
-        else:
-            for title_pos, part in enumerate(title_parts):
-                if part.find('L1') != -1:
-                    break
-            if title_parts[title_pos].upper().find('L1A') != -1:
-                file_type = 'Level 1A'
-            elif title_parts[title_pos].upper().find('L1B') != -1:
-                file_type = 'Level 1B'
-            else:
-                file_type = 'Level 1'
-            for inst_pos, part in enumerate(title_parts):
-                for sensor in known_sensors:
-                    if part.find(sensor) != -1:
-                        instrument = sensor
-                        break
+        for part in title_parts:
+            if part in ks:
+                instrument = part
+            if part in possible_levels:
+                file_type = possible_levels[part]
+#        if title_parts[1].find('Level-1') != -1 or \
+#           title_parts[1].find('Level 1') != -1:
+#            if title_parts[1].find('Level-1A') != -1 or \
+#               title_parts[1].find('Level 1A') != -1:
+#                file_type = 'Level 1A'
+#            elif title_parts[1].find('Level-1B') != -1:
+#                file_type = 'Level 1B'
+#            else:
+#                file_type = 'Level 1'
+#            instrument = title_parts[0].strip()
+#        else:
+#            for title_pos, part in enumerate(title_parts):
+#                if part.find('L1') != -1:
+#                    break
+#            if title_parts[title_pos].upper().find('L1A') != -1:
+#                file_type = 'Level 1A'
+#            elif title_parts[title_pos].upper().find('L1B') != -1:
+#                file_type = 'Level 1B'
+#            else:
+#                file_type = 'Level 1'
+#            for inst_pos, part in enumerate(title_parts):
+#                for sensor in known_sensors:
+#                    if part.find(sensor) != -1:
+#                        instrument = sensor
+#                        break
         if title.find('Browse Data') != -1:
             file_type += ' Browse Data'
         return file_type, instrument
@@ -187,7 +223,8 @@ class ObpgFileTyper(object):
         if not (instrument in known_sensors):
             if 'Sensor Name' in self.attributes:
                 instrument = self.attributes['Sensor Name'].strip()
-            if ('Sensor' in self.attributes) and not (instrument in known_sensors):
+            if ('Sensor' in self.attributes) and not \
+               (instrument in known_sensors):
                 instrument = self.attributes['Sensor'].strip()
         return instrument
 
@@ -196,7 +233,8 @@ class ObpgFileTyper(object):
         Try to get data from the MODIS L0 constructor for this file.
         """
         l0cnst_results = None
-        constr_file = os.path.join('/tmp', os.path.basename(self.file_path) + '.constr')
+        constr_file = os.path.join('/tmp',
+                                   os.path.basename(self.file_path) + '.constr')
         constr_out_base = os.path.basename(self.file_path) + '_l0cnst_out'
         constr_err_base = os.path.basename(self.file_path) + '_l0cnst_err'
         constr_out = os.path.join('/tmp', constr_out_base)
@@ -233,11 +271,13 @@ class ObpgFileTyper(object):
         start_time = ''
         end_time = ''
         if self.instrument == 'VIIRS' and self.file_type == 'SDR':
-            start_time = self._create_viirs_l1_timestamp(self.attributes['Beginning_Date'],
-                                                         self.attributes['Beginning_Time'])
-            end_time = self._create_viirs_l1_timestamp(self.attributes['Ending_Date'],
-                                                       self.attributes['Ending_Time'])
-        if self.file_type.find('Level 1') != -1:
+            start_time = self._create_viirs_l1_timestamp(
+                                    self.attributes['Beginning_Date'],
+                                    self.attributes['Beginning_Time'])
+            end_time = self._create_viirs_l1_timestamp(
+                                    self.attributes['Ending_Date'],
+                                    self.attributes['Ending_Time'])
+        elif self.file_type.find('Level 1') != -1:
             start_time = "L1 time"
             end_time = "L1 time"
             if self.instrument.find('SeaWiFS')!= -1 or \
@@ -248,25 +288,61 @@ class ObpgFileTyper(object):
                 start_time = self.attributes['Start Time'][0:13]
                 end_time = self.attributes['End Time'][0:13]
             elif self.instrument.find('MODIS') != -1:
-                start_time = self._create_modis_l1_timestamp(self.attributes['RANGEBEGINNINGDATE'],
-                                                             self.attributes['RANGEBEGINNINGTIME'])
-                end_time = self._create_modis_l1_timestamp(self.attributes['RANGEENDINGDATE'],
-                                                           self.attributes['RANGEENDINGTIME'])
+                start_time = self._create_modis_l1_timestamp(
+                                    self.attributes['RANGEBEGINNINGDATE'],
+                                    self.attributes['RANGEBEGINNINGTIME'])
+                end_time = self._create_modis_l1_timestamp(
+                                    self.attributes['RANGEENDINGDATE'],
+                                    self.attributes['RANGEENDINGTIME'])
             elif self.instrument.find('OCTS') != -1:
-                start_time = self._create_octs_l1_timestamp(self.attributes['Start Time'])
-                end_time = self._create_octs_l1_timestamp(self.attributes['End Time'])
+                start_time = self._create_octs_l1_timestamp(
+                                    self.attributes['Start Time'])
+                end_time = self._create_octs_l1_timestamp(
+                                    self.attributes['End Time'])
             elif self.instrument.find('MERIS') != -1:
                 if 'FIRST_LINE_TIME' in self.attributes:
-                    start_time = self._create_meris_l1b_timestamp(self.attributes['FIRST_LINE_TIME'])
-                    end_time = self._create_meris_l1b_timestamp(self.attributes['LAST_LINE_TIME'])
+                    start_time = self._create_meris_l1b_timestamp(
+                                    self.attributes['FIRST_LINE_TIME'])
+                    end_time = self._create_meris_l1b_timestamp(
+                                    self.attributes['LAST_LINE_TIME'])
                 else:
-                    start_time = self._create_meris_l1b_timestamp(self.attributes['start_date'].strip('"'))
-                    end_time = self._create_meris_l1b_timestamp(self.attributes['stop_date'].strip('"'))
-        if self.file_type.find('Level 2') != -1 or \
+                    start_time = self._create_meris_l1b_timestamp(
+                                    self.attributes['start_date'].strip('"'))
+                    end_time = self._create_meris_l1b_timestamp(
+                                    self.attributes['stop_date'].strip('"'))
+            elif self.instrument.find('OCM2') != -1:
+                #yr, doy, millisecs
+                start_time = convert_year_day_milli_to_timestamp(\
+                                            self.attributes['Start Year'],
+                                            self.attributes['Start Day'],
+                                            self.attributes['Start Millisec'])
+                end_time = convert_year_day_milli_to_timestamp(\
+                                            self.attributes['End Year'],
+                                            self.attributes['End Day'],
+                                            self.attributes['End Millisec'])
+
+        elif self.file_type.find('Level 2') != -1 or \
            self.file_type.find('Level 3') != -1:
-            start_time = self.attributes['Start Time'][0:13]
-            end_time = self.attributes['End Time'][0:13]
-        if self.file_type.find('Level 0') != -1:
+            try:
+                start_time = self.attributes['Start Time'][0:13]
+                end_time = self.attributes['End Time'][0:13]
+            except KeyError:
+                if self.instrument.find('Aquarius') != -1:
+                    stime_str = convert_millisecs_to_time_str(
+                                      int(self.attributes['Start Millisec']))
+                    start_time = '{0:04}{1:03}{2}'.format(
+                                             int(self.attributes['Start Year']),
+                                             int(self.attributes['Start Day']),
+                                             stime_str)
+                    etime_str = convert_millisecs_to_time_str(
+                        int(self.attributes['Start Millisec']))
+                    end_time = '{0:04}{1:03}{2}'.format(
+                        int(self.attributes['End Year']),
+                        int(self.attributes['End Day']),
+                        etime_str)
+                else:
+                    raise
+        elif self.file_type.find('Level 0') != -1:
             for line in self.l0_data:
                 if line.find('starttime') != -1:
                     time_part = line.split('=')[1]
@@ -302,14 +378,15 @@ class ObpgFileTyper(object):
                        (title.find('Level 1') != -1) or \
                        (title.find('L1') != -1):
                         self.file_type, self.instrument = self._get_data_from_l1_attributes(title)
-                    elif title.find('Level-2') != -1:
+                    elif title.find('Level-2') != -1 or \
+                         title.find('Level 2') != -1:
                         self.file_type, self.instrument = self._get_data_from_l2_attributes()
                     elif title.find('Level-3') != -1:
                         self.file_type, self.instrument = self._get_data_from_l3_attributes()
                     elif title.find('Level-0') != -1:
                         self.file_type, self.instrument = self._get_data_from_l0_attributes()
                     elif title.find('Ancillary') != -1:
-                        self.file_type, self.instrument = self._get_data_from_ancillary_attributes()
+                        self.file_type, self.instrument = self._get_data_from_anc_attributes()
                 elif 'ASSOCIATEDINSTRUMENTSHORTNAME' in self.attributes:
                     self.instrument = self.attributes['ASSOCIATEDINSTRUMENTSHORTNAME']
                     if 'ASSOCIATEDPLATFORMSHORTNAME' in self.attributes:
@@ -392,9 +469,11 @@ def main():
             output = ''
             if obpg_file_type == 'unknown':
                 if instrument != 'unknown':
-                    output = '{0}: {1}: unknown'.format(os.path.basename(arg), instrument)
+                    output = '{0}: {1}: unknown'.format(os.path.basename(arg),
+                                                        instrument)
                 else:
-                    output = '{0}: unknown: unknown'.format(os.path.basename(arg))
+                    output = '{0}: unknown: unknown'.format(
+                                os.path.basename(arg))
             else:
                 if instrument != 'unknown':
                     output = '{0}: {1}: {2}'.format(os.path.basename(arg), 
@@ -427,8 +506,8 @@ def process_command_line(cl_parser):
 #######################################################################
 
 known_sensors = ['Aquarius', 'CZCS', 'HMODISA', 'HMODIST', 'MERIS', 'MODISA',
-                 'MODIS Aqua', 'MODIST', 'MODIS Terra', 'MOS', 'OCTS', 'OSMI',
-                 'SeaWiFS']
+                 'MODIS Aqua', 'MODIST', 'MODIS Terra', 'MOS', 'OCM2', 'OCTS',
+                 'OSMI','SeaWiFS']
 
 if __name__ == '__main__':
     sys.exit(main())

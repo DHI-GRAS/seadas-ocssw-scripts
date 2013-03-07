@@ -120,7 +120,7 @@ class modis_geo:
                 if self.verbose:
                     print "** Files utcpole.dat/leapsec.dat are not present on hard disk."
                     print "** Running update_luts.py to download the missing files..."
-                l.update_modis()
+                l.update_modis_viirsn()
         else:
             utc_age = ctime(os.path.join(self.dirs['var'],"modis", "utcpole.dat"))
             leap_age = ctime(os.path.join(self.dirs['var'],"modis", "leapsec.dat"))
@@ -128,7 +128,7 @@ class modis_geo:
                 if self.verbose:
                     print "** Files utcpole.dat/leapsec.dat are more than 2w old"
                     print "** Running update_luts to update files..."
-                l.update_modis()
+                l.update_modis_viirsn()
             
     
     def atteph(self):

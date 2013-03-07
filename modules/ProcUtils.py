@@ -21,7 +21,7 @@ def getUrlFileName(openUrl):
 
 
 def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
-           timeout=10, reqHeaders={}):
+           timeout=10., reqHeaders={}):
     """
     Copy the contents of a file from a given URL to a local file
     Inputs:
@@ -36,13 +36,14 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
     import os
     import re
     import shutil
+    import socket
 
     from time import sleep
 
     sleepytime = 15 + ((30. * (1. / (float(ntries) + 1.))))
 
     if not os.path.exists(localpath):
-        os.umask(0002)
+        os.umask(002)
         os.makedirs(localpath, mode=02775)
 
     req = Request(url, headers=reqHeaders)
@@ -51,7 +52,9 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
     try:
         response = urlopen(req, timeout=timeout)
     except HTTPError as ehttp:
-        if ntries > 0:
+        if hasattr(ehttp, 'code') and ehttp.code in (400,401,403,404):
+            status = ehttp.code
+        elif ntries > 0:
             if response:
                 response.close()
             print "Connection error, retrying up to %d more time(s)" % ntries
@@ -84,7 +87,22 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
             else:
                 print 'It is likely that the OBPG limits on access per IP have been exceeded.'
             print 'Please retry this request at a later time.'
-            status =  500
+            status = 500
+
+    except socket.error as socmsg:
+        if ntries > 0:
+            if response:
+                response.close()
+            print "Connection error, retrying up to %d more time(s)" % ntries
+            sleep(sleepytime)
+            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress)
+        else:
+            print 'URL attempted: %s' % url
+            print 'Well, this is embarrassing...an error occurred that we just cannot get past...'
+            print 'Here is what we know: %s' % socmsg
+            print 'Please retry this request at a later time.'
+            status = 500
+
     else:
         if response.code == 200 or response.code == 206:
             if outputfilename:
@@ -112,7 +130,8 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
 
                     response.close()
                     sleep(sleepytime)
-                    status = httpdl(url, localpath=localpath, timeout=timeout, uncompress=uncompress, reqHeaders=reqHeader)
+                    status = httpdl(url, localpath=localpath, timeout=timeout, uncompress=uncompress,
+                        reqHeaders=reqHeader)
             response.close()
 
             if re.search(".(Z|gz|bz2)$", filename) and uncompress:
@@ -310,7 +329,8 @@ def check_sensor(file):
     senlst = {'Sea-viewing Wide Field-of-view Sensor (SeaWiFS)': 'seawifs', 'Coastal Zone Color Scanner (CZCS)': 'czcs',
               'Ocean Color and Temperature Scanner (OCTS)': 'octs',
               'Ocean Scanning Multi-Spectral Imager (OSMI)': 'osmi',
-              'MOS': 'mos', 'VIIRS': 'viirs','Aquarius':'aquarius'}
+              'Ocean   Color   Monitor   OCM-2': 'ocm2',
+              'MOS': 'mos', 'VIIRS': 'viirs', 'Aquarius': 'aquarius'}
 
     from MetaUtils import readMetadata
     import re
@@ -322,7 +342,7 @@ def check_sensor(file):
     elif fileattr.has_key('Instrument_Short_Name'):
         return senlst[str(fileattr['Instrument_Short_Name'])]
     elif fileattr.has_key('Sensor'):
-        return senlst[fileattr['Sensor']]
+        return senlst[(fileattr['Sensor']).strip()]
     elif fileattr.has_key('PRODUCT') and re.search('MER', fileattr['PRODUCT']):
         print fileattr['PRODUCT']
         return 'meris'

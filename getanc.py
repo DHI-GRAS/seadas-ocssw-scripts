@@ -11,7 +11,6 @@ if __name__ == "__main__":
     ancdir = None
     ancdb = 'ancillary_data.db'
     curdir = False
-    mission=None
     opt_flag=5 #defaults to retrieving met, ozone, sst, and ice data
     download = True
     force = False
@@ -19,7 +18,7 @@ if __name__ == "__main__":
     verbose = False
     printlist = True
     sensor = None
-    timeout=10
+    timeout=10.
 
     version = "%prog 2.1"
 
@@ -124,7 +123,7 @@ if __name__ == "__main__":
     if options.printlist is False:
         printlist = options.printlist
     if options.timeout:
-        timeout = options.timeout
+        timeout = float(options.timeout)
 
     if file is None and start is None:
         parser.print_help()
@@ -136,7 +135,7 @@ if __name__ == "__main__":
                    ancdir=ancdir,
                    ancdb=ancdb,
                    curdir=curdir,
-                   sensor=mission,
+                   sensor=sensor,
                    opt_flag=opt_flag,
                    verbose=verbose,
                    printlist=printlist,

@@ -20,7 +20,7 @@ import types
 DEBUG = False
 #DEBUG = True
 
-def convert_short_str_to_int(short_str):
+def convert_str_to_int(short_str):
     """
     Returns an integer taken from the passed in string.
     """
@@ -113,30 +113,27 @@ class NextLevelNameFinder(object):
     """
     A class to determine what the standard OBPG filename would be when the
     given input name is run through the next level of OBPG processing.
-    Note that MODIS files are handled in a subclass.
-
+    Note that MODIS and SeaWiFS files are handled in subclasses.
     """
     PROCESSING_LEVELS = {
-        'l1agen':       'Level 1A',
-        'Level 1A':     'Level 1A',
-        'geogen':       'GEO',
-        'modis_GEO.py': 'GEO',
-        'GEO':          'GEO',
-        'l1bgen':       'Level 1B',
-        'Level 1B':     'Level 1B',
-        'modis_L1B.py': 'Level 1B',
-        'l1brsgen':     'l1brsgen',
-        'l1mapgen':     'l1mapgen',
-        'l2gen':        'Level 2',
-        'Level 2':      'Level 2',
-        'l2bin':        'l2bin',
-        'l2brsgen':     'l2brsgen',
-        'l2extract':    'l2extract',
-        'l2mapgen':     'l2mapgen',
-        'l3bin':        'L3b',
-        'L3b':          'L3b',
-        'SMI':          'SMI',
-        'smigen':       'SMI'
+        'l1agen':         'Level 1A',
+        'Level 1':        'Level 1B',
+        'Level 1A':       'Level 1A',
+        'l1bgen':         'Level 1B',
+        'Level 1B':       'Level 1B',
+        'l1brsgen':       'l1brsgen',
+        'l1mapgen':       'l1mapgen',
+        'l2gen':          'Level 2',
+        'Level 2':        'Level 2',
+        'l2bin':          'l2bin',
+        'l2brsgen':       'l2brsgen',
+        'l2extract':      'l2extract',
+        'l2mapgen':       'l2mapgen',
+        'l3bin':          'l3bin',
+        'L3b':            'l3bin',
+        'Level 3 Binned': 'l3bin',
+        'SMI':            'SMI',
+        'smigen':         'SMI'
     }
 
     transitions = {
@@ -148,10 +145,22 @@ class NextLevelNameFinder(object):
 
     def __init__(self, data_files_list, next_level, l2_suite='_OC'):
         if len(data_files_list) == 0:
-            err_msg = "Error!  Cannot create a NextLevelNameFinder with no data files specified."
+            err_msg = "Error!  No data file specified for NextLevelNameFinder."
             sys.exit(err_msg)
         if next_level in self.PROCESSING_LEVELS.keys():
             self.next_level = self.PROCESSING_LEVELS[next_level]
+        elif next_level in processable_programs:
+            if len(data_files_list) == 1:
+                file_list = data_files_list[0].name
+            elif len(data_files_list) == 2:
+                file_list = data_files_list[0].name + ' and ' + \
+                            data_files_list[1].name
+            else:
+                file_list = [df.name + ', ' for df in data_files_list[:-1]] + \
+                            ' and ' + data_files_list[-1].name
+            err_msg = 'Error!  Cannot transition {0} to {1}.'.format(file_list,
+                                                                     next_level)
+            sys.exit(err_msg)
         else:
             err_msg = 'Error!  "{0}" is not a recognized target output type.'.\
             format(next_level)
@@ -164,6 +173,11 @@ class NextLevelNameFinder(object):
             self.l2_suite = l2_suite
         else:
             self.l2_suite = '_' + l2_suite
+        if not (self.data_files[0].file_type in self.transition_functions):
+            if (self.data_files[0].file_type in self.PROCESSING_LEVELS):
+                for df in self.data_files:
+                    df.file_type = self.PROCESSING_LEVELS[df.file_type]
+
 
     def _do_extension_substitution(self):
         """
@@ -171,7 +185,7 @@ class NextLevelNameFinder(object):
         This is just a placeholder and will eventually be removed.
         """
         # todo: remove this method when every transition is implemented.
-        (dirname, basename) = os.path.split(self.data_files[0].name)
+        basename = os.path.split(self.data_files[0].name)[1]
         basename_parts = basename.rsplit('.', 2)
         suffix = 'unk'
         keys_list =  self.next_suffix.keys()
@@ -185,6 +199,50 @@ class NextLevelNameFinder(object):
                     suffix = self.next_suffix[key]
                 break
         return basename_parts[0] + '.' + suffix
+
+    def _extract_l1_time(self, date_str, time_str):
+        """
+        An internal method to extract the date/time stamp from L1 files.
+        """
+        year = int(date_str[0:4])
+        mon = int(date_str[5:7])
+        dom = int(date_str[8:10])
+        hour = int(time_str[0:2])
+        mins = int(time_str[3:5])
+        secs = int(time_str[6:8])
+        dt_obj = datetime.datetime(year, mon, dom, hour, mins, secs)
+        return dt_obj.strftime('%Y%j%H%M%S')
+
+    def _get_end_doy_year(self):
+        """
+        Extract a day of year and year from an L0 file's metadata and return
+        them as integer values .
+        """
+        if self.data_files[-1].end_time:
+            year = self.data_files[-1].end_time[0:4]
+            day = self.data_files[-1].end_time[4:7]
+        elif self.data_files[-1].metadata:
+            day_str = 'End Day'
+            yr_str = 'End Year'
+            day = convert_str_to_int(self.data_files[-1].metadata[day_str])
+            year = convert_str_to_int(self.data_files[-1].metadata[yr_str])
+        else:
+            err_msg = 'Error! Cannot find end time for {0}'.format(
+                self.data_files[-1].name)
+            sys.exit(err_msg)
+        return day, year
+
+    def _get_l1aextract_name(self):
+        """
+        Returns the output name from running one of the l1aextract_INST programs
+        (where INST = "modis" or "seawifs").
+        """
+        # Note: This method was placed in the NextLevelNameFinder class, since
+        # the functionality is common to both the MODIS and SeaWiFS instruments.
+        # However, it is called by the subclasses for those instruments, not
+        # from this class.
+        next_lvl_name = os.path.basename(self.data_files[0].name) + '.sub'
+        return next_lvl_name
 
     def _get_l1b_extension(self):
         """
@@ -204,9 +262,8 @@ class NextLevelNameFinder(object):
                             self._get_l1b_extension()
         if self.data_files[0].metadata is not None:
             next_lvl_name = first_char +\
-                            self._extract_l1_time(\
-                                self.data_files[0].metadata['RANGEBEGINNINGDATE'],
-                                self.data_files[0].metadata['RANGEBEGINNINGTIME']) +\
+                            self._extract_l1_time(self.data_files[0].metadata['RANGEBEGINNINGDATE'],
+                                                  self.data_files[0].metadata['RANGEBEGINNINGTIME']) +\
                             self._get_l1b_extension()
         return next_lvl_name
 
@@ -225,6 +282,9 @@ class NextLevelNameFinder(object):
         return self._get_single_file_basename() + ext
 
     def _get_l2_extension(self):
+        """
+        Return the appropriate extension for an L2 file.
+        """
         ext = '.L2_LAC'
         for data_file in self.data_files:
             if data_file.name.find('GAC') != -1:
@@ -233,7 +293,10 @@ class NextLevelNameFinder(object):
         return ext
 
     def _get_l2extract_name(self):
-        next_lvl_name = self._get_l2_name() + '_extract'
+        """
+        Return the extension for an L2 extract file.
+        """
+        next_lvl_name = self._get_l2_name() + '.sub'
         return next_lvl_name
 
     def _get_l2_name(self):
@@ -245,7 +308,9 @@ class NextLevelNameFinder(object):
         if basename != 'indeterminate':
             next_lvl_name = basename + self._get_l2_extension() + self.l2_suite
         else:
-            err_msg = 'Error!  Could not determine L2 name for {0}',format(self.data_files[0].name)
+            err_msg = 'Error!  Could not determine L2 name for {0}'.\
+                      format(self.data_files[0].name)
+            sys.exit(err_msg)
         return next_lvl_name
 
     def _get_l2brsgen_name(self):
@@ -262,11 +327,35 @@ class NextLevelNameFinder(object):
         ext = '.L2_MAP'
         return self._get_single_file_basename() + ext
 
+#    def _get_l3bin_name(self):
+#        """
+#        An internal method to return the L3bin name from an L2 or L3bin file.
+#        """
+#        return self._do_extension_substitution()
+
     def _get_l3bin_name(self):
         """
         An internal method to return the L3bin name from an L2 or L3bin file.
         """
-        return self._do_extension_substitution()
+        first_char = self._get_platform_indicator()
+        sday, syear = self._get_start_doy_year()
+        eday, eyear = self._get_end_doy_year()
+        sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
+        edate = datetime.datetime.strptime(str(eyear)+'-'+str(eday), '%Y-%j')
+        days_diff = (edate - sdate).days
+
+        if days_diff == 0:
+            extension = '.L3b_DAY'
+            next_lvl_name = first_char + str(syear) + str(sday) + extension +\
+                            self.l2_suite
+        else:
+            if days_diff == 7:
+                extension = '.L3b_8D'
+            else:
+                extension = '.L3b_CU'
+            next_lvl_name = first_char + str(syear) + str(sday) +\
+                            str(eyear) + str(eday) + extension + self.l2_suite
+        return next_lvl_name
 
     def get_next_level_name(self):
         """
@@ -311,11 +400,14 @@ class NextLevelNameFinder(object):
         of an output file.
         """
         indicator_dict = {'Aquarius': 'Q', 'CZCS': 'C', 'MERIS': 'M',
-                          'MOS': 'M', 'OCTS': 'O', 'OSMI': 'K', 'SeaWiFS': 'S'}
+                          'MODIS Aqua':  'A', 'MODIS Terra': 'T',
+                          'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
+                          'OSMI': 'K', 'SeaWiFS': 'S'}
         if self.data_files[0].sensor in indicator_dict.keys():
             return indicator_dict[self.data_files[0].sensor]
         else:
-            err_msg = 'Error!  Indicator for {0} is not known.'.format(self.data_files[0].file_type)
+            err_msg = 'Error!  Platform indicator, {0}, for {1} is not known.'.\
+                      format(self.data_files[0].sensor, self.data_files[0].name)
             sys.exit(err_msg)
 
     def _get_single_file_basename(self):
@@ -327,51 +419,96 @@ class NextLevelNameFinder(object):
         if self.data_files[0].start_time:
             basename = first_char + self.data_files[0].start_time
         elif self.data_files[0].metadata is not None:
-            basename = first_char + self._extract_l1_time(\
+            basename = first_char + self._extract_l1_time(
                             self.data_files[0].metadata['RANGEBEGINNINGDATE'],
                             self.data_files[0].metadata['RANGEBEGINNINGTIME'])
         return basename
 
+    def _get_smigen_name(self):
+        """
+        Returns the output name from from smigen for an L3 Binned file or group
+        of files.
+        """
+        first_char = self._get_platform_indicator()
+        sday, syear = self._get_start_doy_year()
+        eday, eyear = self._get_end_doy_year()
+        sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
+        edate = datetime.datetime.strptime(str(eyear)+'-'+str(eday), '%Y-%j')
+        days_diff = (edate - sdate).days
+        if days_diff == 0:
+            extension = '.L3m_DAY'
+            smi_name = first_char + str(syear) + str(sday) + extension +\
+                            self.l2_suite
+        else:
+            if days_diff == 7:
+                extension = '.L3m_8D'
+            else:
+                extension = '.L3m_CU'
+            smi_name = first_char + str(syear) + str(sday) +\
+                            str(eyear) + str(eday) + extension + self.l2_suite
+        return smi_name
+
+    def _get_start_doy_year(self):
+        """
+        Extract a day of year and year from an L0 file's metadata and return
+        them as integer values .
+        """
+        if self.data_files[0].end_time:
+            year = self.data_files[0].start_time[0:4]
+            day = self.data_files[0].start_time[4:7]
+        elif self.data_files[0].metadata:
+            day_str = 'Start Day'
+            yr_str = 'Start Year'
+            day = convert_str_to_int(self.data_files[0].metadata[day_str])
+            year = convert_str_to_int(self.data_files[0].metadata[yr_str])
+        else:
+            err_msg = 'Error! Cannot find end time for {0}'.format(
+                self.data_files[0].name)
+            sys.exit(err_msg)
+        return day, year
+
     def _set_transition_functions(self):
         """
         An internal method to set up the "table" of functions to be
-        called for each level of processing.  Separated from __init__()
+        called for each level of processing.  Separated from __init__() so it
+        can be overridden.
         """
-        self.transition_functions = {'Level 1A': {'Level 1B': self._get_l1b_name,
-                                                  'Level 2': self._get_l2_name},
-                                     'Level 1B': {'Level 2': self._get_l2_name,
-                                                  'l1brsgen': self._get_l1brsgen_name,
-                                                  'l1mapgen': self._get_l1mapgen_name
+        self.transition_functions = {'Level 1A': {
+                                         'Level 1B':
+                                             self._get_l1b_name,
+                                         'Level 2':
+                                             self._get_l2_name
                                      },
-                                     'L3bin': self._get_l3bin_name,
-                                     'Level 2': {'l2bin': self._get_l3bin_name,
-                                                 'l2extract': self._get_l2extract_name,
-                                                 'L3b': self._get_l3bin_name,
-                                                 'l2brsgen': self._get_l2brsgen_name,
-                                                 'l2mapgen': self._get_l2mapgen_name
+                                     'Level 1B': {
+                                         'Level 2':
+                                             self._get_l2_name,
+                                         'l1brsgen':
+                                             self._get_l1brsgen_name,
+                                         'l1mapgen':
+                                             self._get_l1mapgen_name
+                                     },
+                                     'Level 2': {
+                                         'l2bin':
+                                             self._get_l3bin_name,
+                                         'l2extract':
+                                             self._get_l2extract_name,
+                                         'l3bin':
+                                             self._get_l3bin_name,
+                                         'l2brsgen':
+                                             self._get_l2brsgen_name,
+                                         'l2mapgen':
+                                             self._get_l2mapgen_name
+                                     },
+                                     'Level 3 Binned': {
+                                         'l3bin' : self._get_l3bin_name,
+                                         'SMI' :   self._get_smigen_name
                                      }
-                                    }
-
-#        self.transition_functions = {'Level 0': self._get_l1a_name,
-#                                     'Level 1A': {'GEO': self._get_geo_name,
-#                                                  'Level 1B':
-#                                                      self._get_l1b_name,
-#                                                  'l1bgen' : self._get_l1b_name,
-#                                                  'Level 2' : self._get_l2_name
-#                                     },
-#                                     'Level 1B': self._get_l2_name,
-#                                     'l1bgen' : self._get_l2_name,
-#                                     'Level 2': { 'l2bin': self._get_l3bin_name,
-#                                                  'l2extract': self._get_l2extract_name,
-#                                                  'L3b': self._get_l3bin_name}
-#        }
-
-
+        }
 
     def _set_transition_sequence(self):
         """
         An internal method to set up the sequence of transitions.  Separated
-        from __init__() so that it can be overridden.
+        from __init__() so it can be overridden.
         """
         self.transition_sequence = ['L1A', 'L1B', 'L2', 'L3bin']
 
@@ -384,45 +521,34 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
     level of OBPG processing.
     """
     PROCESSING_LEVELS = {
-        'l1agen':       'Level 1A',
-        'modis_L1A.py': 'Level 1A',
-        'Level 1A':     'Level 1A',
-        'geogen':       'GEO',
-        'modis_GEO.py': 'GEO',
-        'GEO':          'GEO',
-        'l1bgen':       'Level 1B',
-        'Level 1B':     'Level 1B',
-        'modis_L1B.py': 'Level 1B',
-        'l1brsgen':     'l1brsgen',
-        'l1mapgen':     'l1mapgen',
-        'l2gen':        'Level 2',
-        'Level 2':      'Level 2',
-        'l2bin':        'l2bin',
-        'l2brsgen':     'l2brsgen',
-        'l2extract':    'l2extract',
-        'l2mapgen':     'l2mapgen',
-        'l3bin':        'L3b',
-        'L3b':          'L3b',
-        'SMI':          'SMI',
-        'smigen':       'SMI'
+        'l1agen':            'Level 1A',
+        'modis_L1A.py':      'Level 1A',
+        'Level 1A':          'Level 1A',
+        'geogen':            'GEO',
+        'modis_GEO.py':      'GEO',
+        'GEO':               'GEO',
+        'l1aextract_modis':  'l1aextract_modis',
+        'l1bgen':            'Level 1B',
+        'Level 1B':          'Level 1B',
+        'modis_L1B.py':      'Level 1B',
+        'l1brsgen':          'l1brsgen',
+        'l1mapgen':          'l1mapgen',
+        'l2gen':             'Level 2',
+        'Level 2':           'Level 2',
+        'l2bin':             'l2bin',
+        'l2brsgen':          'l2brsgen',
+        'l2extract':         'l2extract',
+        'l2mapgen':          'l2mapgen',
+        'Level 3 Binned':    'l3bin',
+        'l3bin':             'l3bin',
+        'L3b':               'l3bin',
+        'SMI':               'SMI',
+        'smigen':            'SMI'
     }
 
     def __init__(self, data_files_list, next_level, l2_suite='_OC'):
         super(ModisNextLevelNameFinder, self).__init__(data_files_list,
                                                        next_level, l2_suite)
-
-    def _extract_l1_time(self, date_str, time_str):
-        """
-        An internal method to extract the date/time stamp from L1 files.
-        """
-        year = int(date_str[0:4])
-        mon = int(date_str[5:7])
-        dom = int(date_str[8:10])
-        hour = int(time_str[0:2])
-        mins = int(time_str[3:5])
-        secs = int(time_str[6:8])
-        dt_obj = datetime.datetime(year, mon, dom, hour, mins, secs)
-        return dt_obj.strftime('%Y%j%H%M%S')
 
     def _get_aqua_l0_to_l1a_name(self):
         """
@@ -485,7 +611,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                             self._get_l1b_extension()
         if self.data_files[0].metadata is not None:
             next_lvl_name = first_char +\
-                            self._extract_l1_time(\
+                            self._extract_l1_time(
                               self.data_files[0].metadata['RANGEBEGINNINGDATE'],
                               self.data_files[0].metadata['RANGEBEGINNINGTIME']) +\
                             self._get_l1b_extension()
@@ -509,77 +635,13 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                             self._get_l2_extension()
         elif self.data_files[0].metadata:
             next_lvl_name = first_char +\
-                            self._extract_l1_time(\
+                            self._extract_l1_time(
                               self.data_files[0].metadata['RANGEBEGINNINGDATE'],
                               self.data_files[0].metadata['RANGEBEGINNINGTIME']) +\
                             self._get_l2_extension()
         if self.l2_suite:
             next_lvl_name += self.l2_suite
         return next_lvl_name #self._do_extension_substitution()
-
-    def _get_end_doy_year(self):
-        """
-        Extract a day of year and year from an L0 file's metadata and return
-        them as integer values .
-        """
-        if self.data_files[-1].end_time:
-            year = self.data_files[-1].end_time[0:4]
-            day = self.data_files[-1].end_time[4:7]
-        elif self.data_files[-1].metadata:
-            day_str = 'End Day'
-            yr_str = 'End Year'
-            day = convert_short_str_to_int(self.data_files[-1].metadata[day_str])
-            year = convert_short_str_to_int(self.data_files[-1].metadata[yr_str])
-        else:
-            err_msg = 'Error! Cannot find end time for {0}'.format(
-                      self.data_files[-1].name)
-            sys.exit(err_msg)
-        return day, year
-
-    def _get_start_doy_year(self):
-        """
-        Extract a day of year and year from an L0 file's metadata and return
-        them as integer values .
-        """
-        if self.data_files[0].end_time:
-            year = self.data_files[0].start_time[0:4]
-            day = self.data_files[0].start_time[4:7]
-        elif self.data_files[0].metadata:
-            day_str = 'Start Day'
-            yr_str = 'Start Year'
-            day = convert_short_str_to_int(self.data_files[0].metadata[day_str])
-            year = convert_short_str_to_int(self.data_files[0].metadata[yr_str])
-        else:
-            err_msg = 'Error! Cannot find end time for {0}'.format(
-                self.data_files[0].name)
-            sys.exit(err_msg)
-        return day, year
-
-    def _get_l3bin_name(self):
-        """
-        An internal method to return the L3bin name from an L2 or L3bin file.
-        """
-        next_lvl_name = ''
-        first_char = self._get_platform_indicator()
-        sday, syear = self._get_start_doy_year()
-        eday, eyear = self._get_end_doy_year()
-        sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
-        edate = datetime.datetime.strptime(str(eyear)+'-'+str(eday), '%Y-%j')
-        days_diff = (edate - sdate).days
-
-        if days_diff == 0:
-            extension = '.L3b_DAY'
-            next_lvl_name = first_char + str(syear) + str(sday) + extension +\
-                            self.l2_suite
-        else:
-            if days_diff == 7:
-                extension = '.L3b_8D'
-            else:
-                extension = '.L3b_CU'
-            next_lvl_name = first_char + str(syear) + str(sday) + \
-                            str(eyear) + str(eday) + extension + self.l2_suite
-            #            next_lvl_name = self._do_extension_substitution()
-        return next_lvl_name
 
     def get_next_level_name(self):
         """
@@ -592,7 +654,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         follows this convention, so the output file name is derived from data
         in the file header.
         """
-        next_level_name = 'indeterminate MODIS name'
+        next_level_name = 'Error computing output file name.'
         if len(self.data_files) > 0:
             if (self.data_files[0].file_type == 'Level 0'):
                 next_level_name = self._get_l1a_name()
@@ -633,7 +695,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                      -1:
                     indicator = 'T'
                 else:
-                    err_msg = 'Error! Cannot determine MODIS platform for {0}.'.\
+                    err_msg = 'Error! Cannot find MODIS platform for {0}.'.\
                               format(self.data_files[0].name)
                     sys.exit(err_msg)
             else:
@@ -642,7 +704,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                 elif self.data_files[0].metadata['Title'].find('MODIST') != -1:
                     indicator = 'T'
                 else:
-                    err_msg = 'Error!  Cannot determine MODIS platform for {0}.'.\
+                    err_msg = 'Error!  Cannot find MODIS platform for {0}.'.\
                     format(self.data_files[0].name)
                     sys.exit(err_msg)
         return indicator
@@ -669,23 +731,40 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         called for each level of processing.
         """
         self.transition_functions = {'Level 0': self._get_l1a_name,
-                                     'Level 1A': {'GEO': self._get_geo_name,
+                                     'Level 1A': {'GEO':
+                                                      self._get_geo_name,
                                                   'Level 1B':
-                                                            self._get_l1b_name,
-                                                  'l1bgen' : self._get_l1b_name,
-                                                  'Level 2' : self._get_l2_name
+                                                      self._get_l1b_name,
+                                                  'l1aextract_modis' :
+                                                      self._get_l1aextract_name,
+                                                  'l1bgen' :
+                                                      self._get_l1b_name,
+                                                  'Level 2' :
+                                                      self._get_l2_name
                                                  },
-                                     'Level 1B': {'Level 2': self._get_l2_name,
-                                                  'l1brsgen': self._get_l1brsgen_name,
-                                                  'l1mapgen': self._get_l1mapgen_name
+                                     'Level 1B': {'Level 2':
+                                                      self._get_l2_name,
+                                                  'l1brsgen':
+                                                      self._get_l1brsgen_name,
+                                                  'l1mapgen':
+                                                      self._get_l1mapgen_name
                                                  },
-                                     'Level 2': { 'l2bin': self._get_l3bin_name,
-                                                  'l2extract': self._get_l2extract_name,
-                                                  'L3b': self._get_l3bin_name,
-                                                  'l2brsgen': self._get_l2brsgen_name,
-                                                  'l2mapgen': self._get_l2mapgen_name
-                                                }
+                                     'Level 2': { 'l2bin':
+                                                      self._get_l3bin_name,
+                                                  'l2extract':
+                                                      self._get_l2extract_name,
+                                                  'l3bin':
+                                                      self._get_l3bin_name,
+                                                  'l2brsgen':
+                                                      self._get_l2brsgen_name,
+                                                  'l2mapgen':
+                                                      self._get_l2mapgen_name
+                                                },
+                                     'Level 3 Binned': {
+                                         'l3bin' : self._get_l3bin_name,
+                                         'SMI' : self._get_smigen_name
                                      }
+        }
 
     def _set_transition_sequence(self):
         """
@@ -693,3 +772,77 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         from __init__() so that it can be overridden.
         """
         self.transition_sequence = ['L1A', 'L1B', 'L2', 'L3bin']
+
+#########################################
+
+class SeawifsNextLevelNameFinder(NextLevelNameFinder):
+    """
+    A class to determine what the standard OBPG filename would be for
+    SeaWiFS files when the given input name is run through the next
+    level of OBPG processing.
+    """
+    PROCESSING_LEVELS = {
+        'l1agen':       'Level 1A',
+        'Level 1A':     'Level 1A',
+        'l1aextract_seawifs' : 'l1aextract_seawifs',
+        'l1bgen':       'Level 1B',
+        'Level 1B':     'Level 1B',
+        'l1brsgen':     'l1brsgen',
+        'l1mapgen':     'l1mapgen',
+        'l2gen':        'Level 2',
+        'Level 2':      'Level 2',
+        'l2bin':        'l2bin',
+        'l2brsgen':     'l2brsgen',
+        'l2extract':    'l2extract',
+        'l2mapgen':     'l2mapgen',
+        'l3bin':        'l3bin',
+        'L3b':          'l3bin',
+        'SMI':          'SMI',
+        'smigen':       'SMI'
+    }
+
+    def __init__(self, data_files_list, next_level, l2_suite='_OC'):
+        super(SeawifsNextLevelNameFinder, self).__init__(data_files_list,
+                                                       next_level, l2_suite)
+
+    def _set_transition_functions(self):
+        """
+        An internal method to set up the "table" of functions to be
+        called for each level of processing.
+        """
+        self.transition_functions = {'Level 1A': {'Level 1B':
+                                                      self._get_l1b_name,
+                                                  'l1aextract_seawifs' :
+                                                      self._get_l1aextract_name,
+                                                  'l1bgen' :
+                                                      self._get_l1b_name,
+                                                  'Level 2' :
+                                                      self._get_l2_name
+                                     },
+                                     'Level 1B': {'Level 2':
+                                                      self._get_l2_name,
+                                                  'l1brsgen':
+                                                      self._get_l1brsgen_name,
+                                                  'l1mapgen':
+                                                      self._get_l1mapgen_name
+                                     },
+                                     'Level 2': { 'l2bin':
+                                                      self._get_l3bin_name,
+                                                  'l2extract':
+                                                      self._get_l2extract_name,
+                                                  'l3bin':
+                                                      self._get_l3bin_name,
+                                                  'l2brsgen':
+                                                      self._get_l2brsgen_name,
+                                                  'l2mapgen':
+                                                      self._get_l2mapgen_name
+                                     },
+                                     'Level 3 Binned': {
+                                         'l3bin' : self._get_l3bin_name,
+                                         'SMI' : self._get_smigen_name
+                                     }
+        }
+
+processable_programs = set(NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+                           ModisNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+                           SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys())

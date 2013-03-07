@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from modis_utils import buildpcf, modis_env
+from modules.modis_utils import buildpcf, modis_env
 
 import modules.modis_L1A_utils as modisL1A
 from optparse import OptionParser

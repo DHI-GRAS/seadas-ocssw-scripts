@@ -120,6 +120,8 @@ class lut_utils:
             # Get most recent version from local disk
             outputdir = os.path.join(self.dirs['var'], msn[self.mission], cal, 'OPER')
             listFile = os.path.join(outputdir, "index.html")
+            if not os.path.exists(outputdir):
+                os.makedirs(outputdir)
             luts = os.listdir(outputdir)
             for f in luts:
                 if os.path.isdir(f) or re.search('^\.', f):

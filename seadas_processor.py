@@ -40,7 +40,8 @@ class ProcessorConfig:
                 os.mkdir(hidden_dir)
             except OSError:
                 if sys.exc_info()[1].find('Permission denied:') != -1:
-                    log_and_exit("Error!  Unable to create directory {0}".format(hidden_dir))
+                    log_and_exit("Error!  Unable to create directory {0}".\
+                                 format(hidden_dir))
         self.hidden_dir = hidden_dir
         self.original_dir = ori_dir
         self.verbose = verbose
@@ -66,17 +67,22 @@ class ProcessorConfig:
             cfg_parser = ConfigParser.SafeConfigParser()
             cfg_parser.read(cfg_path)
             try:
-                self.max_file_age = ProcessorConfig.SECS_PER_DAY * int(cfg_parser.get('main', 'par_file_age').split(' ', 2)[0])
+                self.max_file_age = ProcessorConfig.SECS_PER_DAY * \
+                                    int(cfg_parser.get('main', 'par_file_age').\
+                                    split(' ', 2)[0])
             except ConfigParser.NoSectionError, nse:
                 print 'nse: ' + str(nse)
                 print 'sys.exc_info(): '
                 for msg in sys.exc_info():
                     print '  ' +  str(msg)
-                log_and_exit('Error!  Configuration file has no "main" section.')
+                log_and_exit('Error!  Configuration file has no "main" ' +
+                             'section.')
             except ConfigParser.NoOptionError:
-                log_and_exit('Error! The "main" section of the configuration file does not specify a "par_file_age".')
+                log_and_exit('Error! The "main" section of the configuration ' +
+                             'file does not specify a "par_file_age".')
         except ConfigParser.MissingSectionHeaderError:
-            log_and_exit('Error! Bad configuration file, no section headers found.')
+            log_and_exit('Error! Bad configuration file, no section headers ' +
+                         'found.')
 
     def _set_temp_dir(self):
         """
@@ -91,7 +97,8 @@ class ProcessorConfig:
                os.access(cwd, os.W_OK):
                 self.temp_dir = cwd
             else:
-                log_and_exit('Error! Unable to establish a temporary directory.')
+                log_and_exit('Error! Unable to establish a temporary ' +
+                             'directory.')
 
     def _write_default_cfg_file(self, cfg_path):
         """
@@ -286,10 +293,18 @@ def do_processing(rules_sets, par_file):
     files_to_keep = []
     files_to_delete = []
     file_use_opts = ['keepfiles', 'overwrite', 'use_existing']
-#    (par_contents, instrument, input_files_list) = get_par_file_contents(par_file, file_use_opts)
-    (par_contents, input_files_list) = get_par_file_contents(par_file, file_use_opts)
+    (par_contents, input_files_list) = get_par_file_contents(par_file,
+                                                             file_use_opts)
     if par_contents['main']:
-        cfg_data.keepfiles, cfg_data.use_existing, cfg_data.overwrite = get_file_handling_options(par_contents)
+        # Avoid overwriting file options that are already turned on in cfg_data
+        # (from command line input).
+        keepfiles, use_existing, overwrite = get_file_handling_opts(par_contents)
+        if keepfiles:
+            cfg_data.keepfiles = True
+        if use_existing:
+            cfg_data.use_existing = True
+        if overwrite:
+            cfg_data.overwrite = True
         if 'use_nrt_anc' in par_contents['main'] and \
            int(par_contents['main']['use_nrt_anc']) == 0:
             cfg_data.get_anc = False
@@ -297,7 +312,8 @@ def do_processing(rules_sets, par_file):
     logging.debug('cfg_data.use_existing: ' + str(cfg_data.use_existing))
     logging.debug('cfg_data.keepfiles: ' + str(cfg_data.keepfiles))
     if cfg_data.overwrite and cfg_data.use_existing:
-        err_msg = 'Error!  Incompatible options overwrite and use_existing were found in {0}.'.format(par_file)
+        err_msg = 'Error!  Incompatible options overwrite and use_existing ' +\
+                  'were found in {0}.'.format(par_file)
         log_and_exit(err_msg)
     if len(input_files_list) == 1:
         if MetaUtils.is_ascii_file(input_files_list[0]):
@@ -336,19 +352,19 @@ def do_processing(rules_sets, par_file):
                             src_key = cand_proc.target_type
                             break
                 if src_key is None:
-                    err_msg = 'Error! Unable to find source files for {0}.'.format(processors[ndx].target_type)
+                    err_msg = 'Error! Unable to find source files for {0}.'.\
+                              format(processors[ndx].target_type)
                     log_and_exit(err_msg)
             logging.debug('proc_src_types:')
             logging.debug('\n  '.join([pst for pst in proc_src_types]))
             if proc.requires_batch_processing():
                 logging.debug('Performing batch processing for ' + str(proc))
-#                output_file = run_batch_processor(ndx, processors, input_file_data,
-#                                                  source_files[src_key])
                 output_file = run_batch_processor(ndx, processors,
                                                   source_files[src_key])
                 if processors[ndx].target_type in source_files:
                     if not output_file in source_files[processors[ndx].target_type]:
-                        source_files[processors[ndx].target_type].append(output_file)
+                        source_files[processors[ndx].target_type].\
+                            append(output_file)
                 else:
                     source_files[processors[ndx].target_type] = [output_file]
             else:
@@ -375,7 +391,8 @@ def do_processing(rules_sets, par_file):
                                                          file_set)
                     if processors[ndx].target_type in source_files:
                         if not output_file in source_files[processors[ndx].target_type]:
-                            source_files[processors[ndx].target_type].append(output_file)
+                            source_files[processors[ndx].target_type].\
+                                append(output_file)
                     else:
                         source_files[processors[ndx].target_type] = [output_file]
             if cfg_data.keepfiles or processors[ndx].keepfiles:
@@ -390,7 +407,9 @@ def do_processing(rules_sets, par_file):
         err_type = err_type_parts[-1].strip("'>")
         tb_line = traceback.format_exc().splitlines()[-3]
         line_num = tb_line.split(',')[1]
-        err_msg = "Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!".format(os.path.basename(sys.argv[0]), err_type, exc_parts[1], line_num.strip())
+        err_msg = 'Error!  The {0} program encountered an unrecoverable ' + \
+                  '{1}, {2}, at {3}!'.format(os.path.basename(sys.argv[0]), \
+                                       err_type, exc_parts[1], line_num.strip())
         log_and_exit(err_msg)
     finally:
         if cfg_data.tar_filename:
@@ -471,6 +490,10 @@ def get_batch_output_name(file_set, suffix):
     return ''.join([stem, '.', suffix])
 
 def get_data_file_option(par_contents, opt_text):
+    """
+    If found in par_contents, the value for the option specified by opt_text
+    is returned; otherwise, False is returned.
+    """
     opt_found = False
     if opt_text in par_contents['main']:
         opt_str = par_contents['main'][opt_text].upper()
@@ -493,7 +516,8 @@ def get_extract_params(proc):
     lonlat_prog = os.path.join(proc.ocssw_bin, 'lonlat2pixline')
     lonlat_cmd = ' '.join([lonlat_prog, args])
     logging.debug('Executing lonlat2pixline command: {0}'.format(lonlat_cmd))
-    process_output = subprocess.Popen(lonlat_cmd, shell=True, stdout=subprocess.PIPE).communicate()[0]
+    process_output = subprocess.Popen(lonlat_cmd, shell=True,
+                                      stdout=subprocess.PIPE).communicate()[0]
     lonlat_output = process_output.split(chr(10))
     start_line = None
     end_line = None
@@ -533,7 +557,10 @@ def get_file_date(filename):
     file_date = datetime.datetime(year, 1, 1) + datetime.timedelta(doy - 1)
     return file_date
 
-def get_file_handling_options(par_contents):
+def get_file_handling_opts(par_contents):
+    """
+    Returns the values of the file handling options in par_contents.
+    """
     keepfiles = get_data_file_option(par_contents, 'keepfiles')
     use_existing = get_data_file_option(par_contents, 'use_existing')
     overwrite = get_data_file_option(par_contents, 'overwrite')
@@ -557,7 +584,8 @@ def get_input_files(par_data):
               os.access(infilelist_name, os.R_OK):
                 with open(infilelist_name, 'rt') as in_file_list_file:
                     inp_lines = in_file_list_file.readlines()
-                from_infilelist = [fn.rstrip() for fn in inp_lines if not re.match('^\s*#', fn)]
+                from_infilelist = [fn.rstrip() for fn in inp_lines
+                                   if not re.match('^\s*#', fn)]
     inp_file_list = uniqify_list(from_ifiles + from_infilelist)
     return inp_file_list
 
@@ -701,7 +729,8 @@ def get_output_name2(input_name, input_files, suffix):
                 if re.match('MOD00.P\d\d\d\d\d\d\d\.\d\d\d\d', input_name):
                     time_stamp = input_name[7:14] + input_name[15:19] + '00'
                 else:
-                    err_msg = "Unable to determine time stamp for input file {0}".format(input_name)
+                    err_msg = "Cannot determine time stamp for input file {0}".\
+                              format(input_name)
                     log_and_exit(err_msg)
             output_name = first_char + time_stamp + '.L1A'
         else:
@@ -919,7 +948,8 @@ def main():
             DEBUG = True
         if options.tar_file:
             if os.path.exists(options.tar_file):
-                err_msg = 'Error!  The specified tar file, {0}, already exists.'.format(options.tar_file)
+                err_msg = 'Error! The tar file, {0}, already exists.'.\
+                          format(options.tar_file)
                 log_and_exit(err_msg)
         cfg_data = ProcessorConfig('.seadas_data', os.getcwd(), options.verbose,
                                    options.overwrite, options.use_existing,
@@ -932,14 +962,13 @@ def main():
             start_logging(log_timestamp)
             try:
                 do_processing(rules_sets, args[0])
-            except Exception, the_exception:
+            except Exception:
                 exc_parts = [str(l) for l in sys.exc_info()]
                 err_type_parts = str(exc_parts[0]).strip().split('.')
                 err_type = err_type_parts[-1].strip("'>")
                 tb_line = traceback.format_exc().splitlines()[-3]
                 line_num = tb_line.split(',')[1]
-                err_msg = "Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!".format(os.path.basename(sys.argv[0]), err_type, exc_parts[1], line_num.strip())
-#                err_msg += ""
+                err_msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(os.path.basename(sys.argv[0]), err_type, exc_parts[1], line_num.strip())
                 log_and_exit(err_msg)
         logging.shutdown()
     return 0
@@ -969,7 +998,8 @@ def process_command_line(cl_parser):
 
     (options, args) = cl_parser.parse_args()
     if options.overwrite and options.use_existing:
-        log_and_exit("Error!  Options overwrite and use_existing cannot be used simultaneously.")
+        log_and_exit('Error!  Options overwrite and use_existing cannot be ' + \
+                     'used simultaneously.')
     return options, args
 
 def read_file_list_file(flf_name):
@@ -988,7 +1018,9 @@ def read_file_list_file(flf_name):
             else:
                 bad_lines.append(fname)
     if len(bad_lines) > 0:
-        err_msg = 'Error!  File {0} specified the following input files which could not be located:\n   {1}'.format(flf_name, ', '.join([bl for bl in bad_lines]))
+        err_msg = 'Error!  File {0} specified the following input files ' + \
+                  'which could not be located:\n   {1}'.\
+                  format(flf_name, ', '.join([bl for bl in bad_lines]))
         log_and_exit(err_msg)
     return files_list
 
@@ -1016,7 +1048,8 @@ def run_bottom_error(proc):
     Exits with an error message when there is an attempt to process a source
     file at the lowest level of a rule chain.
     """
-    err_msg = 'Error!  Attempting to create a product for which no creation program is known.'
+    err_msg = 'Error!  Attempting to create a product for which no creation ' +\
+              'program is known.'
     log_and_exit(err_msg)
 
 def run_executable(proc):
@@ -1042,14 +1075,15 @@ def run_l1aextract_modis(proc):
         start_line, end_line, start_pixel, end_pixel = get_extract_params(proc)
         if (start_line is None) or (end_line is None) or (start_pixel is None)\
         or (end_pixel is None):
-            err_msg = "Error! Could not compute coordinates for l1aextract_modis."
+            err_msg = "Error! Cannot compute coordinates for l1aextract_modis."
             log_and_exit(err_msg)
         l1aextract_prog = os.path.join(proc.ocssw_bin, 'l1aextract_modis')
         l1aextract_cmd = ' '.join([l1aextract_prog, proc.input_file,
                                    str(start_pixel), str(end_pixel),
                                    str(start_line), str(end_line),
                                    proc.output_file])
-        logging.debug('Executing l1aextract_modis command: {0}'.format(l1aextract_cmd))
+        logging.debug('Executing l1aextract_modis command: {0}'.\
+                      format(l1aextract_cmd))
         status = execute_command(l1aextract_cmd)
         return status
 
@@ -1062,14 +1096,15 @@ def run_l1aextract_seawifs(proc):
         start_line, end_line, start_pixel, end_pixel = get_extract_params(proc)
         if (start_line is None) or (end_line is None) or (start_pixel is None)\
            or (end_pixel is None):
-            err_msg = "Error! Could not compute coordinates for l1aextract_seawifs."
+            err_msg = 'Error! Cannot compute l1aextract_seawifs coordinates.'
             log_and_exit(err_msg)
         l1aextract_prog = os.path.join(proc.ocssw_bin, 'l1aextract_seawifs')
         l1aextract_cmd = ' '.join([l1aextract_prog, proc.input_file,
                                   str(start_pixel), str(end_pixel),
                                   str(start_line), str(end_line), '1', '1',
                                   proc.output_file])
-        logging.debug('Executing l1aextract_seawifs command: {0}'.format(l1aextract_cmd))
+        logging.debug('Executing l1aextract_seawifs command: {0}'.\
+                      format(l1aextract_cmd))
         status = execute_command(l1aextract_cmd)
         return status
 
@@ -1131,7 +1166,8 @@ def run_l2bin(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'l2bin')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".format(proc.rule_set.rules[proc.target_type].action)
+        print "Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action)
     args = 'infile=' + proc.input_file
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
@@ -1153,7 +1189,8 @@ def run_l2brsgen(proc):
     else:
         suffix = l2brs_suffixes['0']
     output_name = get_output_name(proc.input_file, suffix)
-    cmd = ' '.join([prog, opts, 'ifile='+proc.input_file, 'ofile=' + output_name])
+    cmd = ' '.join([prog, opts, 'ifile='+proc.input_file,
+                   'ofile=' + output_name])
     logging.debug('Executing: {0}'.format(cmd))
     status = execute_command(cmd)
     return status
@@ -1191,10 +1228,10 @@ def run_l2gen(proc):
         getanc_cmd = ' '.join([getanc_prog, proc.input_file])
         logging.debug('running getanc command: ' + getanc_cmd)
         execute_command(getanc_cmd)
-
     l2gen_prog = os.path.join(proc.ocssw_bin, 'l2gen')
     if not os.path.exists(l2gen_prog):
-        print "Error!  Cannot find executable needed for {0}".format(proc.rule_set.rules[proc.target_type].action)
+        print "Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action)
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
     args = 'par=' + par_name
@@ -1215,7 +1252,8 @@ def run_l2mapgen(proc):
         if proc.par_data['outmode'].upper() in ['PPM', 'PGM', 'PNG', 'TIFF']:
             ext = proc.par_data['outmode']
         else:
-            err_msg = 'Error!  Unknown l2mapgen outmode {0}.'.format(proc.par_data['outmode'])
+            err_msg = 'Error!  Unknown l2mapgen outmode {0}.'.\
+                      format(proc.par_data['outmode'])
             log_and_exit(err_msg)
     else:
         ext = 'PGM'
@@ -1237,7 +1275,8 @@ def run_l3bin(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'l3bin')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".format(proc.rule_set.rules[proc.target_type].action)
+        print "Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action)
     args = 'in=' + proc.input_file
     args += ' ' + "out=" + proc.output_file
     for key in proc.par_data:
@@ -1276,7 +1315,8 @@ def run_modis_l1b(proc):
     prog = os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_L1B.py')
     args = ' -o ' + proc.output_file
     args += get_options(proc.par_data)
-#    args += ' --lutdir $OCSSWROOT/run/var/modisa/cal/EVAL --lutver=6.1.15.1z' # No longer needed
+    # No following is longer needed, but kept for reference.
+#    args += ' --lutdir $OCSSWROOT/run/var/modisa/cal/EVAL --lutver=6.1.15.1z'
     args += ' ' + proc.input_file
     if not proc.geo_file is None:
         args += ' ' + proc.geo_file
@@ -1315,7 +1355,8 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
                          processors[ndx].target_type)
             log_and_exit(msg)
     elif not cfg_data.use_existing:
-        log_and_exit('Error! Target file {0} already exists.'.format(output_file))
+        log_and_exit('Error! Target file {0} already exists.'.\
+                     format(output_file))
     return output_file
 
 def run_script(proc, script_name):
@@ -1336,7 +1377,8 @@ def run_smigen(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'smigen')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".format(proc.rule_set.rules[proc.target_type].action)
+        print "Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action)
     if 'prod' in proc.par_data:
         args = 'ifile=' + proc.input_file + ' ofile=' + proc.output_file + \
                ' prod=' + proc.par_data['prod']

@@ -15,7 +15,7 @@ if __name__ == "__main__":
     mission = None
     verbose = False
     printlist = True
-    timeout=10
+    timeout=10.
 
     msnlst = ['seawifs','aqua','terra','aquarius','viirsn']
     version = "%prog 1.0"
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     if options.verbose:
         verbose = options.verbose
     if options.timeout:
-        timeout = options.timeout
+        timeout = float(options.timeout)
 
     if mission is None:
         parser.print_help()

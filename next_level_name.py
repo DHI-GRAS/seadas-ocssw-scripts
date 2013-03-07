@@ -41,33 +41,38 @@ def get_1_file_name(data_file, target_program, clopts):
     return next_level_name
 
 def get_extension(file_type):
-    extensions = {'l2bin': '.L3b', 'l3bin': '.L3b', 'smigen': '.SMI'}
+    """
+    Returns the extension appropriate for the program.
+    """
+    extensions = {'l2bin': '.L3b', 'l3bin': '.L3b', 'smigen': '.L3m'}
     return extensions[file_type]
 
 def get_multifile_next_level_name(data_files_list_info, target_program, clopts):
     """
     Return the next level name for a set of files.
     """
-    next_level_name = 'fill-in value for multiple inputs'
     for file_info in data_files_list_info:
         if file_info.file_type == 'unknown':
-            print '{0}: unknown type'.format(file_info['name'])
+            err_msg = 'Error!  File {0} is of unknown type.'.format(
+                                                                 file_info.name)
+            sys.exit(err_msg)
     next_level_name = get_multifile_output_name(data_files_list_info,
                                                 target_program, clopts.l2_suite)
     return next_level_name
 
-def get_multifile_output_name(data_files_list_info, target_program, l2_suite):
+def get_multifile_output_name(data_files_list_info, target_program,
+                              l2_suite = '_OC'):
     """
     Returns the file name derived from a group of files names.
     """
-    #    output_name = 'place_holder_name'
+    # Passing in a None value causes Python to ignore the default.
     if l2_suite is None:
         l2_suite = '_OC'
-    output_type = OUTPUT_TYPES[data_files_list_info[0].file_type]
+    list_file_type = data_files_list_info[0].file_type
     for data_file in data_files_list_info[1:]:
-        if OUTPUT_TYPES[data_file.file_type] != output_type:
-            err_msg = 'Error!  Output types do not match for {0} and {1}'.\
-            format(data_files_list_info[0].name, data_file.name)
+        if data_file.file_type != list_file_type:
+            err_msg = 'Error!  File types do not match for {0} and {1}'.\
+                      format(data_files_list_info[0].name, data_file.name)
             sys.exit(err_msg)
     time_ext = next_level_name_finder.get_time_period_extension(
         data_files_list_info[0].start_time,
@@ -118,10 +123,18 @@ def get_data_files_info(file_list_file):
         if os.path.exists(filename):
             file_typer = get_obpg_file_type.ObpgFileTyper(filename)
             file_type, sensor = file_typer.get_file_type()
-            stime, etime = file_typer.get_file_times()
-            data_file = obpg_data_file.ObpgDataFile(filename, file_type,
-                                                    sensor, stime, etime)
-            file_info.append(data_file)
+            if file_type != 'unknown':
+                stime, etime = file_typer.get_file_times()
+                data_file = obpg_data_file.ObpgDataFile(filename, file_type,
+                                                        sensor, stime, etime)
+                file_info.append(data_file)
+            else:
+                err_msg = 'Error!  {0} is not an OBPG file.'.\
+                          format(filename)
+                sys.exit(err_msg)
+        else:
+            err_msg = 'Error! File {0} could not be found.'.format(filename)
+            sys.exit(err_msg)
     file_info.sort()
     return file_info
 
@@ -129,13 +142,20 @@ def get_level_finder(data_file_list, target_program, clopts):
     """
     Returns an appropriate level finder object for the data file passed in.
     """
-    if (data_file_list[0].sensor.find('MODIS') != -1):
+    if data_file_list[0].sensor.find('MODIS') != -1:
         if clopts.l2_suite:
             level_finder = next_level_name_finder.ModisNextLevelNameFinder(
                             data_file_list, target_program, clopts.l2_suite)
         else:
             level_finder = next_level_name_finder.ModisNextLevelNameFinder(
                             data_file_list, target_program)
+    elif data_file_list[0].sensor.find('SeaWiFS') != -1:
+        if clopts.l2_suite:
+            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
+                data_file_list, target_program, clopts.l2_suite)
+        else:
+            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
+                data_file_list, target_program)
     else:
         if clopts.l2_suite:
             level_finder = next_level_name_finder.NextLevelNameFinder(
@@ -165,9 +185,7 @@ def main():
     ret_status = 0
     clopts, inp_name, targ_prog = get_command_line_data()
 
-    processable_progs = set(next_level_name_finder.NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-                            next_level_name_finder.ModisNextLevelNameFinder.PROCESSING_LEVELS.keys())
-    if not targ_prog in processable_progs:
+    if not targ_prog in next_level_name_finder.processable_programs:
         err_msg = 'Error!  The target program, "{0}", is not known.'.\
                   format(targ_prog)
         sys.exit(err_msg)
@@ -182,6 +200,10 @@ def main():
                     if len(data_files_info) > 0:
                         next_level_name = get_multifile_next_level_name(
                                             data_files_info, targ_prog, clopts)
+                    else:
+                        err_msg = "Error!  No OBPG files found in {0}".\
+                                  format(inp_name)
+                        sys.exit(err_msg)
                 else:
                     # The input file wasn't a file list file.
                     err_msg = "File {0} is not an OBPG file.".format(inp_name)
@@ -191,14 +213,13 @@ def main():
                 stime, etime = file_typer.get_file_times()
                 data_file = obpg_data_file.ObpgDataFile(inp_name, ftype, sensor,
                                                         stime, etime)
-                data_files_info = [data_file]
                 next_level_name = get_1_file_name(data_file, targ_prog, clopts)
             print 'Output Name: ' + next_level_name
-        except SystemExit, e:
+        except SystemExit, sys_ex:
             # The intention here is to catch exit exceptions we throw in other
             # parts of the program and continue with the exit, outputting
             # whatever error message was created for the exit.
-            sys.exit(e)
+            sys.exit(sys_ex)
         except:
             handle_unexpected_exception(sys.exc_info())
     else:
@@ -208,7 +229,6 @@ def main():
 
 ##########################################
 
-OUTPUT_TYPES = {'Level 2': 'l3bin'}
 #global DEBUG
 DEBUG = False
 DEBUG = True  # Comment out for production use

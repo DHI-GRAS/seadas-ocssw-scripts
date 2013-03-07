@@ -1,0 +1,17 @@
+*.csh
+*.sh
+*.pl
+debug_set.env
+debug_unset.env
+findmods
+getanc
+ps2png
+spacetrack_tles.py
+svncmp
+test/
+tkcvs
+tkcvs_dir/
+tkdiff
+tksvn
+viirsEDRmatchup.py
+extract_viirs_data.py

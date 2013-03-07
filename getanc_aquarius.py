@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from modules import ProcUtils
 from modules.ProcUtils import date_convert, addsecs
 from modules.aquarius_utils import aquarius_timestamp
 
@@ -88,7 +89,7 @@ class getanc_aquarius:
                                self.ancfiles['sssfile1'],
                                self.ancfiles['sssfile2'],
                                sdt, edt])
-        print mk_anc_cmd
+
         status = subprocess.call(mk_anc_cmd, shell=True)
 
         if status:
@@ -209,10 +210,10 @@ if __name__ == "__main__":
     getanc = os.path.join(g.dirs['scripts'], 'getanc.py')
 #    getanc = './getanc.py'
     if file:
-        getanc_cmd = ' '.join([getanc, file])
+        getanc_cmd = ' '.join([getanc, file, '--noprint'])
 
     else:
-        getanc_cmd = ' '.join([getanc, '--mission=aquarius', '-s', start])
+        getanc_cmd = ' '.join([getanc, '--mission=aquarius', '-s', start, '--noprint'])
         if stop:
             getanc_cmd += ' -e ' + stop
 
@@ -223,7 +224,7 @@ if __name__ == "__main__":
     if force:
         getanc_cmd += ' --force'
 
-    #    print getanc_cmd
+#    print getanc_cmd
     status = subprocess.call(getanc_cmd, shell=True)
 
     if status:
@@ -256,5 +257,7 @@ if __name__ == "__main__":
         del(g.ancfiles[key])
     #write out the cleaned .anc file
     g.write_anc(anc_filelist)
+    if verbose or printlist:
+        ProcUtils.cat(anc_filelist)
 
 

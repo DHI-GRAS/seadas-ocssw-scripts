@@ -11,6 +11,35 @@ __author__ = 'melliott'
 
 SECTION_HEADER_TEXT = 'section'
 
+class DuplicateEntry(Exception):
+    """
+    Exception class for duplicate entries in a section dictionary.
+    """
+    def __init__(self, value):
+        super(DuplicateEntry, self).__init__()
+        self.value = value
+
+    def __str__(self):
+        return repr(self.value)
+
+def add_par_entry(the_dict, the_key, val_to_add):
+    """
+    Adds an entry to the par file part of the passed in section dictionary.
+    """
+    if the_key in the_dict:
+        the_dict[the_key].append(val_to_add)
+    else:
+        the_dict[the_key] = [val_to_add]
+
+def add_sect_entry(the_dict, the_key, val_to_add):
+    """
+    Adds an entry to a section dictionary.
+    """
+    if the_key not in the_dict:
+        the_dict[the_key] = val_to_add
+    else:
+        raise DuplicateEntry(the_key)
+
 def get_sect_key(line):
     """
     Returns the section name from a line of text.
@@ -102,18 +131,30 @@ class ParReader(object):
                             if line.find('='):
                                 key, val = line.split('=', 2)
                                 if key == 'par':
-                                    if 'par' in sect_dict:
-                                        sect_dict['par'].append(val.strip())
-                                    else:
-                                        sect_dict['par'] = [val.strip()]
+                                    add_par_entry(sect_dict, 'par',
+                                                   val.strip())
+#                                    if 'par' in sect_dict:
+#                                        sect_dict['par'].append(val.strip())
+#                                    else:
+#                                        sect_dict['par'] = [val.strip()]
                                 else:
-                                    if key not in sect_dict:
-                                        sect_dict[key] = val.strip()
-                                    else:
-                                        err_msg = 'Duplicate entry found ' + \
-                                                  'for {0} in {1}'.\
-                                                  format(key, self.filename)
+                                    try:
+                                        add_sect_entry(sect_dict, key,
+                                                       val.strip())
+                                    except DuplicateEntry, dup_exc:
+                                        err_msg = 'Duplicate entry found for' +\
+                                                  '{0} in {1}'.\
+                                                  format(str(dup_exc),
+                                                         self.filename)
                                         sys.exit(err_msg)
+
+            #                                    if key not in sect_dict:
+#                                        sect_dict[key] = val.strip()
+#                                    else:
+#                                        err_msg = 'Duplicate entry found ' + \
+#                                                  'for {0} in {1}'.\
+#                                                  format(key, self.filename)
+#                                        sys.exit(err_msg)
                             elif line.strip in self.acceptable_single_keys:
                                 sect_dict[key] = 'True'
                             else:

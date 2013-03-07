@@ -209,16 +209,8 @@ def modis_env(self):
 
     os.environ["PGSMSG"] = os.path.join(os.getenv("OCDATAROOT"), "modis", "static")
 
-    self.collection_id = "005"
-    self.collection = "6"
-
     # MODIS L1A
     if self.proctype == "modisL1A":
-        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'pcf', 'L1A_template.pcf')
-        if not os.path.exists(self.pcf_template):
-            print "ERROR: Could not find the L1A PCF template: " + self.pcf_template
-            sys.exit(1)
-
         aqua = re.compile(r'''(
             ^[aA]|      # [Aa]*
             ^MOD00.P|   # MOD00.P*
@@ -262,49 +254,50 @@ def modis_env(self):
         self.prefix = 'MYD'
         if self.proctype == 'modisL1B':
             self.pgeversion = "6.1.15b"
-        else:
-            self.pgeversion = "5.0.41"
     elif self.sat_name == 'terra':
         self.sensor = 'modist'
         self.sat_inst = 'AM1M'
         self.prefix = 'MOD'
         if self.proctype == 'modisL1B':
             self.pgeversion = "6.1.12b"
-        else:
-            self.pgeversion = "5.0.41"
 
     else:
         print "ERROR: Unable to determine platform type for", self.file
         sys.exit(1)
 
-    self.dirs['cal'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'cal')
-    self.englutfile = 'ENG_DATA_LIST_' + self.sat_name.upper() + '_V' + self.pgeversion + '.' + self.collection
-    self.englutver = getversion(os.path.join(self.dirs['cal'], self.englutfile))
-    self.dirs['mcf'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'mcf')
-    self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
-    self.geomcf = ''.join([self.prefix, '03_', self.collection_id, '.mcf'])
 
-    self.dirs['static'] = os.path.join(os.getenv("OCDATAROOT"), "modis", "static")
-    if os.path.exists(os.path.join(os.getenv("OCDATAROOT"), "modis", "dem")):
-        self.dirs['dem'] = os.path.join(os.getenv("OCDATAROOT"), "modis", "dem")
-    else:
-        self.dirs['dem'] = os.path.join(os.getenv("OCDATAROOT"), "modis", "static")
+    # Static input directories
+    self.dirs['cal'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'cal')
+    self.dirs['mcf'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'mcf')
+    self.dirs['static'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'static')
+    self.dirs['dem'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'dem')
+    if not os.path.exists(self.dirs['dem']):
+        self.dirs['dem'] = self.dirs['static']
+
+    # MODIS L1A
+    if self.proctype == "modisL1A":
+        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'pcf', 'L1A_template.pcf')
+        if not os.path.exists(self.pcf_template):
+            print "ERROR: Could not find the L1A PCF template: " + self.pcf_template
+            sys.exit(1)
+
+        self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
+        self.englutfile = 'ENG_DATA_LIST_' + self.sat_name.upper() + '_V' + self.pgeversion + '.' + self.lutversion
+        self.englutver = getversion(os.path.join(self.dirs['cal'], self.englutfile))
 
     # MODIS GEO
     if self.proctype == "modisGEO":
-        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"), "modis", "pcf", "GEO_template.pcf")
+        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'pcf', 'GEO_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find GEO PCF template " + self.pcf_template
             sys.exit(1)
 
-        self.dirs['cal'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'cal')
-        self.geolutfile = ''.join([self.prefix, '03LUT.coeff_V', self.pgeversion, '.', self.collection])
-        self.geomvrfile = ''.join(['maneuver_', self.sat_name, '.coeff_V', self.pgeversion, '.', self.collection])
-        self.geolutver = getversion(os.path.join(self.dirs['cal'], self.geolutfile))
-        self.geomvrver = getversion(os.path.join(self.dirs['cal'], self.geomvrfile))
-        self.dirs['mcf'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'mcf')
         self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
         self.geomcf = ''.join([self.prefix, '03_', self.collection_id, '.mcf'])
+        self.geolutfile = ''.join([self.prefix, '03LUT.coeff_V', self.pgeversion, '.', self.lutversion])
+        self.geomvrfile = ''.join(['maneuver_', self.sat_name, '.coeff_V', self.pgeversion, '.', self.lutversion])
+        self.geolutver = getversion(os.path.join(self.dirs['cal'], self.geolutfile))
+        self.geomvrver = getversion(os.path.join(self.dirs['cal'], self.geomvrfile))
 
         self.planetfile = "de200.eos"
         if not os.path.exists(os.path.join(self.dirs['static'], self.planetfile)):
@@ -343,7 +336,6 @@ def modis_env(self):
             print "ERROR: Could not find the L1B PCF template", self.pcf_template
             sys.exit(1)
 
-        self.collection_id = "006"
         # Search LUTDIR for lut names
         if self.lutdir:
             if self.lutversion:

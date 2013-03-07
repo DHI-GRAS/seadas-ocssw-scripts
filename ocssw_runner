@@ -1,0 +1,20 @@
+#! /bin/bash
+
+# usage ocssw_runner [--ocsswroot <dir>] <command ...>
+#
+# This is a shell script used to run any program after sourcing 
+# the standard OCSSW enviroment script.
+#
+# only requirement is that $OCSSWROOT is already set or passed
+# in with the option --ocsswroot <dir>
+
+if [ $1 = --ocsswroot ]; then
+    export OCSSWROOT=$2
+    shift
+    shift
+fi
+
+source $OCSSWROOT/OCSSW_bash.env
+$*
+
+
