@@ -3,6 +3,7 @@
 from optparse import OptionParser
 import os
 import urllib
+import subprocess
 
 verbose = False
 installDir = None
@@ -25,6 +26,9 @@ def installGitRepo(repoName, dir):
     """
     fullDir = os.path.join(installDir, dir)
     if os.path.isdir(fullDir):
+        if os.path.isdir(os.path.join(fullDir, ".svn")):
+            print "aborting - " + fullDir + " is an svn repository."
+            exit(1)
         # directory exists try a git update
         if verbose:
             print "updating existing directory -", fullDir
@@ -45,26 +49,6 @@ def getArch():
     """
     Return the system arch string.
     """
-    #
-    # mac = ('Darwin',
-    #        'gs616-shea',
-    #        '11.4.2',
-    #        'Darwin Kernel Version 11.4.2: Thu Aug 23 16:25:48 PDT 2012; root:xnu-1699.32.7~1/RELEASE_X86_64',
-    #        'x86_64')
-    #
-    # linux_64 = ('Linux',
-    #             'crab',
-    #             '3.2.0-38-generic',
-    #             '#61-Ubuntu SMP Tue Feb 19 12:18:21 UTC 2013',
-    #             'x86_64')
-    #
-    # linux = ('Linux',
-    #          'swdev102',
-    #          '3.2.0-34-generic-pae',
-    #          '#53-Ubuntu SMP Thu Nov 15 11:11:12 UTC 2012',
-    #          'i686')
-    #
-
     (sysname, nodename, release, version, machine) = os.uname()
     if sysname == 'Darwin':
         if machine == 'x86_64':
@@ -80,19 +64,18 @@ def getArch():
     return 'linux_64'
 
 
-
 if __name__ == "__main__":
     
     # Read commandline options...
     version = "%prog 1.0"
-    usage = '''usage: %prog [options] FILE pixel line'''
+    usage = '''usage: %prog [options]'''
     parser = OptionParser(usage=usage, version=version)
 
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose", 
                       default=False, help="Print more information whle running")
     parser.add_option("-i", "--install-dir", action="store", 
-                      dest="install_dir", default="ocssw",
-                      help="destination directory for install")
+                      dest="install_dir",
+                      help="destination directory for install. Defaults to $OCSSWROOT or \"$HOME/ocssw\" if neither are given.")
     parser.add_option("-g", "--git-base", action="store",  dest="git_base", 
                       default="http://oceandata.sci.gsfc.nasa.gov/ocssw/",
                       help="Web location for the git repositories")
@@ -145,7 +128,15 @@ if __name__ == "__main__":
     # set global variables
     gitBase = options.git_base
     verbose = options.verbose
-    installDir = os.path.abspath(options.install_dir)
+
+    if options.install_dir:
+        installDir = os.path.abspath(options.install_dir)
+    else:
+        if os.getenv("OCSSWROOT") is None:
+            installDir = os.path.abspath(os.path.join(os.getenv("HOME"), "ocssw"))
+        else:
+            installDir = os.path.abspath(os.getenv("OCSSWROOT"))
+
     if options.arch:
         arch = options.arch
     else:
@@ -170,14 +161,42 @@ if __name__ == "__main__":
     makeDir('run/bin')
     makeDir('run/bin3')
 
+    # make sure git exists and is setup
+    commandStr = "git --version"
+    retval = os.system(commandStr)
+    if retval != 0:
+        print 'Error - Could not execute system command \"' + commandStr + '\"'
+        exit(1)
+
+    cmd = ['git','config', "--get", "user.name"]
+    gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+    print "git user.name = \"" + gitResult + "\""
+    if gitResult == "":
+        commandStr = "git config --global user.name \"Default Seadas User\""
+        retval = os.system(commandStr)
+        if retval != 0:
+            print 'Error - Could not execute system command \"', commandStr, '\"'
+            exit(1)
+
+    cmd = ['git','config', "--get", "user.email"]
+    gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+    print "git user.email = \"" + gitResult + "\""
+    if gitResult == "":
+        commandStr = "git config --global user.email \"seadas-user@localhost\""
+        retval = os.system(commandStr)
+        if retval != 0:
+            print 'Error - Could not execute system command \"', commandStr, '\"'
+            exit(1)
+ 
+    # install run/scripts first which will make sure that the dir is a git
+    # repo if the dir exists
+    installGitRepo('scripts.git', 'run/scripts')
+
     # download OCSSW_bash.env and README
     fileName='OCSSW_bash.env'
-    urllib.urlretrieve (gitBase+fileName, os.path.join(installDir, fileName))
+    urllib.urlretrieve(gitBase+fileName, os.path.join(installDir, fileName))
     fileName='README'
-    urllib.urlretrieve (gitBase+fileName, os.path.join(installDir, fileName))
-
-    # download run/scripts
-    installGitRepo('scripts.git', 'run/scripts')
+    urllib.urlretrieve(gitBase+fileName, os.path.join(installDir, fileName))
 
     # install build source directory
     if options.src:

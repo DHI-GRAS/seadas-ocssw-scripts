@@ -255,7 +255,7 @@ class NextLevelNameFinder(object):
         An internal method to return the L1B name from an L1A file.
         """
         next_lvl_name = ''
-        first_char = self._get_platform_indicator()
+        first_char = self.get_platform_indicator()
         if self.data_files[0].start_time:
             next_lvl_name = first_char +\
                             self.data_files[0].start_time +\
@@ -337,7 +337,7 @@ class NextLevelNameFinder(object):
         """
         An internal method to return the L3bin name from an L2 or L3bin file.
         """
-        first_char = self._get_platform_indicator()
+        first_char = self.get_platform_indicator()
         sday, syear = self._get_start_doy_year()
         eday, eyear = self._get_end_doy_year()
         sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
@@ -393,7 +393,7 @@ class NextLevelNameFinder(object):
         """
         self.next_suffix = {'L1A' : 'L1B', 'L1B' : 'L2', 'L2' : 'L3b'}
 
-    def _get_platform_indicator(self):
+    def get_platform_indicator(self):
         """
         Returns a character which indicates what platform (instrument) the
         data in the file is from.  This is usually used as the first character
@@ -403,19 +403,26 @@ class NextLevelNameFinder(object):
                           'MODIS Aqua':  'A', 'MODIS Terra': 'T',
                           'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
                           'OSMI': 'K', 'SeaWiFS': 'S'}
+
         if self.data_files[0].sensor in indicator_dict.keys():
-            return indicator_dict[self.data_files[0].sensor]
+            indicator = indicator_dict[self.data_files[0].sensor]
         else:
             err_msg = 'Error!  Platform indicator, {0}, for {1} is not known.'.\
                       format(self.data_files[0].sensor, self.data_files[0].name)
             sys.exit(err_msg)
+        for df in self.data_files[1:]:
+            if df.sensor in indicator_dict.keys():
+                if indicator != indicator_dict[df.sensor]:
+                    indicator = 'X'
+                    break
+        return indicator
 
     def _get_single_file_basename(self):
         """
         Determine the base part of the output file for a single input file.
         """
         basename = 'indeterminate'
-        first_char = self._get_platform_indicator()
+        first_char = self.get_platform_indicator()
         if self.data_files[0].start_time:
             basename = first_char + self.data_files[0].start_time
         elif self.data_files[0].metadata is not None:
@@ -429,7 +436,7 @@ class NextLevelNameFinder(object):
         Returns the output name from from smigen for an L3 Binned file or group
         of files.
         """
-        first_char = self._get_platform_indicator()
+        first_char = self.get_platform_indicator()
         sday, syear = self._get_start_doy_year()
         eday, eyear = self._get_end_doy_year()
         sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
@@ -573,7 +580,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         elif self.data_files[0].metadata:
             time_stamp = self._extract_l1_time(self.data_files[0].metadata['RANGEBEGINNINGDATE'],
                                                self.data_files[0].metadata['RANGEBEGINNINGTIME'])
-        geo_name = self._get_platform_indicator() + time_stamp +\
+        geo_name = self.get_platform_indicator() + time_stamp +\
                    self._get_geo_extension()
         return geo_name
 
@@ -604,7 +611,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         An internal method to return the L1B name from an L1A file.
         """
         next_lvl_name = 'indeterminate'
-        first_char = self._get_platform_indicator()
+        first_char = self.get_platform_indicator()
         if self.data_files[0].start_time:
             next_lvl_name = first_char +\
                             self.data_files[0].start_time +\
@@ -628,7 +635,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         """
         An internal method to return the L2 name from an L1B file.
         """
-        first_char = self._get_platform_indicator()
+        first_char = self.get_platform_indicator()
         if self.data_files[0].start_time:
             next_lvl_name = first_char +\
                             self.data_files[0].start_time +\
@@ -677,7 +684,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                 sys.exit(err_msg)
         return next_level_name
 
-    def _get_platform_indicator(self):
+    def get_platform_indicator(self):
         """
         Returns a character which indicates whether a file contains Aqua or
         Terra data, A = Aqua and T = Terra.  This can be used as the first

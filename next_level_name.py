@@ -74,14 +74,19 @@ def get_multifile_output_name(data_files_list_info, target_program,
             err_msg = 'Error!  File types do not match for {0} and {1}'.\
                       format(data_files_list_info[0].name, data_file.name)
             sys.exit(err_msg)
-    time_ext = next_level_name_finder.get_time_period_extension(
-        data_files_list_info[0].start_time,
-        data_files_list_info[-1].end_time)
-    output_name = data_files_list_info[0].start_time[0:4] +\
-                  data_files_list_info[0].start_time[4:7] +\
-                  data_files_list_info[-1].start_time[0:4] +\
-                  data_files_list_info[-1].start_time[4:7] +\
-                  get_extension(target_program) + time_ext + l2_suite
+    level_finder = next_level_name_finder.NextLevelNameFinder(data_files_list_info,
+                                                              target_program)
+    output_name = level_finder.get_next_level_name()
+#    first_char = level_finder.get_platform_indicator()
+#    time_ext = next_level_name_finder.get_time_period_extension(
+#        data_files_list_info[0].start_time,
+#        data_files_list_info[-1].end_time)
+#    output_name = first_char + \
+#                  data_files_list_info[0].start_time[0:4] +\
+#                  data_files_list_info[0].start_time[4:7] +\
+#                  data_files_list_info[-1].start_time[0:4] +\
+#                  data_files_list_info[-1].start_time[4:7] +\
+#                  get_extension(target_program) + time_ext + l2_suite
     return output_name
 
 #########################################
