@@ -41,7 +41,7 @@ def installGitRepo(repoName, dir):
 
     retval = os.system(commandStr)
     if retval != 0:
-        print 'Error - Could not execute system command \"', commandStr, '\"'
+        print 'Error - Could not execute system command \"' + commandStr + '\"'
         exit(1)
 
         
@@ -53,12 +53,15 @@ def getArch():
     if sysname == 'Darwin':
         if machine == 'x86_64':
             return 'macosx_intel'
-        print "unrecognized Mac machine =", machine
+        print "unsupported Mac machine =", machine
         exit(1)
     if sysname == 'Linux':
         if machine == 'x86_64':
             return 'linux_64'
         return 'linux'
+    if sysname == 'Windows':
+        print "Error: can not install OCSSW software on Windows"
+        exit(1)
     print '***** unrecognized system =', sysname, ', machine =', machine
     print '***** defaulting to linux_64'
     return 'linux_64'
@@ -170,22 +173,24 @@ if __name__ == "__main__":
 
     cmd = ['git','config', "--get", "user.name"]
     gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
-    print "git user.name = \"" + gitResult + "\""
+    if verbose:
+        print "git user.name = \"" + gitResult + "\""
     if gitResult == "":
         commandStr = "git config --global user.name \"Default Seadas User\""
         retval = os.system(commandStr)
         if retval != 0:
-            print 'Error - Could not execute system command \"', commandStr, '\"'
+            print 'Error - Could not execute system command \"' + commandStr + '\"'
             exit(1)
 
     cmd = ['git','config', "--get", "user.email"]
     gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
-    print "git user.email = \"" + gitResult + "\""
+    if verbose:
+        print "git user.email = \"" + gitResult + "\""
     if gitResult == "":
         commandStr = "git config --global user.email \"seadas-user@localhost\""
         retval = os.system(commandStr)
         if retval != 0:
-            print 'Error - Could not execute system command \"', commandStr, '\"'
+            print 'Error - Could not execute system command \"' + commandStr + '\"'
             exit(1)
  
     # install run/scripts first which will make sure that the dir is a git

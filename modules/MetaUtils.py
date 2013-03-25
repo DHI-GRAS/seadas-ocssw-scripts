@@ -272,11 +272,10 @@ def is_ascii_file(filename):
     file_cmd_path = os.path.join(os.sep, 'usr', 'bin', 'file')
     if os.path.exists(file_cmd_path) and os.access(file_cmd_path, os.X_OK):
         file_cmd = ' '.join([file_cmd_path, '--brief', filename])
-        #print "file_cmd: " + file_cmd    # for debugging
         file_output = subprocess.Popen(file_cmd, shell=True,
                                        stdout=subprocess.PIPE).stdout
         file_type = file_output.read().strip()
-        if file_type == 'ASCII text':
+        if file_type.startswith('ASCII text'):
             return True
         else:
             return False
