@@ -8,6 +8,7 @@ import subprocess
 verbose = False
 installDir = None
 gitBase =  'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
+curlCommand = 'curl -# -O -C - --retry 5 --retry-delay 5 '
 
 def makeDir(dir):
     """
@@ -16,9 +17,28 @@ def makeDir(dir):
     fullDir = os.path.join(installDir, dir)
     if os.path.isdir(fullDir) == False:
         if verbose:
-            print 'creating dir', fullDir
-        os.mkdir(fullDir)
+            print 'Creating dir', fullDir
+        os.makedirs(fullDir)
 
+def deleteFile(fileName):
+    try:
+        os.remove(os.path.join(installDir, fileName))
+    except:
+        pass
+    
+def installFile(fileName):
+    """
+    Downloads the file to the install dir
+    """
+    if verbose:
+        print 'Downloading', fileName
+    
+    commandStr = 'cd ' + installDir + '; ' 
+    commandStr += curlCommand + gitBase + fileName
+    retval = os.system(commandStr)
+    if retval != 0:
+        print 'Error - Could not run \"' + commandStr + '\"'
+        exit(1)
 
 def installGitRepo(repoName, dir):
     """
@@ -30,20 +50,48 @@ def installGitRepo(repoName, dir):
             print "aborting - " + fullDir + " is an svn repository."
             exit(1)
         # directory exists try a git update
-        if verbose:
-            print "updating existing directory -", fullDir
         commandStr = 'cd ' + fullDir + '; git pull'
+        if verbose:
+            print "Updating existing directory -", fullDir
+        else:
+            commandStr += ' -q'
+        retval = os.system(commandStr)
+        if retval != 0:
+            print 'Error - Could not run \"' + commandStr + '\"'
+            exit(1)
     else:
         # directory does not exist
         if verbose:
-            print "downloading new directory -", fullDir
-        commandStr = 'git clone ' + gitBase + repoName + ' ' + fullDir
+            print "Downloading new directory -", fullDir
 
-    retval = os.system(commandStr)
-    if retval != 0:
-        print 'Error - Could not execute system command \"' + commandStr + '\"'
-        exit(1)
+        # download bundle
+        installFile(repoName + '.bundle')
 
+        # git clone
+        commandStr = 'cd ' + installDir + '; ' 
+        commandStr += 'git clone -b master ' + repoName + '.bundle ' + fullDir
+        retval = os.system(commandStr)
+        if retval != 0:
+            print 'Error - Could not run \"' + commandStr + '\"'
+            exit(1)
+
+        # remove bundle
+        os.remove(os.path.join(installDir, repoName + '.bundle'))
+
+        # set remote repo to http location
+        commandStr = 'cd ' + fullDir + '; '
+        commandStr += 'git remote set-url origin ' + gitBase + repoName + '.git'
+        retval = os.system(commandStr)
+        if retval != 0:
+            print 'Error - Could not run \"' + commandStr + '\"'
+            exit(1)
+
+        # git pull to make sure up to date
+        commandStr = 'cd ' + fullDir + '; git pull > /dev/null'
+        retval = os.system(commandStr)
+        if retval != 0:
+            print 'Error - Could not run \"' + commandStr + '\"'
+            exit(1)
         
 def getArch():
     """
@@ -83,7 +131,7 @@ if __name__ == "__main__":
                       default="http://oceandata.sci.gsfc.nasa.gov/ocssw/",
                       help="Web location for the git repositories")
     parser.add_option("-a", "--arch", action="store",dest='arch', 
-           help="set system architecture (linux, linux_64, macosx_intel")
+           help="set system architecture (linux, linux_64, macosx_intel)")
     parser.add_option("-s", "--src", action="store_true",dest='src', 
                       default=False, help="install source code")
 
@@ -130,6 +178,9 @@ if __name__ == "__main__":
 
     # set global variables
     gitBase = options.git_base
+    if not gitBase.endswith('/'):
+        gitBase += '/'
+    
     verbose = options.verbose
 
     if options.install_dir:
@@ -158,14 +209,12 @@ if __name__ == "__main__":
         print
 
     # create directory structure
-    makeDir('')
-    makeDir('run')
     makeDir('run/data')
     makeDir('run/bin')
     makeDir('run/bin3')
 
     # make sure git exists and is setup
-    commandStr = "git --version"
+    commandStr = "git --version > /dev/null"
     retval = os.system(commandStr)
     if retval != 0:
         print 'Error - Could not execute system command \"' + commandStr + '\"'
@@ -174,7 +223,7 @@ if __name__ == "__main__":
     cmd = ['git','config', "--get", "user.name"]
     gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
     if verbose:
-        print "git user.name = \"" + gitResult + "\""
+        print "git user.name = \"" + gitResult.rstrip() + "\""
     if gitResult == "":
         commandStr = "git config --global user.name \"Default Seadas User\""
         retval = os.system(commandStr)
@@ -185,7 +234,7 @@ if __name__ == "__main__":
     cmd = ['git','config', "--get", "user.email"]
     gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
     if verbose:
-        print "git user.email = \"" + gitResult + "\""
+        print "git user.email = \"" + gitResult.rstrip() + "\""
     if gitResult == "":
         commandStr = "git config --global user.email \"seadas-user@localhost\""
         retval = os.system(commandStr)
@@ -195,103 +244,105 @@ if __name__ == "__main__":
  
     # install run/scripts first which will make sure that the dir is a git
     # repo if the dir exists
-    installGitRepo('scripts.git', 'run/scripts')
+    installGitRepo('scripts', 'run/scripts')
 
-    # download OCSSW_bash.env and README
-    fileName='OCSSW_bash.env'
-    urllib.urlretrieve(gitBase+fileName, os.path.join(installDir, fileName))
-    fileName='README'
-    urllib.urlretrieve(gitBase+fileName, os.path.join(installDir, fileName))
+    # download OCSSW_bash.env
+    deleteFile('OCSSW_bash.env');
+    installFile('OCSSW_bash.env');
+
+    # download README
+    deleteFile('README')
+    installFile('README')
 
     # install build source directory
     if options.src:
-        installGitRepo('build.git', 'build')
+        installGitRepo('build', 'build')
         
     # install run/data/common
-    installGitRepo('common.git', 'run/data/common')
+    installGitRepo('common', 'run/data/common')
     
     # install run/data/aquarius
     if options.aquarius:
-        installGitRepo('aquarius.git', 'run/data/aquarius')
+        installGitRepo('aquarius', 'run/data/aquarius')
 
     # install run/data/avhrr
     if options.avhrr:
-        installGitRepo('avhrr.git', 'run/data/avhrr')
+        installGitRepo('avhrr', 'run/data/avhrr')
 
     # install run/data/czcs
     if options.czcs:
-        installGitRepo('czcs.git', 'run/data/czcs')
+        installGitRepo('czcs', 'run/data/czcs')
 
     # install run/data/eval
     if options.eval:
-        installGitRepo('eval.git', 'run/data/eval')
+        installGitRepo('eval', 'run/data/eval')
 
     # install run/data/goci
     if options.goci:
-        installGitRepo('goci.git', 'run/data/goci')
+        installGitRepo('goci', 'run/data/goci')
 
     # install run/data/hico
     if options.hico:
-        installGitRepo('hico.git', 'run/data/hico')
-        installGitRepo('hicohs.git', 'run/data/hicohs')
+        installGitRepo('hico', 'run/data/hico')
+        installGitRepo('hicohs', 'run/data/hicohs')
 
     # install run/data/meris
     if options.meris:
-        installGitRepo('meris.git', 'run/data/meris')
+        installGitRepo('meris', 'run/data/meris')
 
     # install run/data/modis
     if options.aqua or options.terra:
-        installGitRepo('modis.git', 'run/data/modis')
+        installGitRepo('modis', 'run/data/modis')
 
     # install run/data/aqua
     if options.aqua:
-        installGitRepo('modisa.git', 'run/data/modisa')
-        installGitRepo('hmodisa.git', 'run/data/hmodisa')
+        installGitRepo('modisa', 'run/data/modisa')
+        installGitRepo('hmodisa', 'run/data/hmodisa')
 
     # install run/data/terra
     if options.terra:
-        installGitRepo('modist.git', 'run/data/modist')
-        installGitRepo('hmodist.git', 'run/data/hmodist')
+        installGitRepo('modist', 'run/data/modist')
+        installGitRepo('hmodist', 'run/data/hmodist')
 
     # install run/data/mos
     if options.mos:
-        installGitRepo('mos.git', 'run/data/mos')
+        installGitRepo('mos', 'run/data/mos')
 
     # install run/data/ocm1
     if options.ocm1:
-        installGitRepo('ocm1.git', 'run/data/ocm1')
+        installGitRepo('ocm1', 'run/data/ocm1')
 
     # install run/data/ocm2
     if options.ocm2:
-        installGitRepo('ocm2.git', 'run/data/ocm2')
+        installGitRepo('ocm2', 'run/data/ocm2')
 
     # install run/data/ocrvc
     if options.ocrvc:
-        installGitRepo('ocrvc.git', 'run/data/ocrvc')
+        installGitRepo('ocrvc', 'run/data/ocrvc')
 
     # install run/data/octs
     if options.octs:
-        installGitRepo('octs.git', 'run/data/octs')
+        installGitRepo('octs', 'run/data/octs')
 
     # install run/data/osmi
     if options.osmi:
-        installGitRepo('osmi.git', 'run/data/osmi')
+        installGitRepo('osmi', 'run/data/osmi')
 
     # install run/data/seawifs
     if options.seawifs:
-        installGitRepo('seawifs.git', 'run/data/seawifs')
+        installGitRepo('seawifs', 'run/data/seawifs')
 
     # install run/data/viirsn
     if options.viirsn:
-        installGitRepo('viirsn.git', 'run/data/viirsn')
+        installGitRepo('viirsn', 'run/data/viirsn')
 
     # download bin dir
-    repo = 'bin-' + arch + '.git'
+    repo = 'bin-' + arch
     dirStr = 'run/bin/' + arch
     installGitRepo(repo, dirStr)
    
     # download bin dir3
-    repo = 'bin3-' + arch + '.git'
+    repo = 'bin3-' + arch
     dirStr = 'run/bin3/' + arch
     installGitRepo(repo, dirStr)
    
@@ -300,30 +351,40 @@ if __name__ == "__main__":
     commandStr += ' --ocsswroot ' + installDir
     commandStr += ' update_luts.py '
     if options.seawifs:
+        if verbose:
+            print 'Updating luts for seawifs'
         retval = os.system(commandStr + 'seawifs')
         if retval != 0:
             print 'Error - Could not install luts for seawifs'
             exit(1)
 
     if options.aqua:
+        if verbose:
+            print 'Updating luts for aqua'
         retval = os.system(commandStr + 'aqua')
         if retval != 0:
             print 'Error - Could not install luts for aqua'
             exit(1)
 
     if options.terra:
+        if verbose:
+            print 'Updating luts for terra'
         retval = os.system(commandStr + 'terra')
         if retval != 0:
             print 'Error - Could not install luts for terra'
             exit(1)
 
     if options.viirsn:
+        if verbose:
+            print 'Updating luts for viirsn'
         retval = os.system(commandStr + 'viirsn')
         if retval != 0:
             print 'Error - Could not install luts for viirsn'
             exit(1)
 
     if options.aquarius:
+        if verbose:
+            print 'Updating luts for aquarius'
         retval = os.system(commandStr + 'aquarius')
         if retval != 0:
             print 'Error - Could not install luts for aquarius'

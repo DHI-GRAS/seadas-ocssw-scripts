@@ -45,8 +45,8 @@ class modis_l1a:
 
         # version-specific variables
         self.collection_id = '005'
-        self.pgeversion = '5.0.41'
-        self.lutversion = '6'
+        self.pgeversion = '5.0.52'
+        self.lutversion = '13'
 
         if self.parfile:
             p = ParamProcessing(parfile=self.parfile)

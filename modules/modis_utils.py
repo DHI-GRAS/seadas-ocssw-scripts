@@ -58,6 +58,7 @@ def buildpcf(self):
             line = line.replace("GEOLUTVER", self.geolutver)
             line = line.replace("GEOMVRFILE", self.geomvrfile)
             line = line.replace("GEOMVRVER", self.geomvrver)
+            line = line.replace("GEOMVRLIST", '')
             line = line.replace("PLANETFILE", self.planetfile)
             line = line.replace("KINEMATIC_STATE", self.kinematic_state)
             line = line.replace("DEMDIR", self.dirs['dem'])
@@ -282,7 +283,9 @@ def modis_env(self):
             sys.exit(1)
 
         self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
-        self.englutfile = 'ENG_DATA_LIST_' + self.sat_name.upper() + '_V' + self.pgeversion + '.' + self.lutversion
+        self.englutfile = 'ENG_DATA_LIST_' + self.sat_name.upper() + '_V' + self.pgeversion
+        if self.lutversion:
+            self.englutfile += '.' + self.lutversion
         self.englutver = getversion(os.path.join(self.dirs['cal'], self.englutfile))
 
     # MODIS GEO
@@ -294,8 +297,11 @@ def modis_env(self):
 
         self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
         self.geomcf = ''.join([self.prefix, '03_', self.collection_id, '.mcf'])
-        self.geolutfile = ''.join([self.prefix, '03LUT.coeff_V', self.pgeversion, '.', self.lutversion])
-        self.geomvrfile = ''.join(['maneuver_', self.sat_name, '.coeff_V', self.pgeversion, '.', self.lutversion])
+        self.geolutfile = ''.join([self.prefix, '03LUT.coeff_V', self.pgeversion])
+        self.geomvrfile = ''.join(['maneuver_', self.sat_name, '.coeff_V', self.pgeversion])
+        if self.lutversion:
+            self.geolutfile += '.' + self.lutversion
+            self.geomvrfile += '.' + self.lutversion
         self.geolutver = getversion(os.path.join(self.dirs['cal'], self.geolutfile))
         self.geomvrver = getversion(os.path.join(self.dirs['cal'], self.geomvrfile))
 

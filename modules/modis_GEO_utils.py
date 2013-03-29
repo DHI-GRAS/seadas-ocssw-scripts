@@ -5,10 +5,24 @@ from modules.ParamUtils import ParamProcessing
 
 class modis_geo:
     
-    def __init__(self,file=file,parfile=None,
-        geofile=None,a1=None,a2=None,e1=None,e2=None,download=True,entrained=False,
-        terrain=False,geothresh=95,log=False,sensor=None,anc_file=None,
-        ancdir=None, ancdb='ancillary_data.db',refreshDB=False,verbose=False):
+    def __init__(self,file=file,
+                 parfile=None,
+                 geofile=None,
+                 a1=None,a2=None,
+                 e1=None,e2=None,
+                 download=True,
+                 entrained=False,
+                 terrain=False,
+                 geothresh=95,
+                 sensor=None,
+                 anc_file=None,
+                 ancdir=None,
+                 ancdb='ancillary_data.db',
+                 refreshDB=False,
+                 lutver=None,
+                 lutdir=None,
+                 log=False,
+                 verbose=False):
 
 
         # defaults
@@ -26,6 +40,8 @@ class modis_geo:
         self.entrained = entrained
         self.terrain = terrain
         self.geothresh = geothresh
+        self.lutversion = lutver
+        self.lutdir = lutdir
         self.log = log
         self.proctype = 'modisGEO'
         self.curdir = False
@@ -38,10 +54,10 @@ class modis_geo:
         self.stop = None
         self.anc_file = anc_file
 
-
-        self.collection_id = "005"
-        self.pgeversion = "5.0.41"
-        self.lutversion = "6"
+        # version-specific variables
+        self.collection_id = '005'
+        self.pgeversion = '5.0.52'
+        self.lutversion = '13'
 
         if self.parfile:
             print self.parfile
