@@ -57,25 +57,22 @@ def get_multifile_next_level_name(data_files_list_info, target_program, clopts):
                                                                  file_info.name)
             sys.exit(err_msg)
     next_level_name = get_multifile_output_name(data_files_list_info,
-                                                target_program, clopts.l2_suite)
+                                                target_program, clopts)
     return next_level_name
 
-def get_multifile_output_name(data_files_list_info, target_program,
-                              l2_suite = '_OC'):
+def get_multifile_output_name(data_files_list_info, target_program, clopts):
     """
     Returns the file name derived from a group of files names.
     """
-    # Passing in a None value causes Python to ignore the default.
-    if l2_suite is None:
-        l2_suite = '_OC'
     list_file_type = data_files_list_info[0].file_type
     for data_file in data_files_list_info[1:]:
         if data_file.file_type != list_file_type:
             err_msg = 'Error!  File types do not match for {0} and {1}'.\
                       format(data_files_list_info[0].name, data_file.name)
             sys.exit(err_msg)
-    level_finder = next_level_name_finder.NextLevelNameFinder(data_files_list_info,
-                                                              target_program)
+#    level_finder = next_level_name_finder.NextLevelNameFinder(data_files_list_info,
+#                                                              target_program)
+    level_finder = get_level_finder(data_files_list_info, target_program, clopts)
     output_name = level_finder.get_next_level_name()
 #    first_char = level_finder.get_platform_indicator()
 #    time_ext = next_level_name_finder.get_time_period_extension(
@@ -160,6 +157,13 @@ def get_level_finder(data_file_list, target_program, clopts):
                 data_file_list, target_program, clopts.l2_suite)
         else:
             level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
+                data_file_list, target_program)
+    elif data_file_list[0].sensor.find('Aquarius') != -1:
+        if clopts.l2_suite:
+            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
+                data_file_list, target_program, clopts.l2_suite)
+        else:
+            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
                 data_file_list, target_program)
     else:
         if clopts.l2_suite:

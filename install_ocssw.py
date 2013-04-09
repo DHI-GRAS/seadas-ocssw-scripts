@@ -8,7 +8,12 @@ import subprocess
 verbose = False
 installDir = None
 gitBase =  'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
-curlCommand = 'curl -# -O -C - --retry 5 --retry-delay 5 '
+curlCommand = 'curl -# -O --retry 5 --retry-delay 5 '
+
+# globals for progress display
+numThings = 1
+currentThing = 1
+
 
 def makeDir(dir):
     """
@@ -21,20 +26,25 @@ def makeDir(dir):
         os.makedirs(fullDir)
 
 def deleteFile(fileName):
+    """
+    Delete file from the install dir
+    """
     try:
         os.remove(os.path.join(installDir, fileName))
     except:
         pass
     
-def installFile(fileName):
+def installFile(fileName, continueFlag=True):
     """
     Downloads the file to the install dir
     """
     if verbose:
         print 'Downloading', fileName
     
-    commandStr = 'cd ' + installDir + '; ' 
-    commandStr += curlCommand + gitBase + fileName
+    commandStr = 'cd ' + installDir + '; ' + curlCommand
+    if continueFlag:
+        commandStr += '-C - '
+    commandStr += gitBase + fileName
     retval = os.system(commandStr)
     if retval != 0:
         print 'Error - Could not run \"' + commandStr + '\"'
@@ -76,7 +86,7 @@ def installGitRepo(repoName, dir):
             exit(1)
 
         # remove bundle
-        os.remove(os.path.join(installDir, repoName + '.bundle'))
+        deleteFile(repoName + '.bundle')
 
         # set remote repo to http location
         commandStr = 'cd ' + fullDir + '; '
@@ -113,6 +123,15 @@ def getArch():
     print '***** unrecognized system =', sysname, ', machine =', machine
     print '***** defaulting to linux_64'
     return 'linux_64'
+
+def printProgress(name):
+    """
+    Prints out a progress string and incriments currentThing global.
+    """
+    global currentThing
+    global numThings
+    print 'Installing ' + name + ' (' + str(currentThing) + ' of ' + str(numThings) + ')'
+    currentThing += 1
 
 
 if __name__ == "__main__":
@@ -183,6 +202,7 @@ if __name__ == "__main__":
     
     verbose = options.verbose
 
+    # set installDir using param or a default
     if options.install_dir:
         installDir = os.path.abspath(options.install_dir)
     else:
@@ -241,150 +261,228 @@ if __name__ == "__main__":
         if retval != 0:
             print 'Error - Could not execute system command \"' + commandStr + '\"'
             exit(1)
- 
+
+    # setup progress monitor output
+    #currentThing = 1
+    #numThings = 1
+    numThings += 1         # scripts
+    numThings += 1         # OCSSW_bash.env
+    numThings += 1         # README
+    if options.src:
+        numThings += 1     # src
+    numThings += 1         # common
+    numThings += 1         # ocrvc
+    if options.aquarius:
+        numThings += 2     # aquarius + luts
+    if options.avhrr:
+        numThings += 1     # avhrr
+    if options.czcs:
+        numThings += 1     # czcs
+    if options.eval:
+        numThings += 1     # eval
+    if options.goci:
+        numThings += 1     # goci
+    if options.hico:
+        numThings += 2     # hico
+    if options.meris:
+        numThings += 1     # meris
+    if options.aqua or options.terra:
+        numThings += 1     # modis
+    if options.aqua:
+        numThings += 3     # aqua + luts
+    if options.terra:
+        numThings += 3     # terra + luts
+    if options.mos:
+        numThings += 1     # mos
+    if options.ocm1:
+        numThings += 1     # ocm1
+    if options.ocm2:
+        numThings += 1     # ocm2
+    if options.octs:
+        numThings += 1     # octs
+    if options.osmi:
+        numThings += 1     # osmi
+    if options.seawifs:
+        numThings += 2     # seawifs and luts
+    if options.viirsn:
+        numThings += 2     # viirsn + luts
+    numThings += 1         # bin
+    numThings += 1         # bin3
+
     # install run/scripts first which will make sure that the dir is a git
     # repo if the dir exists
+    printProgress('scripts')
     installGitRepo('scripts', 'run/scripts')
 
     # download OCSSW_bash.env
-    deleteFile('OCSSW_bash.env');
-    installFile('OCSSW_bash.env');
+    printProgress('OCSSW_bash.env')
+    installFile('OCSSW_bash.env', False);
 
     # download README
-    deleteFile('README')
-    installFile('README')
+    printProgress('README')
+    installFile('README', False)
 
     # install build source directory
     if options.src:
+        printProgress('src')
         installGitRepo('build', 'build')
         
     # install run/data/common
+    printProgress('common')
     installGitRepo('common', 'run/data/common')
     
+    # install run/data/ocrvc
+    printProgress('ocrvc')
+    installGitRepo('ocrvc', 'run/data/ocrvc')
+
     # install run/data/aquarius
     if options.aquarius:
+        printProgress('aquarius')
         installGitRepo('aquarius', 'run/data/aquarius')
 
     # install run/data/avhrr
     if options.avhrr:
+        printProgress('avhrr')
         installGitRepo('avhrr', 'run/data/avhrr')
 
     # install run/data/czcs
     if options.czcs:
+        printProgress('czcs')
         installGitRepo('czcs', 'run/data/czcs')
 
     # install run/data/eval
     if options.eval:
+        printProgress('eval')
         installGitRepo('eval', 'run/data/eval')
 
     # install run/data/goci
     if options.goci:
+        printProgress('goci')
         installGitRepo('goci', 'run/data/goci')
 
     # install run/data/hico
     if options.hico:
+        printProgress('hico')
         installGitRepo('hico', 'run/data/hico')
+        printProgress('hicohs')
         installGitRepo('hicohs', 'run/data/hicohs')
 
     # install run/data/meris
     if options.meris:
+        printProgress('meris')
         installGitRepo('meris', 'run/data/meris')
 
     # install run/data/modis
     if options.aqua or options.terra:
+        printProgress('modis')
         installGitRepo('modis', 'run/data/modis')
 
     # install run/data/aqua
     if options.aqua:
+        printProgress('modisa')
         installGitRepo('modisa', 'run/data/modisa')
+        printProgress('hmodisa')
         installGitRepo('hmodisa', 'run/data/hmodisa')
 
     # install run/data/terra
     if options.terra:
+        printProgress('modist')
         installGitRepo('modist', 'run/data/modist')
+        printProgress('hmodist')
         installGitRepo('hmodist', 'run/data/hmodist')
 
     # install run/data/mos
     if options.mos:
+        printProgress('mos')
         installGitRepo('mos', 'run/data/mos')
 
     # install run/data/ocm1
     if options.ocm1:
+        printProgress('ocm1')
         installGitRepo('ocm1', 'run/data/ocm1')
 
     # install run/data/ocm2
     if options.ocm2:
+        printProgress('ocm2')
         installGitRepo('ocm2', 'run/data/ocm2')
-
-    # install run/data/ocrvc
-    if options.ocrvc:
-        installGitRepo('ocrvc', 'run/data/ocrvc')
 
     # install run/data/octs
     if options.octs:
+        printProgress('octs')
         installGitRepo('octs', 'run/data/octs')
 
     # install run/data/osmi
     if options.osmi:
+        printProgress('osmi')
         installGitRepo('osmi', 'run/data/osmi')
 
     # install run/data/seawifs
     if options.seawifs:
+        printProgress('seawifs')
         installGitRepo('seawifs', 'run/data/seawifs')
 
     # install run/data/viirsn
     if options.viirsn:
+        printProgress('viirsn')
         installGitRepo('viirsn', 'run/data/viirsn')
 
     # download bin dir
     repo = 'bin-' + arch
     dirStr = 'run/bin/' + arch
+    printProgress('bin')
     installGitRepo(repo, dirStr)
    
     # download bin dir3
     repo = 'bin3-' + arch
     dirStr = 'run/bin3/' + arch
+    printProgress('bin3')
     installGitRepo(repo, dirStr)
-   
+
+    # check the version of python
+    commandStr = os.path.join(installDir, 'run/scripts/ocssw_runner')
+    commandStr += ' --ocsswroot ' + installDir
+    commandStr += ' pyverchk.py'
+    if verbose:
+        print 'Checking Python version'
+    retval = os.system(commandStr)
+    if retval != 0:
+        print 'Error - Python version is not new enough'
+        exit(1)
+
     # install the luts
     commandStr = os.path.join(installDir, 'run/scripts/ocssw_runner')
     commandStr += ' --ocsswroot ' + installDir
     commandStr += ' update_luts.py '
     if options.seawifs:
-        if verbose:
-            print 'Updating luts for seawifs'
+        printProgress('seawifs-luts')
         retval = os.system(commandStr + 'seawifs')
         if retval != 0:
             print 'Error - Could not install luts for seawifs'
             exit(1)
 
     if options.aqua:
-        if verbose:
-            print 'Updating luts for aqua'
+        printProgress('aqua-luts')
         retval = os.system(commandStr + 'aqua')
         if retval != 0:
             print 'Error - Could not install luts for aqua'
             exit(1)
 
     if options.terra:
-        if verbose:
-            print 'Updating luts for terra'
+        printProgress('terra-luts')
         retval = os.system(commandStr + 'terra')
         if retval != 0:
             print 'Error - Could not install luts for terra'
             exit(1)
 
     if options.viirsn:
-        if verbose:
-            print 'Updating luts for viirsn'
+        printProgress('viirsn-luts')
         retval = os.system(commandStr + 'viirsn')
         if retval != 0:
             print 'Error - Could not install luts for viirsn'
             exit(1)
 
     if options.aquarius:
-        if verbose:
-            print 'Updating luts for aquarius'
+        printProgress('aquarius-luts')
         retval = os.system(commandStr + 'aquarius')
         if retval != 0:
             print 'Error - Could not install luts for aquarius'

@@ -10,7 +10,7 @@ import subprocess
 import sys
 import types
 
-def dumpMetadata(filename):
+def dump_metadata(filename):
     """Dump file metadata:
         Use 'hdp dumpsds' for hdf4 files
         Use 'h5dump -Au' for hdf5 files
@@ -91,10 +91,10 @@ def dumpMetadata(filename):
 
 def readMetadata(filename):
     """
-    read retrieved (via dumpMetadata) file metadata into dictionary
+    Returns a dictionary containing the metadata for the file named by filename.
     """
     # todo: MERIS N1 files?
-    text = dumpMetadata(filename)
+    text = dump_metadata(filename)
     # Added text == [] & changed exit() to sys.exit()    -Matt, Feb. 15, 2012
     # Kept an exit here (instead of making it a return) as already
     # existing programs assume the output from this function is good.

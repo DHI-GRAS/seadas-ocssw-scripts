@@ -1,9 +1,10 @@
 #! /usr/bin/env python
+from modules.modis_utils import buildpcf, modis_env
 
 import modules.modis_GEO_utils as modisGEO
-from modules.modis_utils import buildpcf, modis_env
-from modules.setupenv import env
+import resource
 from optparse import OptionParser
+from modules.setupenv import env
 
 
 if __name__ == "__main__":
@@ -105,6 +106,13 @@ if __name__ == "__main__":
     if file is None and parfile is None:
         parser.print_help()
         exit(0)
+
+    # Set stacksize - if able to (Mac can't, but code is compiled to use a
+    # larger stack on the Mac...)
+    try:
+        resource.setrlimit(3, [-1,-1])
+    except Exception:
+        pass
 
     m = modisGEO.modis_geo(file=file,
         parfile=parfile,

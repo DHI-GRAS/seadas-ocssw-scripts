@@ -156,8 +156,10 @@ class NextLevelNameFinder(object):
                 file_list = data_files_list[0].name + ' and ' + \
                             data_files_list[1].name
             else:
-                file_list = [df.name + ', ' for df in data_files_list[:-1]] + \
-                            ' and ' + data_files_list[-1].name
+#                file_list = [df.name + ', ' for df in data_files_list[:-1]] + \
+#                            ' and ' + data_files_list[-1].name
+                file_list = ', '.join([str(df.name) for df in data_files_list[:-1]])
+                file_list += ', and ' + data_files_list[-1].name
             err_msg = 'Error!  Cannot transition {0} to {1}.'.format(file_list,
                                                                      next_level)
             sys.exit(err_msg)
@@ -850,6 +852,79 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
                                      }
         }
 
+#########################################
+
+class AquariusNextLevelNameFinder(NextLevelNameFinder):
+    """
+    A class to determine what the standard OBPG filename would be for
+    Aquarius files when the given input name is run through the next
+    level of OBPG processing.
+    """
+    PROCESSING_LEVELS = {
+        'l1agen':         'Level 1A',
+        'Level 1A':       'Level 1A',
+        'l1aextract_seawifs' : 'l1aextract_seawifs',
+        'l1bgen':         'Level 1B',
+        'Level 1B':       'Level 1B',
+        'l1brsgen':       'l1brsgen',
+        'l1mapgen':       'l1mapgen',
+        'l2gen':          'Level 2',
+        'Level 2':        'Level 2',
+        'l2bin_aquarius': 'l2bin_aquarius',
+        'l2brsgen':       'l2brsgen',
+        'l2extract':      'l2extract',
+        'l2mapgen':       'l2mapgen',
+        'l3bin':          'l3bin',
+        'L3b':            'l3bin',
+        'SMI':            'SMI',
+        'smigen':         'SMI'
+    }
+
+    def __init__(self, data_files_list, next_level, l2_suite='_OC'):
+        super(AquariusNextLevelNameFinder, self).__init__(data_files_list,
+                                                           next_level, l2_suite)
+
+    def _set_transition_functions(self):
+        """
+        An internal method to set up the "table" of functions to be
+        called for each level of processing.
+        """
+        self.transition_functions = {'Level 1A': {'Level 1B':
+                                                      self._get_l1b_name,
+                                                  'l1aextract_seawifs' :
+                                                      self._get_l1aextract_name,
+                                                  'l1bgen' :
+                                                      self._get_l1b_name,
+                                                  'Level 2' :
+                                                      self._get_l2_name
+        },
+                                     'Level 1B': {'Level 2':
+                                                      self._get_l2_name,
+                                                  'l1brsgen':
+                                                      self._get_l1brsgen_name,
+                                                  'l1mapgen':
+                                                      self._get_l1mapgen_name
+                                     },
+                                     'Level 2': { 'l2bin_aquarius':
+                                                      self._get_l3bin_name,
+                                                  'l2extract':
+                                                      self._get_l2extract_name,
+                                                  'l3bin':
+                                                      self._get_l3bin_name,
+                                                  'l2brsgen':
+                                                      self._get_l2brsgen_name,
+                                                  'l2mapgen':
+                                                      self._get_l2mapgen_name
+                                     },
+                                     'Level 3 Binned': {
+                                         'l3bin' : self._get_l3bin_name,
+                                         'SMI' : self._get_smigen_name
+                                     }
+        }
+
+#########################################
+
 processable_programs = set(NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
                            ModisNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-                           SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys())
+                           SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+                           AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys())
