@@ -280,7 +280,13 @@ class NextLevelNameFinder(object):
         """
         An internal method to get the L1 mapped file name.
         """
-        ext = '.L1B_MAP'
+#        ext = '.L1B_MAP'
+        if self.data_files[0].file_type == 'Level 1A':
+            ext = '.L1A_MAP'
+        elif self.data_files[0].file_type == 'Level 1B':
+            ext = '.L1B_MAP'
+        else:
+            ext = '.L1_MAP'
         return self._get_single_file_basename() + ext
 
     def _get_l2_extension(self):
@@ -485,6 +491,8 @@ class NextLevelNameFinder(object):
         self.transition_functions = {'Level 1A': {
                                          'Level 1B':
                                              self._get_l1b_name,
+                                         'l1mapgen':
+                                             self._get_l1mapgen_name,
                                          'Level 2':
                                              self._get_l2_name
                                      },
@@ -825,6 +833,8 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
                                                       self._get_l1aextract_name,
                                                   'l1bgen' :
                                                       self._get_l1b_name,
+                                                  'l1mapgen':
+                                                      self._get_l1mapgen_name,
                                                   'Level 2' :
                                                       self._get_l2_name
                                      },
@@ -895,6 +905,8 @@ class AquariusNextLevelNameFinder(NextLevelNameFinder):
                                                       self._get_l1aextract_name,
                                                   'l1bgen' :
                                                       self._get_l1b_name,
+                                                  'l1mapgen':
+                                                      self._get_l1mapgen_name,
                                                   'Level 2' :
                                                       self._get_l2_name
         },

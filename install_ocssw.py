@@ -109,7 +109,7 @@ def getArch():
     """
     (sysname, nodename, release, version, machine) = os.uname()
     if sysname == 'Darwin':
-        if machine == 'x86_64':
+        if machine == 'x86_64' or machine == 'i386':
             return 'macosx_intel'
         print "unsupported Mac machine =", machine
         exit(1)
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser = OptionParser(usage=usage, version=version)
 
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose", 
-                      default=False, help="Print more information whle running")
+                      default=False, help="Print more information while running")
     parser.add_option("-i", "--install-dir", action="store", 
                       dest="install_dir",
                       help="destination directory for install. Defaults to $OCSSWROOT or \"$HOME/ocssw\" if neither are given.")
@@ -177,8 +177,6 @@ if __name__ == "__main__":
                       help="install OCM1 files")
     parser.add_option("--ocm2", action="store_true", dest="ocm2", default=False,
                       help="install OCM2 files")
-    parser.add_option("--ocrvc", action="store_true", dest="ocrvc", 
-                      default=False, help="install ocrvc files")
     parser.add_option("--octs", action="store_true", dest="octs", default=False,
                       help="install OCTS files")
     parser.add_option("--osmi", action="store_true", dest="osmi", default=False,
@@ -263,8 +261,9 @@ if __name__ == "__main__":
             exit(1)
 
     # setup progress monitor output
-    #currentThing = 1
-    #numThings = 1
+    currentThing = 1
+    numThings = 1
+
     numThings += 1         # scripts
     numThings += 1         # OCSSW_bash.env
     numThings += 1         # README
@@ -446,7 +445,7 @@ if __name__ == "__main__":
         print 'Checking Python version'
     retval = os.system(commandStr)
     if retval != 0:
-        print 'Error - Python version is not new enough'
+        print 'Error - Python version is not new enough to install luts'
         exit(1)
 
     # install the luts
