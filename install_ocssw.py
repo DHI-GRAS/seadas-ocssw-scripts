@@ -4,6 +4,7 @@ from optparse import OptionParser
 import os
 import urllib
 import subprocess
+import sys
 
 verbose = False
 installDir = None
@@ -131,6 +132,7 @@ def printProgress(name):
     global currentThing
     global numThings
     print 'Installing ' + name + ' (' + str(currentThing) + ' of ' + str(numThings) + ')'
+    sys.stdout.flush()
     currentThing += 1
 
 
@@ -230,6 +232,9 @@ if __name__ == "__main__":
     makeDir('run/data')
     makeDir('run/bin')
     makeDir('run/bin3')
+
+    # add a few places to the path to help fing git
+    os.environ['PATH'] += ':' + os.environ['HOME'] + '/bin:/opt/local/bin:/usr/local/git/bin:/usr/local/bin'
 
     # make sure git exists and is setup
     commandStr = "git --version > /dev/null"
