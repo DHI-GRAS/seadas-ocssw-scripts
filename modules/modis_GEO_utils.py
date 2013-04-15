@@ -55,9 +55,9 @@ class modis_geo:
         self.anc_file = anc_file
 
         # version-specific variables
-        self.collection_id = '005'
-        self.pgeversion = '5.0.52'
-        self.lutversion = '13'
+        self.collection_id = '006'
+        self.pgeversion = '6.0.15'
+#        self.lutversion = '0'
 
         if self.parfile:
             print self.parfile
