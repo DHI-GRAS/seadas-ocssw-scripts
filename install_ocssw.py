@@ -313,11 +313,11 @@ if __name__ == "__main__":
     numThings += 1         # bin
     numThings += 1         # bin3
 
-    # install run/scripts first which will make sure that the dir is a git
-    # repo if the dir exists
-    printProgress('scripts')
-    installGitRepo('scripts', 'run/scripts')
-
+    # install run/data/common
+    # the git install checks to see if the dir is svn and bails
+    printProgress('common')
+    installGitRepo('common', 'run/data/common')
+    
     # download OCSSW_bash.env
     printProgress('OCSSW_bash.env')
     installFile('OCSSW_bash.env', False);
@@ -331,10 +331,6 @@ if __name__ == "__main__":
         printProgress('src')
         installGitRepo('build', 'build')
         
-    # install run/data/common
-    printProgress('common')
-    installGitRepo('common', 'run/data/common')
-    
     # install run/data/ocrvc
     printProgress('ocrvc')
     installGitRepo('ocrvc', 'run/data/ocrvc')
@@ -441,6 +437,15 @@ if __name__ == "__main__":
     dirStr = 'run/bin3/' + arch
     printProgress('bin3')
     installGitRepo(repo, dirStr)
+
+    #####################################################
+    # install the scripts last since it is used as
+    # an install sanity check
+    #####################################################
+
+    # install run/scripts
+    printProgress('scripts')
+    installGitRepo('scripts', 'run/scripts')
 
     # check the version of python
     commandStr = os.path.join(installDir, 'run/scripts/ocssw_runner')
