@@ -214,7 +214,7 @@ def cleanList(file):
 
     oldfile = os.path.abspath(file)
     newlist = []
-    parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5))")
+    parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5|dat|txt))")
     if not os.path.exists(oldfile):
         print 'Error: ' + oldfile + ' does not exist'
         sys.exit(1)

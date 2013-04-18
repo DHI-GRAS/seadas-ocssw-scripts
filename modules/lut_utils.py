@@ -28,18 +28,37 @@ class lut_utils:
         update the aquarius luts
         """
         if self.verbose: print "[ Aquarius ]"
-
-        # solar_flux_noon.txt
-        url = self.data_site + "/Ancillary/LUTs/aquarius/solar_flux_noon.txt"
+        # Get most recent version from local disk
         outputdir = os.path.join(self.dirs['var'], 'aquarius')
-        status = ProcUtils.httpdl(url, localpath=outputdir, timeout=self.timeout)
+        listFile = os.path.join(outputdir, "index.html")
+        if not os.path.exists(outputdir):
+            os.makedirs(outputdir)
+#        luts = os.listdir(outputdir)
+#        for f in luts:
+#            if os.path.isdir(f) or re.search('^\.', f):
+#                luts.remove(f)
+
+        # Get remote list of files and download if necessary
+        # OPER
+        status = ProcUtils.httpdl(
+            self.data_site + "/Ancillary/LUTs/aquarius/index.html",
+            localpath=outputdir, timeout=self.timeout)
         if status:
-            print "* ERROR: The download failed with status code: " + str(status)
-            print "* Please check your network connection and for the existence of the remote file:"
-            print "* " + self.data_site + "/Ancillary/LUTs/aquarius/solar_flux_noon.txt"
+            print "Error downloading %s" % '/'.join(
+                [self.data_site, "Ancillary/LUTs/aquarius/"])
             self.status = 1
-        else:
-            if self.verbose: print "+ solar_flux_noon.txt"
+
+        operlist = ProcUtils.cleanList(listFile)
+        ProcUtils.remove(listFile)
+        for f in operlist:
+            status = ProcUtils.httpdl(
+                self.data_site + "/Ancillary/LUTs/aquarius/" + f,
+                localpath=outputdir, timeout=self.timeout)
+            if status:
+                print "Error downloading %s" % f
+                self.status = 1
+            else:
+                if self.verbose: print "+ " + f
 
         if self.verbose: print "[ Done ]\n"
 
