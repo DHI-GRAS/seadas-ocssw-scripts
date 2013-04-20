@@ -21,7 +21,7 @@ def getUrlFileName(openUrl):
 
 
 def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
-           timeout=10., reqHeaders={}):
+           timeout=10., reqHeaders={},verbose=False):
     """
     Copy the contents of a file from a given URL to a local file
     Inputs:
@@ -57,9 +57,10 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
         elif ntries > 0:
             if response:
                 response.close()
-            print "Connection error, retrying up to %d more time(s)" % ntries
+            if verbose:
+                print "Connection interrupted, retrying up to %d more time(s)" % ntries
             sleep(sleepytime)
-            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress)
+            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress,verbose=verbose)
         else:
             print 'We failed to reach a server.'
             print 'Please retry this request at a later time.'
@@ -76,9 +77,10 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
         if ntries > 0:
             if response:
                 response.close()
-            print "Connection error, retrying up to %d more time(s)" % ntries
+            if verbose:
+                print "Connection interrupted, retrying up to %d more time(s)" % ntries
             sleep(sleepytime)
-            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress)
+            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress,verbose=verbose)
         else:
             print 'The server could not fulfill the request.'
             print 'URL attempted: %s' % url
@@ -93,7 +95,8 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
         if ntries > 0:
             if response:
                 response.close()
-            print "Connection error, retrying up to %d more time(s)" % ntries
+            if verbose:
+                print "Connection error, retrying up to %d more time(s)" % ntries
             sleep(sleepytime)
             status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress)
         else:

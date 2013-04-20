@@ -296,7 +296,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                                         msnchar, opt_flag]),
                                         os.path.abspath(os.path.dirname(self.server_file)),
                                         outputfilename=self.server_file,
-                                        timeout=self.timeout
+                                        timeout=self.timeout,
+                                        verbose=self.verbose
             )
         else:
             dlstat = ProcUtils.httpdl(''.join([self.query_site,
@@ -307,7 +308,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                                         msnchar, opt_flag]),
                                         os.path.abspath(os.path.dirname(self.server_file)),
                                         outputfilename=self.server_file,
-                                        timeout=self.timeout
+                                        timeout=self.timeout,
+                                        verbose=self.verbose
             )
         gc.collect()
 
@@ -471,7 +473,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                 else:
                     if self.verbose:
                         print "Downloading '" + FILE + "' to " + self.dirs['path']
-                    status = ProcUtils.httpdl(''.join([self.data_site, '/cgi/getfile/', FILE]),
+                    status = ProcUtils.httpdl(''.join([self.data_site, '/cgi/getfile/', FILE],verbose=self.verbose),
                             self.dirs['path'],timeout=self.timeout, uncompress=True)
                     gc.collect()
                     if status:
