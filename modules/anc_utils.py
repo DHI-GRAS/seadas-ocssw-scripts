@@ -473,8 +473,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                 else:
                     if self.verbose:
                         print "Downloading '" + FILE + "' to " + self.dirs['path']
-                    status = ProcUtils.httpdl(''.join([self.data_site, '/cgi/getfile/', FILE],verbose=self.verbose),
-                            self.dirs['path'],timeout=self.timeout, uncompress=True)
+                    status = ProcUtils.httpdl(''.join([self.data_site, '/cgi/getfile/', FILE]),
+                            self.dirs['path'],timeout=self.timeout, uncompress=True,verbose=self.verbose)
                     gc.collect()
                     if status:
                         print "*** ERROR: The HTTP transfer failed with status code " + str(status) + "."
