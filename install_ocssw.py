@@ -9,7 +9,7 @@ import sys
 verbose = False
 installDir = None
 gitBase =  'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
-curlCommand = 'curl -# -O --retry 5 --retry-delay 5 '
+curlCommand = 'curl -O --retry 5 --retry-delay 5 '
 
 # globals for progress display
 numThings = 1
@@ -61,7 +61,7 @@ def installGitRepo(repoName, dir):
             print "aborting - " + fullDir + " is an svn repository."
             exit(1)
         # directory exists try a git update
-        commandStr = 'cd ' + fullDir + '; git pull'
+        commandStr = 'cd ' + fullDir + '; git pull --progress'
         if verbose:
             print "Updating existing directory -", fullDir
         else:
@@ -80,7 +80,7 @@ def installGitRepo(repoName, dir):
 
         # git clone
         commandStr = 'cd ' + installDir + '; ' 
-        commandStr += 'git clone -b master ' + repoName + '.bundle ' + fullDir
+        commandStr += 'git clone --progress -b master ' + repoName + '.bundle ' + fullDir
         retval = os.system(commandStr)
         if retval != 0:
             print 'Error - Could not run \"' + commandStr + '\"'
@@ -97,8 +97,8 @@ def installGitRepo(repoName, dir):
             print 'Error - Could not run \"' + commandStr + '\"'
             exit(1)
 
-        # git pull to make sure up to date
-        commandStr = 'cd ' + fullDir + '; git pull > /dev/null'
+        # git pull to make sure we are up to date
+        commandStr = 'cd ' + fullDir + '; git pull --progress > /dev/null'
         retval = os.system(commandStr)
         if retval != 0:
             print 'Error - Could not run \"' + commandStr + '\"'
