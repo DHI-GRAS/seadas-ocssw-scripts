@@ -15,6 +15,10 @@ if [ $1 = --ocsswroot ]; then
 fi
 
 source $OCSSWROOT/OCSSW_bash.env
+if [ "$OCSSW_ARCH" = "linux" -o "$OCSSW_ARCH" = "linux_64" ] ; then
+    ulimit -s unlimited
+fi
+
 $*
 
 
