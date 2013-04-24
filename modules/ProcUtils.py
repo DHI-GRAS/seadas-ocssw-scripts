@@ -206,7 +206,7 @@ def uncompressFile(file):
         return 0
 
 
-def cleanList(file):
+def cleanList(file,parse=None):
     """
     Parses file list from oceandata.sci.gsfc.nasa.gov through html source
     intended for update_luts.py, by may have other uses
@@ -217,7 +217,8 @@ def cleanList(file):
 
     oldfile = os.path.abspath(file)
     newlist = []
-    parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5|dat|txt))")
+    if parse is None:
+        parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5|dat|txt))")
     if not os.path.exists(oldfile):
         print 'Error: ' + oldfile + ' does not exist'
         sys.exit(1)

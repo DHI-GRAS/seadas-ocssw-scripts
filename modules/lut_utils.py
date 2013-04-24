@@ -156,7 +156,8 @@ class lut_utils:
                     [self.data_site, "Ancillary/LUTs", msn[self.mission], cal, "OPER/"])
                 self.status = 1
 
-            operlist = ProcUtils.cleanList(listFile)
+            parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5))")
+            operlist = ProcUtils.cleanList(listFile,parse=parse)
             ProcUtils.remove(listFile)
 
             listsplitstr = 'LUTs.'
