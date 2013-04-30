@@ -5,16 +5,69 @@ import os
 import urllib
 import subprocess
 import sys
+import hashlib
 
 verbose = False
 installDir = None
 gitBase =  'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
 curlCommand = 'curl -O --retry 5 --retry-delay 5 '
+checksumFileName = 'bundles.sha256sum'
+checksumDict = {}
+downloadTries = 2
 
 # globals for progress display
 numThings = 1
 currentThing = 1
 
+def loadChecksums():
+    """
+    Download and read the bundle checksums into checksumDict.
+    """
+    global checksumDict
+    installFile(checksumFileName, False)
+    if verbose:
+        print 'Loading checksum file.'
+    try:
+        csFile = open(os.path.join(installDir, checksumFileName), 'r')
+    except IOError:
+        print "Bundle checksum file (" + checksumFileName + ") not downloaded"
+        exit(1)
+    for line in csFile:
+        parts = line.strip().split()
+        if len(parts) == 2:
+            checksumDict[parts[1]] = parts[0]
+    csFile.close()
+    
+def testFileChecksum(fileName):
+    """
+    test the checksum on the given bundle file.
+    """
+    global checksumDict
+    if verbose:
+        print 'comparing checksum for ' + fileName
+    if fileName not in checksumDict:
+        print fileName + ' is not in the checksum file.'
+        exit(1)
+        
+    bundleDigest = checksumDict[fileName]
+    blocksize = 65536
+    hasher = hashlib.sha256()
+    try:
+        bundleFile = open(os.path.join(installDir, fileName), 'rb')
+    except IOError:
+        print "Bundle file (" + fileName + ") not downloaded"
+        exit(1)
+
+    buf = bundleFile.read(blocksize)
+    while len(buf) > 0:
+        hasher.update(buf)
+        buf = bundleFile.read(blocksize)
+    digest = hasher.hexdigest()
+    bundleFile.close()
+    if digest != bundleDigest:
+        print 'Checksum for ' + fileName + ' does not match'
+        return False
+    return True
 
 def makeDir(dir):
     """
@@ -76,7 +129,19 @@ def installGitRepo(repoName, dir):
             print "Downloading new directory -", fullDir
 
         # download bundle
-        installFile(repoName + '.bundle')
+        testFailed = True
+        count = 0
+        while count < downloadTries:
+            count += 1
+            installFile(repoName + '.bundle')
+            if testFileChecksum(repoName + '.bundle'):
+                testFailed = False
+                break
+            deleteFile(repoName + '.bundle')
+            
+        if testFailed:
+            print "Tried to download " + repoName + ".bundle " + str(downloadTries) + " times, but failed checksum"
+            exit(1)
 
         # git clone
         commandStr = 'cd ' + installDir + '; ' 
@@ -269,12 +334,12 @@ if __name__ == "__main__":
     currentThing = 1
     numThings = 1
 
-    numThings += 1         # scripts
+    numThings += 1         # bundle checksum file
+    numThings += 1         # common
     numThings += 1         # OCSSW_bash.env
     numThings += 1         # README
     if options.src:
         numThings += 1     # src
-    numThings += 1         # common
     numThings += 1         # ocrvc
     if options.aquarius:
         numThings += 2     # aquarius + luts
@@ -312,6 +377,11 @@ if __name__ == "__main__":
         numThings += 2     # viirsn + luts
     numThings += 1         # bin
     numThings += 1         # bin3
+    numThings += 1         # scripts
+
+    # download checksum file
+    printProgress(checksumFileName)
+    loadChecksums()
 
     # install run/data/common
     # the git install checks to see if the dir is svn and bails
