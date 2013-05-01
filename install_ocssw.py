@@ -9,7 +9,7 @@ import hashlib
 
 verbose = False
 installDir = None
-gitBase =  'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
+gitBase = 'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
 curlCommand = 'curl -O --retry 5 --retry-delay 5 '
 checksumFileName = 'bundles.sha256sum'
 checksumDict = {}
@@ -37,7 +37,7 @@ def loadChecksums():
         if len(parts) == 2:
             checksumDict[parts[1]] = parts[0]
     csFile.close()
-    
+
 def testFileChecksum(fileName):
     """
     test the checksum on the given bundle file.
@@ -48,7 +48,7 @@ def testFileChecksum(fileName):
     if fileName not in checksumDict:
         print fileName + ' is not in the checksum file.'
         exit(1)
-        
+
     bundleDigest = checksumDict[fileName]
     blocksize = 65536
     hasher = hashlib.sha256()
@@ -87,14 +87,14 @@ def deleteFile(fileName):
         os.remove(os.path.join(installDir, fileName))
     except:
         pass
-    
+
 def installFile(fileName, continueFlag=True):
     """
     Downloads the file to the install dir
     """
     if verbose:
         print 'Downloading', fileName
-    
+
     commandStr = 'cd ' + installDir + '; ' + curlCommand
     if continueFlag:
         commandStr += '-C - '
@@ -138,13 +138,13 @@ def installGitRepo(repoName, dir):
                 testFailed = False
                 break
             deleteFile(repoName + '.bundle')
-            
+
         if testFailed:
             print "Tried to download " + repoName + ".bundle " + str(downloadTries) + " times, but failed checksum"
             exit(1)
 
         # git clone
-        commandStr = 'cd ' + installDir + '; ' 
+        commandStr = 'cd ' + installDir + '; '
         commandStr += 'git clone --progress -b master ' + repoName + '.bundle ' + fullDir
         retval = os.system(commandStr)
         if retval != 0:
@@ -168,7 +168,7 @@ def installGitRepo(repoName, dir):
         if retval != 0:
             print 'Error - Could not run \"' + commandStr + '\"'
             exit(1)
-        
+
 def getArch():
     """
     Return the system arch string.
@@ -202,29 +202,29 @@ def printProgress(name):
 
 
 if __name__ == "__main__":
-    
+
     # Read commandline options...
     version = "%prog 1.0"
     usage = '''usage: %prog [options]'''
     parser = OptionParser(usage=usage, version=version)
 
-    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", 
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
                       default=False, help="Print more information while running")
-    parser.add_option("-i", "--install-dir", action="store", 
+    parser.add_option("-i", "--install-dir", action="store",
                       dest="install_dir",
                       help="destination directory for install. Defaults to $OCSSWROOT or \"$HOME/ocssw\" if neither are given.")
-    parser.add_option("-g", "--git-base", action="store",  dest="git_base", 
+    parser.add_option("-g", "--git-base", action="store", dest="git_base",
                       default="http://oceandata.sci.gsfc.nasa.gov/ocssw/",
                       help="Web location for the git repositories")
-    parser.add_option("-a", "--arch", action="store",dest='arch', 
+    parser.add_option("-a", "--arch", action="store", dest='arch',
            help="set system architecture (linux, linux_64, macosx_intel)")
-    parser.add_option("-s", "--src", action="store_true",dest='src', 
+    parser.add_option("-s", "--src", action="store_true", dest='src',
                       default=False, help="install source code")
 
     # add missions
-    parser.add_option("--aquarius", action="store_true", dest="aquarius", 
+    parser.add_option("--aquarius", action="store_true", dest="aquarius",
                       default=False, help="install Aquarius files")
-    parser.add_option("--avhrr", action="store_true", dest="avhrr", 
+    parser.add_option("--avhrr", action="store_true", dest="avhrr",
                       default=False, help="install AVHRR files")
     parser.add_option("--czcs", action="store_true", dest="czcs", default=False,
                       help="install CZCS files")
@@ -232,11 +232,11 @@ if __name__ == "__main__":
                       help="install GOCI files")
     parser.add_option("--hico", action="store_true", dest="hico", default=False,
                       help="install HICO files")
-    parser.add_option("--meris", action="store_true", dest="meris", 
+    parser.add_option("--meris", action="store_true", dest="meris",
                       default=False, help="install MERIS files")
     parser.add_option("--aqua", action="store_true", dest="aqua", default=False,
                       help="install MODIS Aqua files")
-    parser.add_option("--terra", action="store_true", dest="terra", 
+    parser.add_option("--terra", action="store_true", dest="terra",
                       default=False, help="install MODIS Terra files")
     parser.add_option("--mos", action="store_true", dest="mos", default=False,
                       help="install MOS files")
@@ -248,12 +248,12 @@ if __name__ == "__main__":
                       help="install OCTS files")
     parser.add_option("--osmi", action="store_true", dest="osmi", default=False,
                       help="install OSMI files")
-    parser.add_option("--seawifs", action="store_true", dest="seawifs", 
+    parser.add_option("--seawifs", action="store_true", dest="seawifs",
                       default=False, help="install SeaWiFS files")
-    parser.add_option("--viirsn", action="store_true", dest="viirsn", 
+    parser.add_option("--viirsn", action="store_true", dest="viirsn",
                       default=False, help="install VIIRSN files")
     parser.add_option("--direct-broadcast", action="store_true",
-                      dest='direct_broadcast', 
+                      dest='direct_broadcast',
                       default=False, help="install direct broadcast files")
     parser.add_option("--eval", action="store_true", dest="eval", default=False,
                       help="install evaluation sensor files")
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     gitBase = options.git_base
     if not gitBase.endswith('/'):
         gitBase += '/'
-    
+
     verbose = options.verbose
 
     # set installDir using param or a default
@@ -308,7 +308,7 @@ if __name__ == "__main__":
         print 'Error - Could not execute system command \"' + commandStr + '\"'
         exit(1)
 
-    cmd = ['git','config', "--get", "user.name"]
+    cmd = ['git', 'config', "--get", "user.name"]
     gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
     if verbose:
         print "git user.name = \"" + gitResult.rstrip() + "\""
@@ -319,7 +319,7 @@ if __name__ == "__main__":
             print 'Error - Could not execute system command \"' + commandStr + '\"'
             exit(1)
 
-    cmd = ['git','config', "--get", "user.email"]
+    cmd = ['git', 'config', "--get", "user.email"]
     gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
     if verbose:
         print "git user.email = \"" + gitResult.rstrip() + "\""
@@ -387,7 +387,7 @@ if __name__ == "__main__":
     # the git install checks to see if the dir is svn and bails
     printProgress('common')
     installGitRepo('common', 'run/data/common')
-    
+
     # download OCSSW_bash.env
     printProgress('OCSSW_bash.env')
     installFile('OCSSW_bash.env', False);
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     if options.src:
         printProgress('src')
         installGitRepo('build', 'build')
-        
+
     # install run/data/ocrvc
     printProgress('ocrvc')
     installGitRepo('ocrvc', 'run/data/ocrvc')
@@ -501,7 +501,7 @@ if __name__ == "__main__":
     dirStr = 'run/bin/' + arch
     printProgress('bin')
     installGitRepo(repo, dirStr)
-   
+
     # download bin dir3
     repo = 'bin3-' + arch
     dirStr = 'run/bin3/' + arch
@@ -516,6 +516,16 @@ if __name__ == "__main__":
     # install run/scripts
     printProgress('scripts')
     installGitRepo('scripts', 'run/scripts')
+
+    # check that shared libc version will work
+    commandStr = os.path.join(installDir, 'run', 'bin3', arch, 'hdp')
+    commandStr += ' -H list > /dev/null'
+    if verbose:
+        print 'Checking that an installed executable can run'
+    retval = os.system(commandStr)
+    if retval != 0:
+        print 'Error - Can not run an installed executable'
+        exit(1)
 
     # check the version of python
     commandStr = os.path.join(installDir, 'run/scripts/ocssw_runner')
@@ -568,4 +578,4 @@ if __name__ == "__main__":
             exit(1)
 
     exit(0)
-    
+
