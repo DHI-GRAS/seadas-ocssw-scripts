@@ -40,9 +40,9 @@ if __name__ == "__main__":
     parser.add_option("-o", "--output", dest='geofile',
         help="Output filename", metavar="GEOFILE")
     parser.add_option("-a", "--att1", dest='att1',
-        help="Input attitude file 1 (chronological)", metavar="ATT1")
+        help="Input attitude  file 1 (chronological)", metavar="ATT1")
     parser.add_option("-A", "--att2", dest='att2',
-        help="Input attitude file 2 (chronological)", metavar="ATT2")
+        help="Input attitude  file 2 (chronological)", metavar="ATT2")
     parser.add_option("-e", "--eph1", dest='eph1',
         help="Input ephemeris file 1 (chronological)", metavar="EPH1")
     parser.add_option("-E", "--eph2", dest='eph2',
@@ -137,6 +137,10 @@ if __name__ == "__main__":
     m.chk()
     m.utcleap()
     if entrained is False:
-        m.atteph()
+        try:
+            m.atteph()
+        except SystemExit:
+            print "Cannot create geolocation from %s; exiting." % file
+            raise
     buildpcf(m)
     m.run()

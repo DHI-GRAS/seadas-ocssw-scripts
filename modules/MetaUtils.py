@@ -10,10 +10,72 @@ import subprocess
 import sys
 import types
 
+def get_hdf4_content(filename):
+    """
+    Returns the header content from an HDF 4 file, which is obtained via
+    'hdp dumpsds'.
+    """
+    # does executable exist?
+    hdp = os.path.join(os.getenv('LIB3_BIN'), 'hdp')
+    if not (os.path.isfile(hdp) and os.access(hdp, os.X_OK)):
+        print hdp, "is not executable."
+        return None
+
+    # dump file header
+    cmd = [hdp, 'dumpsds', '-h', '-s', filename]
+    hdp_data = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
+    contents = hdp_data.read()
+    return contents
+
+def get_hdf5_content(filename):
+    """
+    Returns the header content from an HDF 5 file which is obtained via
+    'h5dump -Au'.
+    """
+    h5dump = os.path.join(os.getenv('LIB3_BIN'), 'h5dump')
+    if not (os.path.isfile(h5dump) and os.access(h5dump, os.X_OK)):
+        print h5dump, "is not executable."
+        return None
+
+    # dump file header
+    cmd = [h5dump,  '-Au', filename]
+    h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE).stdout
+    content = h5dump_output.read()
+    if content.find('HDF') != -1:
+        return content
+    else:
+        return None
+
+def is_ascii_file(filename):
+    """
+    Returns True if the given file is an ASCII text file, False otherwise.
+    """
+    file_cmd_path = os.path.join(os.sep, 'usr', 'bin', 'file')
+    if os.path.exists(file_cmd_path) and os.access(file_cmd_path, os.X_OK):
+        file_cmd = ' '.join([file_cmd_path, '--brief', filename])
+        file_output = subprocess.Popen(file_cmd, shell=True,
+                                       stdout=subprocess.PIPE).stdout
+        file_type = file_output.read().strip()
+        if file_type.startswith('ASCII text'):
+            return True
+        else:
+            return False
+    else:
+        err_msg = 'Error!  Unable to run the file command.'
+        sys.exit(err_msg)
+
+# Todo: implement the function below.
+#def is_hdf5_file(filename):
+#    """
+#    (Still in development) Will return True when the file specified by filename
+#    is an HDF 5 file.
+#    """
+#    pass
+
 def dump_metadata(filename):
     """Dump file metadata:
-        Use 'hdp dumpsds' for hdf4 files
-        Use 'h5dump -Au' for hdf5 files
+        Call functions to get HDF 4 and HDF 5 header data
         read ASCII header from MERIS N1 files
     """
 
@@ -22,69 +84,53 @@ def dump_metadata(filename):
         print "Can't find input file '" + filename + "'."
         return None
 
-    hdp = os.path.join(os.getenv('LIB3_BIN'), 'hdp')
-    h5dump = os.path.join(os.getenv('LIB3_BIN'), 'h5dump')
     ncdump = os.path.join(os.getenv('LIB3_BIN'), 'ncdump')
     ncdump_hdf = os.path.join(os.getenv('LIB3_BIN'), 'ncdump_hdf')
 
-    mimecmd = ['file','--brief',filename]
+    mimecmd = ['file', '--brief', filename]
     mime = subprocess.Popen(mimecmd, stdout=subprocess.PIPE).communicate()[0]
 
-    if re.search('Hierarchical.*version.4',mime):
-        # does executable exist?
-        if not (os.path.isfile(hdp) and os.access(hdp, os.X_OK)):
-            print hdp, "is not executable."
-            return None
+    if mime.strip() == 'data':
+        content = get_hdf5_content(filename)
+        if content:
+            return content
 
-        # dump file header
-        cmd = [hdp, 'dumpsds', '-h', '-s', filename]
-        f = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-        contents = f.read()
+    if re.search('Hierarchical.*version.4', mime):
+        contents = get_hdf4_content(filename)
         return contents
-    elif re.search('Hierarchical.*version.5',mime):
-        if not (os.path.isfile(h5dump) and os.access(h5dump, os.X_OK)):
-            print h5dump, "is not executable."
-            return None
-
-        # dump file header
-        cmd = [h5dump,  '-Au', filename]
-        f = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-        return f.read()
+    elif re.search('Hierarchical.*version.5', mime):
+        content = get_hdf5_content(filename)
+        return content
     elif re.search('NetCDF Data Format', mime):
         if not (os.path.isfile(ncdump_hdf) and os.access(ncdump_hdf, os.X_OK)):
             print ncdump_hdf, "is not executable."
             return None
         cmd = ' '.join([ncdump_hdf, '-h', filename])
-        f = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).communicate()
-        return f[0].split('\n')
+        hdr_content = subprocess.Popen(cmd, shell=True,
+                             stdout=subprocess.PIPE).communicate()
+        return hdr_content[0].split('\n')
     else:
-        fb = open(filename,'r',1)
+        fb = open(filename, 'r', 1)
         line1 = fb.readline()
         fb.close()
 
-        if (re.search("HDF_UserBlock",line1)):
-            if not (os.path.isfile(h5dump) and os.access(h5dump, os.X_OK)):
-                print h5dump, "is not executable."
-                return None
-
-            # dump file header
-            cmd = [h5dump,  '-Au', filename]
-            f = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-            return f.read()
+        if (re.search("HDF_UserBlock", line1)):
+            content = get_hdf5_content(filename)
+            return content
         elif line1[0:3] == 'CDF':
             # For NetCDF files, such as some from MERIS
             cmd = [ncdump, '-h', filename]
-            f = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-            return f.read()
+            hdr_content = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
+            return hdr_content.read()
         else:
             header = []
-            fb = open(filename,'r',100)
+            fb = open(filename, 'r', 100)
             for line in fb.readlines(100):
                 line = line.strip()
                 if not len(line):
                     continue
                 header.append(line)
-                if re.search('LAST_LAST_LONG',line):
+                if re.search('LAST_LAST_LONG', line):
                     break
             fb.close()
             return header
@@ -105,10 +151,10 @@ def readMetadata(filename):
 
     # extract meaningful parts
     if isinstance(text, list):
-        if re.search('PRODUCT',text[0]):
+        if re.search('PRODUCT', text[0]):
             attrs = {}
             for line in text:
-                (key,value) = str(line).split('=')
+                (key, value) = str(line).split('=')
                 attrs[key] = str(value).strip('"')
             return attrs
         elif text[0][0:4] == 'CWIF':
@@ -132,7 +178,7 @@ def readMetadata(filename):
                     pos += 1
                 attrs[key.strip()] = fields[1].strip()
         return attrs
-    elif re.search('<\?xml', text):
+    elif re.search(r'<\?xml', text):
         # if hdf5 file
         attrs = get_xml_attr(text)
     else:
@@ -140,7 +186,8 @@ def readMetadata(filename):
         file_attr_re = re.compile('File attributes:(.+?)\n', re.MULTILINE | re.DOTALL)
         file_attr_results = file_attr_re.search(text)
         if file_attr_results != None:
-            file_attr_var_re = re.compile('File attributes:(.+?)\nVariable', re.MULTILINE | re.DOTALL)
+            file_attr_var_re = re.compile('File attributes:(.+?)\nVariable',
+                                          re.MULTILINE | re.DOTALL)
             file_attr_var_results = file_attr_var_re.search(text)
             if file_attr_var_results != None:
                 allmeta = file_attr_var_results.group(1)
@@ -155,8 +202,8 @@ def readMetadata(filename):
 def get_attr(text):
     attrs = {}
     lines = text.split('\n')
-    attr_pattern = re.compile('^\s*Attr\d+: Name = ')
-    value_pattern = re.compile('^\s*Value = ')
+    attr_pattern = re.compile(r'^\s*Attr\d+: Name = ')
+    value_pattern = re.compile(r'^\s*Value = ')
     in_attr = False
     for line in lines:
         if re.match(attr_pattern, line):
@@ -164,7 +211,7 @@ def get_attr(text):
             attr_name = line.split('=')[1].strip()
         elif in_attr:
             if re.match(value_pattern, line):
-                val = str(line).split('=')[1].strip()
+                val = str(line).split('=', 1)[1].strip()
                 attrs[attr_name] = val
     return attrs
 
@@ -231,7 +278,8 @@ def parse_odl(text):
 
     # get value(s) at innermost level
     if not len(items.keys()):
-        for line in text.splitlines(): get_value(line, items)
+        for line in text.splitlines():
+            get_value(line, items)
 
     return items
 
@@ -265,20 +313,3 @@ def prune_odl(metadict):
     du.flatten_dict(metadict)
     return
 
-def is_ascii_file(filename):
-    """
-    Returns True if the given file is an ASCII text file, False otherwise.
-    """
-    file_cmd_path = os.path.join(os.sep, 'usr', 'bin', 'file')
-    if os.path.exists(file_cmd_path) and os.access(file_cmd_path, os.X_OK):
-        file_cmd = ' '.join([file_cmd_path, '--brief', filename])
-        file_output = subprocess.Popen(file_cmd, shell=True,
-                                       stdout=subprocess.PIPE).stdout
-        file_type = file_output.read().strip()
-        if file_type.startswith('ASCII text'):
-            return True
-        else:
-            return False
-    else:
-        err_msg = 'Error!  Unable to run the file command.'
-        sys.exit(err_msg)

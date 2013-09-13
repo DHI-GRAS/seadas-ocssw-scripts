@@ -3,6 +3,10 @@ __author__ = 'sbailey'
 
 import MySQLdb
 import re
+import os
+import inspect
+from modules.ParamUtils import ParamProcessing
+
 
 class ancDB:
     def __init__(self, dbfile=None, local=False):
@@ -14,11 +18,33 @@ set of functions to generate, update, and read from a local SQLite database of a
         self.conn = None
         self.cursor = None
 
-    def openDB(self):
+    def openDB(self,dbInitFile=".ancDBinit"):
         """
         Open connection to the ancillary DB and initiate a cursor
         """
-        conn = MySQLdb.connect(host="localhost",user="root",passwd="",db="test",unix_socket="/tmp/mysql.sock" )
+
+        hostname="localhost"
+        username="ancUser"
+        password=""
+        database="seadas_ancillary_data"
+        socket="/tmp/mysql.sock"
+        initpath = os.path.dirname(inspect.getfile(ancDB))
+        pfile= '/'.join([initpath,dbInitFile])
+        p = ParamProcessing(parfile=pfile)
+        p.parseParFile()
+        hash = p.params['main']
+        if hash['hostname']:
+            hostname = hash['hostname']
+        if hash['username']:
+            username = hash['username']
+        if hash['password']:
+            password = hash['password']
+        if hash['database']:
+            database = hash['database']
+        if hash['socket']:
+            socket = hash['socket']
+
+        conn = MySQLdb.connect(host=hostname,user=username,passwd=password,db=database,unix_socket=socket)
         self.conn = conn
         c = conn.cursor()
         self.cursor = c
@@ -104,7 +130,6 @@ set of functions to generate, update, and read from a local SQLite database of a
 
         if ancid is None:
             sqlcmd = 'INSERT INTO ancfiles VALUES (NULL,"%s","%s","%s")' % (ancfile, ancpath, anctype)
-            print sqlcmd
             c.execute(sqlcmd)
             self.conn.commit()
             ancid = ancDB.check_file(self, ancfile, anctype=anctype)
@@ -112,11 +137,9 @@ set of functions to generate, update, and read from a local SQLite database of a
         opt = self.check_dbrtn_status(dbstat, anctype)
         sqlcmd = 'SELECT * from satancinfo where satid = %d and ancid = %d' % (int(satid), int(ancid))
         result = c.execute(sqlcmd)
-#        r = result.fetchone()
 
         if not result:
             sqlcmd = 'INSERT INTO satancinfo VALUES (%d,%d,%d)' % (int(satid), int(ancid), int(opt))
-            print sqlcmd
             c.execute(sqlcmd)
 
 
@@ -203,15 +226,16 @@ set of functions to generate, update, and read from a local SQLite database of a
             table = 'ancfiles'
             id = 'ancid'
             query = ' '.join(['select', id, 'from', table, 'where filename =', '"' + filename + '"', " and type = ",
-                              '"' + anctype + '"']) 
-        
+                              '"' + anctype + '"'])
+
+
         result = c.execute(query)
-        #r = result.fetchone()
+        r = c.fetchone()
 
         if not result:
             return None
         else:
-            return result
+            return r[0]
 
     def get_status(self, filename, atteph=False):
         """
@@ -228,12 +252,12 @@ set of functions to generate, update, and read from a local SQLite database of a
             query = ' '.join(['select status from satfiles where filename =', '"' + filename + '"'])
 
         result = c.execute(query)
-#        r = result.fetchone()
+        r = c.fetchone()
 
         if not result:
             return None
         else:
-            return result.fetchone()
+            return r[0]
 
     def get_filetime(self, filename):
         """
@@ -247,8 +271,9 @@ set of functions to generate, update, and read from a local SQLite database of a
         query = ' '.join(['select starttime,stoptime from satfiles where filename =', '"' + filename + '"'])
 
         result = c.execute(query)
-        r = result.fetchone()
-        return [r[0],r[1]]
+        if result:
+            r = c.fetchone()
+            return [r[0],r[1]]
 
     def get_ancfiles(self, filename, atteph=False):
         """
@@ -270,7 +295,6 @@ set of functions to generate, update, and read from a local SQLite database of a
         c.execute(sqlcmd)
         result = c.fetchall()
         for row in result:
-            print row
             anctype = row[0]
             if atteph and not re.search('(att|eph)', anctype, re.IGNORECASE):
                 continue

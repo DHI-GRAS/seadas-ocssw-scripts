@@ -36,7 +36,9 @@ def get_1_file_name(data_file, target_program, clopts):
     """
     Return the next level name for a single file.
     """
-    level_finder = get_level_finder([data_file], target_program, clopts)
+    level_finder = next_level_name_finder.get_level_finder([data_file],
+                                                           target_program,
+                                                           clopts)
     next_level_name = level_finder.get_next_level_name()
     return next_level_name
 
@@ -70,9 +72,9 @@ def get_multifile_output_name(data_files_list_info, target_program, clopts):
             err_msg = 'Error!  File types do not match for {0} and {1}'.\
                       format(data_files_list_info[0].name, data_file.name)
             sys.exit(err_msg)
-#    level_finder = next_level_name_finder.NextLevelNameFinder(data_files_list_info,
-#                                                              target_program)
-    level_finder = get_level_finder(data_files_list_info, target_program, clopts)
+    level_finder = next_level_name_finder.get_level_finder(data_files_list_info,
+                                                           target_program,
+                                                           clopts)
     output_name = level_finder.get_next_level_name()
 #    first_char = level_finder.get_platform_indicator()
 #    time_ext = next_level_name_finder.get_time_period_extension(
@@ -140,39 +142,39 @@ def get_data_files_info(file_list_file):
     file_info.sort()
     return file_info
 
-def get_level_finder(data_file_list, target_program, clopts):
-    """
-    Returns an appropriate level finder object for the data file passed in.
-    """
-    if data_file_list[0].sensor.find('MODIS') != -1:
-        if clopts.l2_suite:
-            level_finder = next_level_name_finder.ModisNextLevelNameFinder(
-                            data_file_list, target_program, clopts.l2_suite)
-        else:
-            level_finder = next_level_name_finder.ModisNextLevelNameFinder(
-                            data_file_list, target_program)
-    elif data_file_list[0].sensor.find('SeaWiFS') != -1:
-        if clopts.l2_suite:
-            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
-                data_file_list, target_program, clopts.l2_suite)
-        else:
-            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
-                data_file_list, target_program)
-    elif data_file_list[0].sensor.find('Aquarius') != -1:
-        if clopts.l2_suite:
-            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
-                data_file_list, target_program, clopts.l2_suite)
-        else:
-            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
-                data_file_list, target_program)
-    else:
-        if clopts.l2_suite:
-            level_finder = next_level_name_finder.NextLevelNameFinder(
-                            data_file_list, target_program, clopts.l2_suite)
-        else:
-            level_finder = next_level_name_finder.NextLevelNameFinder(
-                            data_file_list, target_program)
-    return level_finder
+#def get_level_finder(data_file_list, target_program, clopts):
+#    """
+#    Returns an appropriate level finder object for the data file passed in.
+#    """
+#    if data_file_list[0].sensor.find('MODIS') != -1:
+#        if clopts.l2_suite:
+#            level_finder = next_level_name_finder.ModisNextLevelNameFinder(
+#                            data_file_list, target_program, clopts.l2_suite)
+#        else:
+#            level_finder = next_level_name_finder.ModisNextLevelNameFinder(
+#                            data_file_list, target_program)
+#    elif data_file_list[0].sensor.find('SeaWiFS') != -1:
+#        if clopts.l2_suite:
+#            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
+#                data_file_list, target_program, clopts.l2_suite)
+#        else:
+#            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
+#                data_file_list, target_program)
+#    elif data_file_list[0].sensor.find('Aquarius') != -1:
+#        if clopts.l2_suite:
+#            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
+#                data_file_list, target_program, clopts.l2_suite)
+#        else:
+#            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
+#                data_file_list, target_program)
+#    else:
+#        if clopts.l2_suite:
+#            level_finder = next_level_name_finder.NextLevelNameFinder(
+#                            data_file_list, target_program, clopts.l2_suite)
+#        else:
+#            level_finder = next_level_name_finder.NextLevelNameFinder(
+#                            data_file_list, target_program)
+#    return level_finder
 
 def handle_unexpected_exception(exc_info):
     """
@@ -194,7 +196,7 @@ def main():
     ret_status = 0
     clopts, inp_name, targ_prog = get_command_line_data()
 
-    if not targ_prog in next_level_name_finder.processable_programs:
+    if not targ_prog in next_level_name_finder.PROCESSABLE_PROGRAMS:
         err_msg = 'Error!  The target program, "{0}", is not known.'.\
                   format(targ_prog)
         sys.exit(err_msg)
@@ -220,8 +222,10 @@ def main():
             else:
                 # The file is an OBPG file
                 stime, etime = file_typer.get_file_times()
+                file_metadata = file_typer.attributes
                 data_file = obpg_data_file.ObpgDataFile(inp_name, ftype, sensor,
-                                                        stime, etime)
+                                                        stime, etime,
+                                                        file_metadata)
                 next_level_name = get_1_file_name(data_file, targ_prog, clopts)
             print 'Output Name: ' + next_level_name
         except SystemExit, sys_ex:
@@ -242,6 +246,6 @@ def main():
 DEBUG = False
 DEBUG = True  # Comment out for production use
 
-__version__ = '0.5.dev'
+__version__ = '0.6.beta'
 if __name__ == '__main__':
     sys.exit(main())

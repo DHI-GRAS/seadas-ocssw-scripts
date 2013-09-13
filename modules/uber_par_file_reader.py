@@ -1,6 +1,7 @@
 
 """
-Functions for reading the parameter file for seadas_processor.py.
+Module providing the ParReader class for reading parameter files for the
+multilevel_processor.py program.
 """
 
 import os
@@ -55,7 +56,7 @@ def is_section_header(line):
     """
     Returns True if a line is the header for a new section; returns False otherwise.
     """
-    section_pattern = '\s*\[\s*\S+.*\]\s*'     # + SECTION_HEADER_TEXT + '.*\s*'
+    section_pattern = r'\s*\[\s*\S+.*\]\s*'
     compiled_pattern = re.compile(section_pattern, re.IGNORECASE)
     if re.search(compiled_pattern, line.strip()):
         return True
@@ -107,8 +108,8 @@ class ParReader(object):
         self.par_results[sect_key] = sect_dict
         if self.section_converter:
             if not (sect_key in self.section_converter.keys()):
-                err_msg = 'Error! Section name "{0}"' +\
-                          ' is not recognized.'.format(sect_key)
+                err_msg = 'Error! Section name "{0}" is not recognized.'.\
+                          format(sect_key)
                 sys.exit(err_msg)
         return sect_dict, sect_key
 
@@ -133,33 +134,17 @@ class ParReader(object):
                                 if key == 'par':
                                     add_par_entry(sect_dict, 'par',
                                                    val.strip())
-#                                    if 'par' in sect_dict:
-#                                        sect_dict['par'].append(val.strip())
-#                                    else:
-#                                        sect_dict['par'] = [val.strip()]
                                 else:
                                     try:
                                         add_sect_entry(sect_dict, key,
                                                        val.strip())
                                     except DuplicateEntry, dup_exc:
-                                        err_msg = 'Duplicate entry found for' +\
-                                                  '{0} in {1}'.\
-                                                  format(str(dup_exc),
-                                                         self.filename)
+                                        err_msg = 'Duplicate entry found for {0} in {1}'.format(str(dup_exc), self.filename)
                                         sys.exit(err_msg)
-
-            #                                    if key not in sect_dict:
-#                                        sect_dict[key] = val.strip()
-#                                    else:
-#                                        err_msg = 'Duplicate entry found ' + \
-#                                                  'for {0} in {1}'.\
-#                                                  format(key, self.filename)
-#                                        sys.exit(err_msg)
                             elif line.strip in self.acceptable_single_keys:
                                 sect_dict[key] = 'True'
                             else:
-                                err_msg = 'Found entry {0} with no value ' + \
-                                          'in {1}'.format(key, self.filename)
+                                err_msg = 'Found entry {0} with no value in {1}'.format(key, self.filename)
                                 sys.exit(err_msg)
                         else:
                             err_msg = 'Error in {0}, no section header found!'.\

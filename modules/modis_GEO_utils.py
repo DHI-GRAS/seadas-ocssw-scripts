@@ -56,7 +56,7 @@ class modis_geo:
 
         # version-specific variables
         self.collection_id = '006'
-        self.pgeversion = '6.0.15'
+        self.pgeversion = '6.0.18'
 #        self.lutversion = '0'
 
         if self.parfile:
@@ -246,14 +246,11 @@ class modis_geo:
                 self.ephfile2 = "NULL"
                 self.ephdir2 = "NULL"
             elif self.db_status & 12:
-                if self.verbose:
-                    if self.db_status & 4:
-                        print "Missing attitude files!"
-                    if self.db_status & 8:
-                        print "Missing ephemeris files!"
-                    print "Cannot continue processing....exiting..."
-
-                    sys.exit(31)
+                if self.db_status & 4:
+                    print "Missing attitude files!"
+                if self.db_status & 8:
+                    print "Missing ephemeris files!"
+                sys.exit(31)
             else:
                 self.kinematic_state = "SDP Toolkit"
                 if get.files.has_key('att1'):
@@ -308,7 +305,6 @@ class modis_geo:
                         if self.verbose:
                             print "Percentage of pixels with missing geolocation: %.2f" % pctmissing
                             print "Validation test passed for geolocation file %s" % self.geofile
-                        sys.exit(0)
             else:
                 print "Problem reading geolocation file: %s" % self.geofile
                 sys.exit(2)
@@ -329,30 +325,32 @@ class modis_geo:
         geogen = os.path.join(self.dirs['bin'],'geogen_modis')
         status = subprocess.call(geogen, shell=True)
         if self.verbose:
-            if status:
-                print "geogen_modis returned with exit status: " + str(status)
-                print "Will run modis_geocheck to confirm results..."
-            else:
-                print "geogen_modis created %s successfully!" % self.geofile
+            print "geogen_modis returned with exit status: " + str(status)
 
-        if status:
+        try:
+            self.geochk()
+        except SystemExit, e:
+            if self.verbose:
+                print "Validation test returned with error code: ", e
+            print "ERROR: MODIS geolocation processing failed."
+            self.log = True
+            raise
+        else:
+            if self.verbose:
+                print "geogen_modis created %s successfully!" % self.geofile
+                print "MODIS geolocation processing complete."
+
+        finally:
             if self.verbose:
                 print ""
-                print "Running validation test on geolocation file.."
-            chkstatus = self.geochk()
-            if chkstatus:
-                print "ERROR: MODIS geolocation processing failed."
-                self.log = True
-            else:
-                if self.verbose: print "MODIS geolocation processing complete."
 
-        ProcUtils.remove(os.path.join(self.dirs['run'], "GetAttr.temp"))
-        ProcUtils.remove(os.path.join(self.dirs['run'], "ShmMem"))
-        ProcUtils.remove('.'.join([self.file, 'met']))
-        ProcUtils.remove('.'.join([self.geofile, 'met']))
-        if self.log is False:
-            ProcUtils.remove(self.pcf_file)
-            base = os.path.basename(self.geofile)
-            ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogReport', base]))))
-            ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogStatus', base]))))
-            ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogUser', base]))))
+            ProcUtils.remove(os.path.join(self.dirs['run'], "GetAttr.temp"))
+            ProcUtils.remove(os.path.join(self.dirs['run'], "ShmMem"))
+            ProcUtils.remove('.'.join([self.file, 'met']))
+            ProcUtils.remove('.'.join([self.geofile, 'met']))
+            if self.log is False:
+                ProcUtils.remove(self.pcf_file)
+                base = os.path.basename(self.geofile)
+                ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogReport', base]))))
+                ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogStatus', base]))))
+                ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogUser', base]))))

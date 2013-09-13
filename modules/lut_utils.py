@@ -178,13 +178,20 @@ class lut_utils:
                     # remove files
                     os.remove(os.path.join(self.dirs['var'], msn[self.mission], cal, 'OPER', f))
                     if self.verbose: print "- OPER:" + f
-                    # modify msl12_defaults.par
-                    if self.mission in ('aqua','terra') and cal == 'xcal':
-                        msl12_defaults = os.path.join(self.dirs['root'], msn[self.mission] ,'msl12_defaults.par')
+
+
+                # modify msl12_defaults.par
+                if self.mission in ('aqua','terra') and cal == 'xcal':
+                    do_modify = True
+                    msl12_defaults = os.path.join(self.dirs['root'], msn[self.mission] ,'msl12_defaults.par')
+                    if operversion in open(msl12_defaults).read():
+                        do_modify = False
+
+                    if do_modify:
                         mod_defaults = msl12_defaults + '.new'
-                        defaluts = [line for line in open(msl12_defaults, 'r')]
+                        defaults = [line for line in open(msl12_defaults, 'r')]
                         mod = open(mod_defaults, 'w')
-                        for line in defaluts:
+                        for line in defaults:
                             if 'xcalfile=' in line:
                                 xcalfile = '_'.join(['xcal',msn[self.mission],operversion])
                                 xcalfilepath = os.path.join('$OCVARROOT', msn[self.mission] ,cal,'OPER',xcalfile)
@@ -196,9 +203,9 @@ class lut_utils:
                         # Hires
                         msl12_defaults = os.path.join(self.dirs['root'], 'h'+msn[self.mission] ,'msl12_defaults.par')
                         mod_defaults = msl12_defaults + '.new'
-                        defaluts = [line for line in open(msl12_defaults, 'r')]
+                        defaults = [line for line in open(msl12_defaults, 'r')]
                         mod = open(mod_defaults, 'w')
-                        for line in defaluts:
+                        for line in defaults:
                             if 'xcalfile=' in line:
                                 xcalfile = '_'.join(['xcal',msn[self.mission],operversion])
                                 xcalfilepath = os.path.join('$OCVARROOT', msn[self.mission] ,cal,'OPER',xcalfile)

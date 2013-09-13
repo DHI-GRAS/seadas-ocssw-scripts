@@ -2,7 +2,6 @@
 
 from optparse import OptionParser
 import os
-import urllib
 import subprocess
 import sys
 import hashlib
@@ -69,14 +68,14 @@ def testFileChecksum(fileName):
         return False
     return True
 
-def makeDir(dir):
+def makeDir(dirName):
     """
     Creates the directory if needed.
     """
-    fullDir = os.path.join(installDir, dir)
+    fullDir = os.path.join(installDir, dirName)
     if os.path.isdir(fullDir) == False:
         if verbose:
-            print 'Creating dir', fullDir
+            print 'Creating dirName', fullDir
         os.makedirs(fullDir)
 
 def deleteFile(fileName):
@@ -104,11 +103,11 @@ def installFile(fileName, continueFlag=True):
         print 'Error - Could not run \"' + commandStr + '\"'
         exit(1)
 
-def installGitRepo(repoName, dir):
+def installGitRepo(repoName, dirName):
     """
-    Installs or updates the repo into dir.
+    Installs or updates the repo into dirName.
     """
-    fullDir = os.path.join(installDir, dir)
+    fullDir = os.path.join(installDir, dirName)
     if os.path.isdir(fullDir):
         if os.path.isdir(os.path.join(fullDir, ".svn")):
             print "aborting - " + fullDir + " is an svn repository."

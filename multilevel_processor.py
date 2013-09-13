@@ -8,14 +8,16 @@ __author__ = 'melliott'
 
 #import modis_processor
 
+import benchmark_timer
 import ConfigParser
 import datetime
 import get_obpg_file_type
 import logging
 import optparse
 import os
-import uber_par_file_reader
 import MetaUtils
+import next_level_name_finder
+import obpg_data_file
 import ProcUtils
 import processor
 import processing_rules
@@ -27,6 +29,7 @@ import tarfile
 import time
 import traceback
 import types
+import uber_par_file_reader
 
 class ProcessorConfig:
     """
@@ -34,13 +37,15 @@ class ProcessorConfig:
     """
     SECS_PER_DAY = 86400
     def __init__(self, hidden_dir, ori_dir, verbose, overwrite, use_existing,
-                 tar_name=None):
+                 tar_name=None, timing=False, out_dir=None):
+        self.prog_name = os.path.basename(sys.argv[0])
+
         if not(os.path.exists(hidden_dir)):
             try:
                 os.mkdir(hidden_dir)
             except OSError:
                 if sys.exc_info()[1].find('Permission denied:') != -1:
-                    log_and_exit("Error!  Unable to create directory {0}".\
+                    log_and_exit('Error!  Unable to create directory {0}'.\
                                  format(hidden_dir))
         self.hidden_dir = hidden_dir
         self.original_dir = ori_dir
@@ -51,6 +56,14 @@ class ProcessorConfig:
         self.use_existing = use_existing
         self.get_anc = True
         self.tar_filename = tar_name
+        self.timing = timing
+        if out_dir:
+            self.output_dir = out_dir
+            self.output_dir_is_settable = False
+        else:
+            self.output_dir = '.'   # default to current dir, change later if
+                                    # specified in par file or command line
+            self.output_dir_is_settable = True
         cfg_file_path = os.path.join(self.hidden_dir, 'seadas_ocssw.cfg')
         if os.path.exists(cfg_file_path):
             self._read_saved_options(cfg_file_path)
@@ -116,24 +129,6 @@ def build_file_list_file(filename, file_list):
         for fname in file_list:
             file_list_file.write(fname + '\n')
 
-def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
-    """
-    Build the parameter file for L2 processing.
-    """
-    dt_stamp = datetime.datetime.today()
-    par_name = ''.join(['L2_', dt_stamp.strftime('%Y%m%d%H%M%S'), '.par'])
-    par_path = os.path.join(cfg_data.hidden_dir, par_name)
-    with open(par_path, 'wt') as par_file:
-        par_file.write('# Automatically generated par file\n')
-        par_file.write('ifile=' + input_file + '\n')
-        if not geo_file is None:
-            par_file.write('geofile=' + geo_file + '\n')
-        par_file.write('ofile=' + output_file + '\n')
-        for key in par_contents:
-            if key != 'ifile' and key != 'geofile':
-                par_file.write(key + '=' + par_contents[key] + '\n')
-    return par_path
-
 def build_general_rules():
     """
     Builds the general rules set.
@@ -159,7 +154,7 @@ def build_general_rules():
         'l2extract': processing_rules.Rule('l2extract', ['l2gen'], False,
                                            run_l2extract),
         'l2bin': processing_rules.Rule('l2bin', ['l2gen'], True, run_l2bin),
-        'l3bin': processing_rules.Rule('l3bin', ['l3bin'], True, run_l3bin),
+        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], True, run_l3bin),
 #        'smigen': processing_rules.Rule('smigen', ['l3bin'], False, run_smigen)
         'smigen': processing_rules.Rule('smigen', ['l2bin'], False, run_smigen)
     }
@@ -168,6 +163,25 @@ def build_general_rules():
                    'smigen']
     rules = processing_rules.RuleSet('General rules', rules_dict, rules_order)
     return rules
+
+def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
+    """
+    Build the parameter file for L2 processing.
+    """
+    dt_stamp = datetime.datetime.today()
+    par_name = ''.join(['L2_', dt_stamp.strftime('%Y%m%d%H%M%S'), '.par'])
+    par_path = os.path.join(cfg_data.hidden_dir, par_name)
+    with open(par_path, 'wt') as par_file:
+        par_file.write('# Automatically generated par file\n')
+        par_file.write('ifile=' + input_file + '\n')
+        if not geo_file is None:
+            par_file.write('geofile=' + geo_file + '\n')
+        par_file.write('ofile=' + output_file + '\n')
+        for l2_opt in par_contents:
+            if l2_opt != 'ifile' and l2_opt != 'geofile' \
+                                              and not(l2_opt in FILE_USE_OPTS):
+                par_file.write(l2_opt + '=' + par_contents[l2_opt] + '\n')
+    return par_path
 
 def build_modis_rules():
     """
@@ -197,7 +211,7 @@ def build_modis_rules():
         'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'], False,
                                           run_l2mapgen),
         'l2bin': processing_rules.Rule('l2bin', ['l2gen'], True, run_l2bin),
-        'l3bin': processing_rules.Rule('l3bin', ['l3bin'], True, run_l3bin),
+        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], True, run_l3bin),
 #        'smigen': processing_rules.Rule('smigen', ['l3bin'], False, run_smigen)
         'smigen': processing_rules.Rule('smigen', ['l2bin'], False, run_smigen)
     }
@@ -231,13 +245,13 @@ def build_seawifs_rules():
         'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'], False,
                                           run_l2mapgen),
         'l2bin': processing_rules.Rule('l2bin', ['l2gen'], True, run_l2bin),
-        'l3bin': processing_rules.Rule('l3bin', ['l3bin'], True, run_l3bin),
+        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], True, run_l3bin),
 #        'smigen': processing_rules.Rule('smigen', ['l3bin'], False, run_smigen)
         'smigen': processing_rules.Rule('smigen', ['l2bin'], False, run_smigen)
     }
-    rules_order = ['level 1a', 'l1brsgen', 'l1mapgen', 'level 1b', 'l2gen',
-                   'l2extract', 'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
-                   'smigen']
+    rules_order = ['level 1a', 'l1aextract_seawifs', 'l1brsgen',
+                   'l1mapgen', 'level 1b', 'l2gen', 'l2extract',
+                   'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin', 'smigen']
     rules = processing_rules.RuleSet("SeaWiFS Rules", rules_dict, rules_order)
     return rules
 
@@ -245,9 +259,9 @@ def build_rules():
     """
     Build the processing rules.
     """
-    rules = dict(general=build_general_rules,
-                 modis=build_modis_rules,
-                 seawifs=build_seawifs_rules)
+    rules = dict(general = build_general_rules(),
+                 modis = build_modis_rules(),
+                 seawifs = build_seawifs_rules())
     return rules
 
 def clean_files(delete_list):
@@ -262,7 +276,7 @@ def clean_files(delete_list):
     # requested as output targets.
     for filepath in delete_list:
         if cfg_data.verbose:
-            print "Deleting {0}".format(filepath)
+            print 'Deleting {0}'.format(filepath)
         os.remove(filepath)
         files_deleted += 1
     # Delete hidden par files older than the cut off age
@@ -273,16 +287,90 @@ def clean_files(delete_list):
         file_age = round(time.time()) - os.path.getmtime(par_path)
         if file_age > cfg_data.max_file_age:
             if cfg_data.verbose:
-                print "Deleting {0}".format(par_path)
+                print 'Deleting {0}'.format(par_path)
             os.remove(par_path)
             files_deleted += 1
     if cfg_data.verbose:
         if not files_deleted:
-            print "No files were found for deletion."
+            print 'No files were found for deletion.'
         elif files_deleted == 1:
-            print "One file was deleted."
+            print 'One file was deleted.'
         else:
-            print "A total of {0} files were deleted.".format(files_deleted)
+            print 'A total of {0} files were deleted.'.format(files_deleted)
+
+
+def create_levels_list(rules_sets):
+    """
+    Returns a list containing all the levels from all the rules sets.
+    """
+    set_key = rules_sets.keys()[0]
+
+    lvls_lst = [(lvl, [set_key]) for lvl in rules_sets[set_key].order[1:]]
+    for rules_set_name in rules_sets.keys()[1:]:
+        for lvl_name in rules_sets[rules_set_name].order[1:]:
+            names_list = [lst_item[0] for lst_item in lvls_lst]
+            if lvl_name in names_list:
+                lvls_lst[names_list.index(lvl_name)][1].append(rules_set_name)
+            else:
+                prev_ndx = rules_sets[rules_set_name].order.index(lvl_name) - 1
+                ins_ndx = names_list.index(rules_sets[rules_set_name].order[prev_ndx]) + 1
+                lvls_lst.insert(ins_ndx, (lvl_name, [rules_set_name]))
+    return lvls_lst
+
+
+def create_help_message(rules_sets):
+    """
+    Creates the message to be displayed when help is provided.
+    """
+    level_names = create_levels_list(rules_sets)
+    message = """
+    %prog [options] parameter_file
+
+    The parameter_file is similar to, but not exactly like, parameter
+    files for OCSSW processing programs:
+     - It has sections separated by headers which are denoted by "["
+        and "]".
+    The section named "main" is required.  Its allowed options are:
+        ifile - Required entry naming the input file(s) to be processed.
+        use_nrt_anc - use near real time ancillary data
+        keepfiles - keep all the data files generated
+        overwrite - overwrite any data files which already exist
+        use_existing  - use any data files which already exist
+
+        Simultaneous use of both the overwrite and use_existing options
+        is not permitted.
+
+    The names for other sections are the programs for which that section's
+    entries are to be applied.  Intermediate sections which are required for the
+    final level of processing do not need to be defined if their default options
+    are acceptable.  A section can be empty.  The final level of processing
+    must have a section header, even if no entries appear within that section.
+     - Entries within a section appear as key=value.  Comma separated lists of
+    values can be used when appropriate.
+     - Comments are marked by "#"; anything appearing on a line after that
+    character is ignored.  A line beginning with a "#" is completely ignored.
+
+    In addition to the main section, the following sections are allowed:
+        Section name:           Applicable Instrument(s):
+        -------------           -------------------------\n"""
+
+    lvl_name_help = ''
+    for lname in level_names:
+        lvl_name_help += '        {0:24s}{1}\n'.format(lname[0] + ':', ', '.join(lname[1]))
+
+    message += lvl_name_help
+    message += """
+    Example:
+
+    # Sample par file for %prog.
+    [main]
+    ifile=2010345034027.L1A_LAC
+    [l2gen]
+    l2prod=chlor_a
+    # final processing level
+    """
+    return message
+
 
 def do_processing(rules_sets, par_file):
     """
@@ -292,9 +380,8 @@ def do_processing(rules_sets, par_file):
     #todo:  Break this up into smaller parts!
     files_to_keep = []
     files_to_delete = []
-    file_use_opts = ['keepfiles', 'overwrite', 'use_existing']
     (par_contents, input_files_list) = get_par_file_contents(par_file,
-                                                             file_use_opts)
+                                                             FILE_USE_OPTS)
     if par_contents['main']:
         # Avoid overwriting file options that are already turned on in cfg_data
         # (from command line input).
@@ -308,12 +395,27 @@ def do_processing(rules_sets, par_file):
         if 'use_nrt_anc' in par_contents['main'] and \
            int(par_contents['main']['use_nrt_anc']) == 0:
             cfg_data.get_anc = False
+        if 'odir' in par_contents['main']:
+            dname = par_contents['main']['odir']
+            if os.path.exists(dname):
+                if os.path.isdir(dname):
+                    if cfg_data.output_dir_is_settable:
+                        cfg_data.output_dir = os.path.realpath(dname)
+                    else:
+                        logging.info('Ignoring par file specification for output directory, {0}; using command line value, {1}.'.format(par_contents['main']['odir'],
+                                     cfg_data.output_dir))
+                else:
+                    msg = 'Error! {0} is not a directory.'.format(dname)
+                    sys.exit(msg)
+            else:
+                msg = 'Error! {0} does not exist.'.format(dname)
+                sys.exit(msg)
+
     logging.debug('cfg_data.overwrite: ' + str(cfg_data.overwrite))
     logging.debug('cfg_data.use_existing: ' + str(cfg_data.use_existing))
     logging.debug('cfg_data.keepfiles: ' + str(cfg_data.keepfiles))
     if cfg_data.overwrite and cfg_data.use_existing:
-        err_msg = 'Error!  Incompatible options overwrite and use_existing ' +\
-                  'were found in {0}.'.format(par_file)
+        err_msg = 'Error!  Incompatible options overwrite and use_existing were found in {0}.'.format(par_file)
         log_and_exit(err_msg)
     if len(input_files_list) == 1:
         if MetaUtils.is_ascii_file(input_files_list[0]):
@@ -325,9 +427,9 @@ def do_processing(rules_sets, par_file):
     instrument = input_file_data[first_file_key][1].split()[0]
     logging.debug("instrument: " + instrument)
     if instrument in rules_sets:
-        rules = rules_sets[instrument]()
+        rules = rules_sets[instrument]
     else:
-        rules = rules_sets['general']()
+        rules = rules_sets['general']
 
     source_files = get_source_files(input_file_data)
     lowest_source_level = get_lowest_source_level(source_files)
@@ -337,16 +439,23 @@ def do_processing(rules_sets, par_file):
     logging.debug("processors: " + str(processors))
     if cfg_data.tar_filename:
         tar_file = tarfile.open(cfg_data.tar_filename, 'w')
+    print '{0}: {1} processors to run: {2}'.format(cfg_data.prog_name,
+                                                       len(processors),
+                                                       ', '.join([p.target_type for p in processors]))
     try:
         #todo: can probably make the loop work with 'for proc in processors:'
         for ndx, proc in enumerate(processors):
+            proc.out_directory = cfg_data.output_dir
+            if cfg_data.timing:
+                proc_timer = benchmark_timer.BenchmarkTimer()
+                proc_timer.start()
             proc_src_types = processors[ndx].rule_set.rules[processors[ndx].target_type].src_file_types
             if proc_src_types[0] in source_files:
                 src_key = proc_src_types[0]
             else:
                 src_key = None
                 for cand_proc in reversed(processors[:ndx]):
-                    if suffixes[cand_proc.target_type] == \
+                    if SUFFIXES[cand_proc.target_type] == \
                        processors[ndx].rule_set.rules[processors[ndx].target_type].src_file_types[0]:
                         if cand_proc.target_type in source_files:
                             src_key = cand_proc.target_type
@@ -368,7 +477,8 @@ def do_processing(rules_sets, par_file):
                 else:
                     source_files[processors[ndx].target_type] = [output_file]
             else:
-                logging.debug('Performing nonbatch processing for ' + str(proc))
+                logging.debug('Performing nonbatch processing for ' +
+                              str(proc))
                 if len(proc_src_types) == 1:
                     try:
                         src_file_sets = source_files[src_key]
@@ -380,10 +490,56 @@ def do_processing(rules_sets, par_file):
                             err_msg += "  " + str(info)
                         log_and_exit(99)
                 elif len(proc_src_types) == 2:
-                    src_file_sets = zip(source_files[proc_src_types[0]],
-                                        source_files[proc_src_types[1]])
+                    if proc_src_types[0] in source_files \
+                      and proc_src_types[1] in source_files:
+                        src_file_sets = zip(source_files[proc_src_types[0]],
+                                            source_files[proc_src_types[1]])
+                    else:
+                        if proc_src_types[0] in source_files:
+                            if proc_src_types[1] == 'geo':
+                                inp_files = source_files[proc_src_types[0]]
+                                geo_files = []
+                                for inp_file in inp_files:
+                                    geo_file = find_geo_file(inp_file)
+                                    if geo_file:
+                                        geo_files.append(geo_file)
+                                    else:
+                                        err_msg = 'Error! Cannot find GEO ' \
+                                                  'file {0}.'.format(geo_file)
+                                        log_and_exit(err_msg)
+                                src_file_sets = zip(source_files[proc_src_types[0]],
+                                                    geo_files)
+                            else:
+                                err_msg = 'Error! Cannot find all {0} and' \
+                                          ' {1} source files.'.format(
+                                          proc_src_types[0], proc_src_types[1])
+                                log_and_exit(err_msg)
+                        elif proc_src_types[1] in source_files:
+                            if proc_src_types[0] == 'geo':
+                                inp_files = source_files[proc_src_types[1]]
+                                geo_files = []
+                                for inp_file in inp_files:
+                                    geo_file = find_geo_file(inp_file)
+                                    if geo_file:
+                                        geo_files.append(geo_file)
+                                    else:
+                                        err_msg = 'Error! Cannot find GEO '\
+                                                  'file {0}.'.format(geo_file)
+                                        log_and_exit(err_msg)
+#                                err_msg= 'Error! Cannot find GEO files.'
+#                                log_and_exit(err_msg)
+                                src_file_sets = zip(source_files[proc_src_types[1]],
+                                                    geo_files)
+                            else:
+                                err_msg = 'Error! Cannot find all {0} and'\
+                                          ' {1} source files.'.format(
+                                    proc_src_types[0], proc_src_types[1])
+                                log_and_exit(err_msg)
+                        else:
+                            err_msg = 'Error! Cannot find all source files.'
+                            log_and_exit(err_msg)
                 else:
-                    err_msg = 'Error!  Encountered too many source file types.'
+                    err_msg = 'Error! Encountered too many source file types.'
                     log_and_exit(err_msg)
                 for file_set in src_file_sets:
                     output_file = run_nonbatch_processor(ndx, processors,
@@ -401,15 +557,23 @@ def do_processing(rules_sets, par_file):
                     tar_file.add(output_file)
                 logging.debug('Added ' + output_file + ' to tar file list')
             #todo: add "target" files to files_to_keep and other files to files_to_delete, as appropriate
+            if cfg_data.timing:
+                proc_timer.end()
+                timing_msg = 'Time for {0} process: {1}'.format(proc.target_type,
+                                                               proc_timer.get_total_time_str())
+                print timing_msg
+                logging.info(timing_msg)
+            print '{0}: processor {1} of {2} complete.'.format(cfg_data.prog_name,
+                                                               ndx + 1,
+                                                               len(processors))
     except Exception:
         exc_parts = [str(l) for l in sys.exc_info()]
         err_type_parts = str(exc_parts[0]).strip().split('.')
         err_type = err_type_parts[-1].strip("'>")
         tb_line = traceback.format_exc().splitlines()[-3]
         line_num = tb_line.split(',')[1]
-        err_msg = 'Error!  The {0} program encountered an unrecoverable ' + \
-                  '{1}, {2}, at {3}!'.format(os.path.basename(sys.argv[0]), \
-                                       err_type, exc_parts[1], line_num.strip())
+        err_msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(cfg_data.prog_name,
+                                               err_type, exc_parts[1], line_num.strip())
         log_and_exit(err_msg)
     finally:
         if cfg_data.tar_filename:
@@ -430,7 +594,8 @@ def execute_command(command):
     files and the console, as appropriate.
     """
     if DEBUG:
-        print "Entering execute_command, cfg_data.verbose =", cfg_data.verbose
+        print "Entering execute_command, cfg_data.verbose =", \
+               cfg_data.verbose
 
     subproc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -450,6 +615,20 @@ def extract_par_section(par_contents, section):
     for key in par_contents[section].keys():
         sect_dict[key] = par_contents[section][key]
     return sect_dict
+
+def find_geo_file(inp_file):
+    """
+    Searches for a GEO file corresponding to inp_file.  If that GEO file exists,
+    returns that file name; otherwise, returns None.
+    """
+    src_dir = os.path.dirname(inp_file)
+    src_base = os.path.basename(inp_file)
+    geo_base = src_base.rsplit('.', 1)[0]
+    geo_file = os.path.join(src_dir, geo_base + '.GEO')
+    if os.path.exists((geo_file)):
+        return geo_file
+    else:
+        return None
 
 def get_batch_output_name(file_set, suffix):
     """
@@ -536,19 +715,19 @@ def get_extract_params(proc):
 
 def get_file_date(filename):
     """
-    Get a Python Date from a recognized file name's year and day of year.
+    Get a Python Date object from a recognized file name's year and day of year.
     """
     base_filename = os.path.basename(filename)
-    if re.match("[ACMOQSTV]\d\d\d\d\d\d\d.*", base_filename):
+    if re.match(r'[ACMOQSTV]\d\d\d\d\d\d\d.*', base_filename):
         year = int(base_filename[1:5])
         doy = int(base_filename[5:8])
-    elif re.match("\d\d\d\d\d\d\d.*", base_filename):
+    elif re.match(r'\d\d\d\d\d\d\d.*', base_filename):
         # Some Aquarius
         year = int(base_filename[0:4])
         doy = int(base_filename[4:7])
-    elif re.match('\w*_npp_d\d\d\d\d\d\d\d_.*', base_filename):
+    elif re.match(r'\w*_npp_d\d\d\d\d\d\d\d_.*', base_filename):
         # NPP
-        prefix_removed_name = re.sub('\w*_npp_d', '', base_filename)
+        prefix_removed_name = re.sub(r'\w*_npp_d', '', base_filename)
         year = int(prefix_removed_name[0:4])
         doy = int(prefix_removed_name[5:7])
     else:
@@ -575,7 +754,7 @@ def get_input_files(par_data):
     from_infilelist = []
     if 'ifile' in par_data['main']:
         inp_file_str = par_data['main']['ifile'].split('#', 2)[0]
-        cleaned_str = re.sub('[\t,:\[\]()"\']', ' ', inp_file_str)
+        cleaned_str = re.sub(r'[\t,:\[\]()"\']', ' ', inp_file_str)
         from_ifiles = cleaned_str.split()
     if 'infilelist' in par_data['main']:
         infilelist_name = par_data['main']['infilelist']
@@ -585,7 +764,7 @@ def get_input_files(par_data):
                 with open(infilelist_name, 'rt') as in_file_list_file:
                     inp_lines = in_file_list_file.readlines()
                 from_infilelist = [fn.rstrip() for fn in inp_lines
-                                   if not re.match('^\s*#', fn)]
+                                   if not re.match(r'^\s*#', fn)]
     inp_file_list = uniqify_list(from_ifiles + from_infilelist)
     return inp_file_list
 
@@ -693,15 +872,33 @@ def get_options(par_data):
             options += ' ' + key + '=' + par_data[key]
     return options
 
-def get_output_name(input_name, suffix):
+def get_output_name(input_files, targ_prog):
     """
-    Determine the output name for a program to be run.
+    Determine what the output name would be if targ_prog is run on input_files.
     """
-    # todo:  Delete, once this isn't needed (i.e. all the calls to it are eliminated because the output file is pulled from the processor)
-    (dirname, basename) = os.path.split(input_name)
-    basename_parts = basename.rsplit('.', 2)
-    output_name = os.path.join(dirname, basename_parts[0] + '.' + suffix)
-    return output_name
+    if not isinstance(input_files, list):
+        file_typer = get_obpg_file_type.ObpgFileTyper(input_files)
+        file_type, file_instr = file_typer.get_file_type()
+        stime, etime = file_typer.get_file_times()
+        data_file = obpg_data_file.ObpgDataFile(input_files, file_type,
+                                                file_instr, stime, etime)
+        nm_findr = next_level_name_finder.NextLevelNameFinder([data_file],
+                                                              targ_prog)
+    else:
+        nm_findr = next_level_name_finder.NextLevelNameFinder(input_files,
+                                                              targ_prog)
+    return nm_findr.get_next_level_name()
+
+#def get_output_name(input_name, suffix):
+#    """
+#    Determine the output name for a program to be run.
+#    """
+#
+#    # todo:  Delete, once this isn't needed (i.e. all the calls to it are eliminated because the output file is pulled from the processor)
+#    (dirname, basename) = os.path.split(input_name)
+#    basename_parts = basename.rsplit('.', 2)
+#    output_name = os.path.join(dirname, basename_parts[0] + '.' + suffix)
+#    return output_name
 
 def get_output_name2(input_name, input_files, suffix):
     """
@@ -726,7 +923,7 @@ def get_output_name2(input_name, input_files, suffix):
                         break
                 time_stamp = ProcUtils.date_convert(start_time, 't', 'j')
             else:
-                if re.match('MOD00.P\d\d\d\d\d\d\d\.\d\d\d\d', input_name):
+                if re.match(r'MOD00.P\d\d\d\d\d\d\d\.\d\d\d\d', input_name):
                     time_stamp = input_name[7:14] + input_name[15:19] + '00'
                 else:
                     err_msg = "Cannot determine time stamp for input file {0}".\
@@ -878,9 +1075,8 @@ def is_option_value_true(opt_val_str):
     Returns True if opt_val_str is one the various possible values that OBPG
     programs accept as true.  
     """
-    TRUE_VALUES = ['1', 'ON', 'on', 'TRUE', 'true', 'YES', 'yes']
     opt_val = False
-    if opt_val_str in TRUE_VALUES:
+    if opt_val_str in TRUTH_VALUES:
         opt_val = True
     return opt_val
 
@@ -900,41 +1096,7 @@ def main():
     global DEBUG
     rules_sets = build_rules()
     ver_msg = ' '.join(['%prog', __version__])
-    use_msg = """
-    Usage: %prog [options] parameter_file
-
-    The parameter_file is similar to, but not exactly like, parameter files for
-    OCSSW processing programs:
-     - It has sections separated by headers which are denoted by "[" and "]".
-    The section named "main" is required.  Its allowed options are:
-        ifile - Required entry naming the input file(s) to be processed.
-        use_nrt_anc - use near real time ancillary data
-        keepfiles - keep all the data files generated
-        overwrite - overwrite any data files which already exist
-        use_existing  - use any data files which already exist
-
-        Simultaneous use of both the overwrite and use_existing options is
-        not permitted.
-
-    The names for other sections are the programs for which that section's
-    entries are to be applied.  Intermediate sections which are required for the
-    final level of processing do not need to be defined if their default options
-    are acceptable.  A section can be empty.  The final level of processing
-    must have a section header, even if no entries appear within that section.
-     - Entries within a section appear as key=value.  Comma separated lists of
-    values can be used when appropriate.
-     - Comments are marked by "#"; anything appearing on a line after that
-    character is ignored.  A line beginning with a "#" is completely ignored.
-
-    Example:
-
-    # Sample par file for %prog.
-    [main]
-    ifile=2010345034027.L1A_LAC
-    [l2gen]
-    l2prod=chlor_a
-    # final processing level
-    """
+    use_msg = create_help_message(rules_sets)
     cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
     (options, args) = process_command_line(cl_parser)
 
@@ -953,7 +1115,8 @@ def main():
                 log_and_exit(err_msg)
         cfg_data = ProcessorConfig('.seadas_data', os.getcwd(), options.verbose,
                                    options.overwrite, options.use_existing,
-                                   options.tar_file)
+                                   options.tar_file, options.timing,
+                                   options.odir)
         if not(os.access(cfg_data.hidden_dir, os.R_OK) ):
             err_msg = "Error!  The working directory is not readable!"
             log_and_exit(err_msg)
@@ -961,7 +1124,17 @@ def main():
             log_timestamp = datetime.datetime.today().strftime('%Y%m%d%H%M%S')
             start_logging(log_timestamp)
             try:
-                do_processing(rules_sets, args[0])
+                if cfg_data.timing:
+                    main_timer = benchmark_timer.BenchmarkTimer()
+                    main_timer.start()
+                    do_processing(rules_sets, args[0])
+                    main_timer.end()
+                    timing_msg = 'Total processing time: {0}'.format(
+                                    str(main_timer.get_total_time_str()))
+                    print timing_msg
+                    logging.info(timing_msg)
+                else:
+                    do_processing(rules_sets, args[0])
             except Exception:
                 exc_parts = [str(l) for l in sys.exc_info()]
                 err_type_parts = str(exc_parts[0]).strip().split('.')
@@ -979,24 +1152,32 @@ def process_command_line(cl_parser):
     To be consistent with other OBPG programs, an underscore ('_') is used for
     multiword options, instead of a dash ('-').
     """
-    cl_parser.add_option('-v', '--verbose',
-                      action='store_true', dest='verbose', default=False,
-                      help='print status messages to stdout')
+    cl_parser.add_option('--debug', action='store_true', dest='debug',
+                         default=False, help=optparse.SUPPRESS_HELP)
     cl_parser.add_option('-k', '--keepfiles', action='store_true',
                          dest='keepfiles', default=False,
                          help='keep files created during processing')
+    cl_parser.add_option('--output_dir', '--odir',
+                         action='store', type='string', dest='odir',
+                         help="user specified directory for output")
     cl_parser.add_option('--overwrite', action='store_true', dest='overwrite',
                          default=False,
                          help='overwrite files which already exist (default = stop processing if file already exists)')
+    cl_parser.add_option('-t', '--tar', type=str, dest='tar_file',
+                         help=optparse.SUPPRESS_HELP)
+    cl_parser.add_option('--timing', dest='timing', action='store_true',
+                         default=False, help='report time required to run each program and total')
     cl_parser.add_option('--use_existing', action='store_true',
                          dest='use_existing', default=False,
                          help='use files which already exist (default = stop processing if file already exists)')
-    cl_parser.add_option('--debug', action='store_true', dest='debug',
-                         default=False, help=optparse.SUPPRESS_HELP)
-    cl_parser.add_option('-t', '--tar', type=str, dest='tar_file',
-                         help=optparse.SUPPRESS_HELP)
+    cl_parser.add_option('-v', '--verbose',
+                         action='store_true', dest='verbose', default=False,
+                         help='print status messages to stdout')
 
     (options, args) = cl_parser.parse_args()
+    for ndx, cl_arg in enumerate(args):
+        if cl_arg.startswith('par='):
+            args[ndx] = cl_arg.lstrip('par=')
     if options.overwrite and options.use_existing:
         log_and_exit('Error!  Options overwrite and use_existing cannot be ' + \
                      'used simultaneously.')
@@ -1036,20 +1217,31 @@ def run_batch_processor(ndx, processors, file_set):
     with open(file_list_name, 'wt') as file_list:
         for fname in file_set:
             file_list.write(fname + '\n')
-    suffix_key = processors[ndx].rule_set.rules[processors[ndx].target_type].target_type
-    output_file = get_batch_output_name(file_set, suffixes[suffix_key])
+#    suffix_key = processors[ndx].rule_set.rules[processors[ndx].target_type].target_type
     processors[ndx].input_file = file_list_name
-    processors[ndx].output_file = output_file
+    data_file_list = []
+    for fspec in file_set:
+        ftyper = get_obpg_file_type.ObpgFileTyper(fspec)
+        (ftype, sensor) =  ftyper.get_file_type()
+        (stime, etime) = ftyper.get_file_times()
+        dfile = obpg_data_file.ObpgDataFile(fspec, ftype, sensor, stime,
+                                                  etime)
+        data_file_list.append(dfile)
+    name_finder = next_level_name_finder.NextLevelNameFinder(data_file_list,
+                                                             processors[ndx].target_type)
+#    output_file = get_batch_output_name(file_set, suffixes[suffix_key])
+    processors[ndx].output_file = os.path.join(processors[ndx].out_directory,
+                                               name_finder.get_next_level_name())
     processors[ndx].execute()
-    return output_file
+    return processors[ndx].output_file
 
 def run_bottom_error(proc):
     """
     Exits with an error message when there is an attempt to process a source
     file at the lowest level of a rule chain.
     """
-    err_msg = 'Error!  Attempting to create a product for which no creation ' +\
-              'program is known.'
+    err_msg = 'Error!  Attempting to create {0} product, but no ' + \
+              'creation program is known.'.format(proc.target_type)
     log_and_exit(err_msg)
 
 def run_executable(proc):
@@ -1075,7 +1267,7 @@ def run_l1aextract_modis(proc):
         start_line, end_line, start_pixel, end_pixel = get_extract_params(proc)
         if (start_line is None) or (end_line is None) or (start_pixel is None)\
         or (end_pixel is None):
-            err_msg = "Error! Cannot compute coordinates for l1aextract_modis."
+            err_msg = 'Error! Cannot find l1aextract_modis coordinates.'
             log_and_exit(err_msg)
         l1aextract_prog = os.path.join(proc.ocssw_bin, 'l1aextract_modis')
         l1aextract_cmd = ' '.join([l1aextract_prog, proc.input_file,
@@ -1128,7 +1320,7 @@ def run_l1brsgen(proc):
         suffix = l1brs_suffixes['0']
     output_name = get_output_name(proc.par_data['ifile'], suffix)
     cmd = ' '.join([prog, opts, ' ofile=' + output_name])
-    logging.debug('Executing: %s' % cmd)
+    logging.debug('Executing: {0}'.format(cmd))
     status = execute_command(cmd)
     return status
 
@@ -1153,12 +1345,12 @@ def run_l1mapgen(proc):
     output_name = get_output_name(proc.par_data['ifile'], suffix)
     cmd = ' '.join([prog, opts, ' ofile=' + output_name])
     logging.debug('Executing: {0}'.format(cmd))
-    status = execute_command(cmd)
-    logging.debug("l1mapgen run compleat!  returned value: %d" % status)
-    if (status >= acceptable_min) and (status <= acceptable_max):
+    lvl_nm = execute_command(cmd)
+    logging.debug("l1mapgen run complete!  Return value: {0}".format(lvl_nm))
+    if (lvl_nm >= acceptable_min) and (lvl_nm <= acceptable_max):
         return 0
     else:
-        return status
+        return lvl_nm
 
 def run_l2bin(proc):
     """
@@ -1178,17 +1370,21 @@ def run_l2bin(proc):
 
 def run_l2brsgen(proc):
     """
-    Runs the l1brsgen executable.
+    Runs the l2brsgen executable.
     """
-    l2brs_suffixes = {'0': 'L2_BRS', '1': 'ppm', '2': 'png'}
+#    l2brs_suffixes = {'0': 'L2_BRS', '1': 'ppm', '2': 'png'}
     logging.debug("In run_l2brsgen")
     prog = os.path.join(proc.ocssw_bin, 'l2brsgen')
     opts = get_options(proc.par_data)
-    if proc.par_data['outmode']:
-        suffix = l2brs_suffixes[proc.par_data['outmode']]
-    else:
-        suffix = l2brs_suffixes['0']
-    output_name = get_output_name(proc.input_file, suffix)
+    file_typer = get_obpg_file_type.ObpgFileTyper(proc.input_file)
+    (ftype, sensor) = file_typer.get_file_type()
+    (stime, etime) = file_typer.get_file_times()
+    data_file = obpg_data_file.ObpgDataFile(proc.input_file, ftype, sensor,
+                                            stime, etime)
+    df_list = [data_file]
+    name_finder = next_level_name_finder.NextLevelNameFinder(df_list,
+                                                             'l2brsgen')
+    output_name = name_finder.get_next_level_name()
     cmd = ' '.join([prog, opts, 'ifile='+proc.input_file,
                    'ofile=' + output_name])
     logging.debug('Executing: {0}'.format(cmd))
@@ -1245,26 +1441,27 @@ def run_l2mapgen(proc):
     Runs the l2mapgen executable.
     """
     prog = os.path.join(proc.ocssw_bin, 'l2mapgen')
-    args = 'ifile='+proc.input_file
+    args = 'ifile=' + proc.input_file
     for key in proc.par_data:
         args += ' ' + key + '=' + proc.par_data[key]
-    if 'outmode' in proc.par_data:
-        if proc.par_data['outmode'].upper() in ['PPM', 'PGM', 'PNG', 'TIFF']:
-            ext = proc.par_data['outmode']
-        else:
-            err_msg = 'Error!  Unknown l2mapgen outmode {0}.'.\
-                      format(proc.par_data['outmode'])
-            log_and_exit(err_msg)
-    else:
-        ext = 'PGM'
-    redirect_part = '> ' + os.path.splitext(proc.output_file)[0] + '.' + ext
-    cmd = ' '.join([prog, args, redirect_part])
+#    if 'outmode' in proc.par_data:
+#        if proc.par_data['outmode'].upper() in ['PPM', 'PGM', 'PNG', 'TIFF']:
+#            ext = proc.par_data['outmode']
+#        else:
+#            err_msg = 'Error!  Unknown l2mapgen outmode {0}.'.\
+#                      format(proc.par_data['outmode'])
+#            log_and_exit(err_msg)
+#    else:
+#        ext = 'PGM'
+#    redirect_part = '> ' + os.path.splitext(proc.output_file)[0] + '.' + ext
+    args += ' ofile=' + proc.output_file
+    cmd = ' '.join([prog, args])
     logging.debug('Executing: {0}'.format(cmd))
     status = execute_command(cmd)
     logging.debug("l2mapgen run complete with status " + str(status))
     if status == 110:
         # A return status of 110 indicates that there was insufficient data to
-        # plot.  We want ot handle this as a normal condition here.
+        # plot.  We want to handle this as a normal condition here.
         return 0
     else:
         return status
@@ -1335,9 +1532,17 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
     else:
         input_file = file_set
         geo_file = None
-    suf_key = processors[ndx].rule_set.rules[processors[ndx].target_type].target_type
-    output_file = get_output_name2(input_file, input_file_type_data,
-                                   suffixes[suf_key])
+    ftyper = get_obpg_file_type.ObpgFileTyper(input_file)
+    (ftype, sensor) =  ftyper.get_file_type()
+    (stime, etime) = ftyper.get_file_times()
+    dfile = obpg_data_file.ObpgDataFile(input_file, ftype, sensor, stime, etime)
+    name_finder = next_level_name_finder.get_level_finder([dfile],
+                                                    processors[ndx].target_type,
+                                                    )
+    output_file = os.path.join(processors[ndx].out_directory,
+                               name_finder.get_next_level_name())
+    if DEBUG:
+        print 'in run_nonbatch_processor, output_file = ' + output_file
     processors[ndx].input_file = input_file
     processors[ndx].output_file = output_file
     processors[ndx].geo_file = geo_file
@@ -1349,6 +1554,7 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
             print
             print '\nRunning ' + str(processors[ndx])
         proc_status = processors[ndx].execute()
+
         if proc_status:
             msg = "Error! Status {0} was returned during {1} {2} processing.".\
                   format(proc_status, processors[ndx].instrument,
@@ -1373,7 +1579,7 @@ def run_script(proc, script_name):
 
 def run_smigen(proc):
     """
-    Set up for and perform L3 SMI (Standard Mapped Image) generation.
+    Set up for and perform SMI (Standard Mapped Image) generation.
     """
     prog = os.path.join(proc.ocssw_bin, 'smigen')
     if not os.path.exists(prog):
@@ -1399,15 +1605,17 @@ def start_logging(time_stamp):
     """
     info_log_name = ''.join(['Processor_', time_stamp, '.log'])
     debug_log_name = ''.join(['seadas_processor_debug_', time_stamp, '.log'])
+    info_log_path = os.path.join(cfg_data.output_dir, info_log_name)
+    debug_log_path = os.path.join(cfg_data.output_dir, debug_log_name)
     seadas_logger = logging.getLogger()
     seadas_logger.setLevel(logging.DEBUG)
 
-    info_hndl = logging.FileHandler(info_log_name)
+    info_hndl = logging.FileHandler(info_log_path)
     info_hndl.setLevel(logging.INFO)
     seadas_logger.addHandler(info_hndl)
 
     if DEBUG:
-        debug_hndl = logging.FileHandler(debug_log_name)
+        debug_hndl = logging.FileHandler(debug_log_path)
         debug_hndl.setLevel(logging.DEBUG)
         seadas_logger.addHandler(debug_hndl)
     logging.debug('Starting ' + os.path.basename(sys.argv[0]) + ' at ' +
@@ -1433,7 +1641,8 @@ DEBUG = False
 #DEBUG = True
 
 cfg_data = None
-suffixes = {
+FILE_USE_OPTS = ['keepfiles', 'overwrite', 'use_existing']
+SUFFIXES = {
     'geo': 'GEO',
     'l1brsgen': 'L1B_BRS',
     'l1aextract_seawifs': 'L1A.sub',
@@ -1450,8 +1659,9 @@ suffixes = {
     'smigen': 'SMI'
 }
 input_file_data = {}
+TRUTH_VALUES = ['1', 'ON', 'on', 'TRUE', 'true', 'YES', 'yes']
 #verbose = False
-__version__ = '0.7-beta'
+__version__ = '0.9.beta'
 
 if __name__ == "__main__":
     sys.exit(main())
