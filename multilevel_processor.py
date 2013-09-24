@@ -272,6 +272,7 @@ def clean_files(delete_list):
     """
     if cfg_data.verbose:
         print "Cleaning up files"
+        sys.stdout.flush()
     files_deleted = 0
     # Delete any files in the delete list.  This contain "interemediate" files
     # which were needed to complete processing, but which weren't explicitly
@@ -279,6 +280,7 @@ def clean_files(delete_list):
     for filepath in delete_list:
         if cfg_data.verbose:
             print 'Deleting {0}'.format(filepath)
+            sys.stdout.flush()
         os.remove(filepath)
         files_deleted += 1
     # Delete hidden par files older than the cut off age
@@ -290,16 +292,19 @@ def clean_files(delete_list):
         if file_age > cfg_data.max_file_age:
             if cfg_data.verbose:
                 print 'Deleting {0}'.format(par_path)
+                sys.stdout.flush()
             os.remove(par_path)
             files_deleted += 1
     if cfg_data.verbose:
         if not files_deleted:
             print 'No files were found for deletion.'
+            sys.stdout.flush()
         elif files_deleted == 1:
             print 'One file was deleted.'
+            sys.stdout.flush()
         else:
             print 'A total of {0} files were deleted.'.format(files_deleted)
-
+            sys.stdout.flush()
 
 def create_levels_list(rules_sets):
     """
@@ -444,6 +449,7 @@ def do_processing(rules_sets, par_file):
     print '{0}: {1} processors to run: {2}'.format(cfg_data.prog_name,
                                                        len(processors),
                                                        ', '.join([p.target_type for p in processors]))
+    sys.stdout.flush()
     try:
         #todo: can probably make the loop work with 'for proc in processors:'
         for ndx, proc in enumerate(processors):
@@ -568,6 +574,7 @@ def do_processing(rules_sets, par_file):
             print '{0}: processor {1} of {2} complete.'.format(cfg_data.prog_name,
                                                                ndx + 1,
                                                                len(processors))
+            sys.stdout.flush()
     except Exception:
         exc_parts = [str(l) for l in sys.exc_info()]
         err_type_parts = str(exc_parts[0]).strip().split('.')
@@ -587,6 +594,7 @@ def do_processing(rules_sets, par_file):
         clean_files(files_to_delete)
     if cfg_data.verbose:
         print "Processing complete."
+        sys.stdout.flush()
     logging.debug("Processing complete.")
     return
 
@@ -1555,6 +1563,7 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
         if cfg_data.verbose:
             print
             print '\nRunning ' + str(processors[ndx])
+            sys.stdout.flush()
         proc_status = processors[ndx].execute()
 
         if proc_status:

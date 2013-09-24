@@ -79,52 +79,73 @@ def get_level_finder(data_file_list, target_program, clopts=None):
     """
     Returns an appropriate level finder object for the data file passed in.
     """
+    # Todo: clean this up!  (Make one fn to which the specific finder
+    # is passed)
     if data_file_list[0].sensor.find('MODIS') != -1:
-        if clopts.suite and clopts.product:
-            level_finder = ModisNextLevelNameFinder(data_file_list,
-                            target_program, clopts.suite, clopts.product)
-        elif clopts.suite:
-            level_finder = ModisNextLevelNameFinder(data_file_list,
-                            target_program, clopts.suite)
-        elif clopts.product:
-            level_finder = ModisNextLevelNameFinder(data_file_list,
-                            target_program, None, clopts.product)
+        if clopts:
+            if clopts.suite and clopts.product:
+                level_finder = ModisNextLevelNameFinder(data_file_list,
+                                target_program, clopts.suite, clopts.product)
+            elif clopts.suite:
+                level_finder = ModisNextLevelNameFinder(data_file_list,
+                                target_program, clopts.suite)
+            elif clopts.product:
+                level_finder = ModisNextLevelNameFinder(data_file_list,
+                                target_program, None, clopts.product)
+            else:
+                level_finder = ModisNextLevelNameFinder(
+                    data_file_list, target_program)
         else:
             level_finder = ModisNextLevelNameFinder(
                 data_file_list, target_program)
     elif data_file_list[0].sensor.find('SeaWiFS') != -1:
-        if clopts.suite and clopts.product:
-            level_finder = SeawifsNextLevelNameFinder(data_file_list,
-                            target_program, clopts.suite, clopts.product)
-        elif clopts.suite:
-            level_finder = SeawifsNextLevelNameFinder(data_file_list,
-                             target_program, clopts.suite)
-        elif clopts.product:
-            level_finder = SeawifsNextLevelNameFinder(data_file_list,
-                            target_program, None, clopts.product)
+        if clopts:
+            if clopts.suite and clopts.product:
+                level_finder = SeawifsNextLevelNameFinder(data_file_list,
+                                target_program, clopts.suite, clopts.product)
+            elif clopts.suite:
+                level_finder = SeawifsNextLevelNameFinder(data_file_list,
+                                 target_program, clopts.suite)
+            elif clopts.product:
+                level_finder = SeawifsNextLevelNameFinder(data_file_list,
+                                target_program, None, clopts.product)
+            else:
+                level_finder = SeawifsNextLevelNameFinder(
+                    data_file_list, target_program)
         else:
             level_finder = SeawifsNextLevelNameFinder(
                             data_file_list, target_program)
     elif data_file_list[0].sensor.find('Aquarius') != -1:
-        if clopts.suite and clopts.product:
-            level_finder = AquariusNextLevelNameFinder(data_file_list,
-                           target_program, clopts.suite, clopts.product)
-        elif clopts.suite:
-            level_finder = AquariusNextLevelNameFinder(data_file_list,
-                           target_program, clopts.suite)
-        elif clopts.product:
-            level_finder = AquariusNextLevelNameFinder(data_file_list,
-                           target_program, None, clopts.product)
+        if clopts:
+            if clopts.suite and clopts.product:
+                level_finder = AquariusNextLevelNameFinder(data_file_list,
+                               target_program, clopts.suite, clopts.product)
+            elif clopts.suite:
+                level_finder = AquariusNextLevelNameFinder(data_file_list,
+                               target_program, clopts.suite)
+            elif clopts.product:
+                level_finder = AquariusNextLevelNameFinder(data_file_list,
+                               target_program, None, clopts.product)
+            else:
+                level_finder = AquariusNextLevelNameFinder(
+                    data_file_list, target_program)
         else:
             level_finder = AquariusNextLevelNameFinder(
                 data_file_list, target_program)
     else:
-        if clopts.suite and clopts.product:
-            level_finder = NextLevelNameFinder(data_file_list,
-                           target_program, clopts.suite, clopts.product)
-        elif clopts.suite:
-            level_finder = NextLevelNameFinder(data_file_list,
-                           target_program, clopts.suite)
+        if clopts:
+            if clopts.suite and clopts.product:
+                level_finder = NextLevelNameFinder(data_file_list,
+                               target_program, clopts.suite, clopts.product)
+            elif clopts.suite:
+                level_finder = NextLevelNameFinder(data_file_list,
+                               target_program, clopts.suite)
+            elif clopts.product:
+                level_finder = NextLevelNameFinder(data_file_list,
+                               target_program, None, clopts.product)
+            else:
+                level_finder = NextLevelNameFinder(data_file_list,
+                                                   target_program)
         else:
             level_finder = NextLevelNameFinder(data_file_list, target_program)
     return level_finder
