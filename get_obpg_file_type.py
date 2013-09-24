@@ -3,6 +3,7 @@
 """
 A class for determining the OBPG type of a file.
 """
+__version__ = '1.0.0'
 
 __author__ = 'melliott'
 
@@ -484,9 +485,8 @@ def main():
     """
     Main function to drive the program when invoked as a program.
     """
-    ver = '0.5-beta'
     use_msg = 'usage: %prog [options] FILE_NAME [FILE_NAME ...]'
-    ver_msg = ' '.join(['%prog', ver])
+    ver_msg = ' '.join(['%prog', __version__])
     cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
     (opts, args) = process_command_line(cl_parser)
 

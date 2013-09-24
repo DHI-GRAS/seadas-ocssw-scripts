@@ -196,7 +196,8 @@ def readMetadata(filename):
                 # parse each file attribute
                 attrs = get_odl_attr(allmeta)
             else:
-                attrs = get_attr(text)
+                attrs = \
+                get_attr(text)
     return attrs
 
 def get_attr(text):
@@ -212,7 +213,15 @@ def get_attr(text):
         elif in_attr:
             if re.match(value_pattern, line):
                 val = str(line).split('=', 1)[1].strip()
-                attrs[attr_name] = val
+                if attr_name == 'Input Parameters':
+                    attrs[attr_name] = {}
+                    params = val.split('|')
+                    for param in params:
+                        parts = param.split('=')
+                        if len(parts) ==2:
+                            attrs[attr_name][parts[0].strip()] = parts[1].strip()
+                else:
+                    attrs[attr_name] = val
     return attrs
 
 def get_odl_attr(metatext):

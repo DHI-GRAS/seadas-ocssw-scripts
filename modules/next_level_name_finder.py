@@ -66,7 +66,8 @@ def get_l0_timestamp(l0_file_name):
         input_basename = os.path.basename(l0_file_name)
         if re.match(r'MOD00.[AP]\d\d\d\d\d\d\d\.\d\d\d\d', input_basename):
             time_stamp = input_basename[7:14] + input_basename[15:19] + '00'
-        elif re.match(r'[AP]\d\d\d\d\d\d\d\d\d\d\d\d\d\.L0_.{3}', input_basename):
+        elif re.match(r'[AP]\d\d\d\d\d\d\d\d\d\d\d\d\d\.L0_.{3}',
+                      input_basename):
             time_stamp = input_basename[1:12] + '00'
         else:
             err_msg = "Unable to determine time stamp for input file {0}".\
@@ -79,34 +80,96 @@ def get_level_finder(data_file_list, target_program, clopts=None):
     Returns an appropriate level finder object for the data file passed in.
     """
     if data_file_list[0].sensor.find('MODIS') != -1:
-        if clopts and clopts.l2_suite:
-            level_finder = ModisNextLevelNameFinder(
-                data_file_list, target_program, clopts.l2_suite)
+        if clopts.suite and clopts.product:
+            level_finder = ModisNextLevelNameFinder(data_file_list,
+                            target_program, clopts.suite, clopts.product)
+        elif clopts.suite:
+            level_finder = ModisNextLevelNameFinder(data_file_list,
+                            target_program, clopts.suite)
+        elif clopts.product:
+            level_finder = ModisNextLevelNameFinder(data_file_list,
+                            target_program, None, clopts.product)
         else:
             level_finder = ModisNextLevelNameFinder(
                 data_file_list, target_program)
     elif data_file_list[0].sensor.find('SeaWiFS') != -1:
-        if clopts and clopts.l2_suite:
-            level_finder = SeawifsNextLevelNameFinder(
-                data_file_list, target_program, clopts.l2_suite)
+        if clopts.suite and clopts.product:
+            level_finder = SeawifsNextLevelNameFinder(data_file_list,
+                            target_program, clopts.suite, clopts.product)
+        elif clopts.suite:
+            level_finder = SeawifsNextLevelNameFinder(data_file_list,
+                             target_program, clopts.suite)
+        elif clopts.product:
+            level_finder = SeawifsNextLevelNameFinder(data_file_list,
+                            target_program, None, clopts.product)
         else:
             level_finder = SeawifsNextLevelNameFinder(
-                data_file_list, target_program)
+                            data_file_list, target_program)
     elif data_file_list[0].sensor.find('Aquarius') != -1:
-        if clopts and clopts.l2_suite:
-            level_finder = AquariusNextLevelNameFinder(
-                data_file_list, target_program, clopts.l2_suite)
+        if clopts.suite and clopts.product:
+            level_finder = AquariusNextLevelNameFinder(data_file_list,
+                           target_program, clopts.suite, clopts.product)
+        elif clopts.suite:
+            level_finder = AquariusNextLevelNameFinder(data_file_list,
+                           target_program, clopts.suite)
+        elif clopts.product:
+            level_finder = AquariusNextLevelNameFinder(data_file_list,
+                           target_program, None, clopts.product)
         else:
             level_finder = AquariusNextLevelNameFinder(
                 data_file_list, target_program)
     else:
-        if clopts and clopts.l2_suite:
-            level_finder = NextLevelNameFinder(
-                data_file_list, target_program, clopts.l2_suite)
+        if clopts.suite and clopts.product:
+            level_finder = NextLevelNameFinder(data_file_list,
+                           target_program, clopts.suite, clopts.product)
+        elif clopts.suite:
+            level_finder = NextLevelNameFinder(data_file_list,
+                           target_program, clopts.suite)
         else:
-            level_finder = NextLevelNameFinder(
-                data_file_list, target_program)
+            level_finder = NextLevelNameFinder(data_file_list, target_program)
     return level_finder
+
+def get_end_day_year(metadata):
+    """
+    Returns the end day and year for a file, determined from the contents of
+    metadata.
+    """
+    if 'End Day' in metadata:
+        eday = int(metadata['End Day'])
+    elif 'Period End Day' in metadata:
+        eday = int(metadata['Period End Day'])
+    else:
+        err_msg = 'Error! Cannot determine end day.'
+        sys.exit(err_msg)
+    if 'End Year' in metadata:
+        eyear = int(metadata['End Year'])
+    elif 'Period End Year' in metadata:
+        eyear = int(metadata['Period End Year'])
+    else:
+        err_msg = 'Error! Cannot determine end year.'
+        sys.exit(err_msg)
+    return eday, eyear
+
+def get_start_day_year(metadata):
+    """
+    Returns the start day and year for a file, determined from the contents of
+    metadata.
+    """
+    if 'Start Day' in metadata:
+        sday = int(metadata['Start Day'])
+    elif 'Period Start Day' in metadata:
+        sday = int(metadata['Period Start Day'])
+    else:
+        err_msg = 'Error! Cannot determine start day.'
+        sys.exit(err_msg)
+    if 'Start Year' in metadata:
+        syear = int(metadata['Start Year'])
+    elif 'Period Start Year' in metadata:
+        syear = int(metadata['Period Start Year'])
+    else:
+        err_msg = 'Error! Cannot determine start year.'
+        sys.exit(err_msg)
+    return sday, syear
 
 def get_time_period_extension(start_date_str, end_date_str):
     """
@@ -154,6 +217,7 @@ class NextLevelNameFinder(object):
         'Level 1A':       'Level 1A',
         'l1bgen':         'Level 1B',
         'Level 1B':       'Level 1B',
+        'level 1b':       'Level 1B',
         'l1brsgen':       'l1brsgen',
         'l1mapgen':       'l1mapgen',
         'l2gen':          'Level 2',
@@ -176,7 +240,8 @@ class NextLevelNameFinder(object):
                    'L3b': ['L3b', 'SMI']}
     }
 
-    def __init__(self, data_files_list, next_level, l2_suite='_OC'):
+    def __init__(self, data_files_list, next_level, suite='_OC',
+                  product = None):
         if len(data_files_list) == 0:
             err_msg = "Error! No data file specified for {0}.".format(
                                                         self.__class__.__name__)
@@ -205,14 +270,18 @@ class NextLevelNameFinder(object):
         self.next_suffix = self._get_next_suffixes()
         self.transition_functions = self._get_transition_functions()
         self.transition_sequence = self._get_transition_sequence()
-        if l2_suite[0:1] == '_':
-            self.l2_suite = l2_suite
+        if suite:
+            if suite[0:1] == '_':
+                self.suite = suite
+            else:
+                self.suite = '_' + suite
         else:
-            self.l2_suite = '_' + l2_suite
+            self.suite = None
         if not (self.data_files[0].file_type in self.transition_functions):
             if (self.data_files[0].file_type in self.PROCESSING_LEVELS):
                 for dfile in self.data_files:
                     dfile.file_type = self.PROCESSING_LEVELS[dfile.file_type]
+        self.product = product
 
     def _do_extension_substitution(self):
         """
@@ -346,7 +415,7 @@ class NextLevelNameFinder(object):
         next_lvl_name = ''
         basename = self._get_single_file_basename()
         if basename != 'indeterminate':
-            next_lvl_name = basename + self._get_l2_extension() + self.l2_suite
+            next_lvl_name = basename + self._get_l2_extension() + self.suite
         else:
             err_msg = 'Error!  Could not determine L2 name for {0}'.\
                       format(self.data_files[0].name)
@@ -375,12 +444,14 @@ class NextLevelNameFinder(object):
         sday, syear = self._get_start_doy_year()
         eday, eyear = self._get_end_doy_year()
         if sday and syear and sday > 0 and syear > 0:
-            sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
+            sdate = datetime.datetime.strptime(str(syear) + '-' + str(sday),
+                                               '%Y-%j')
         else:
             err_msg = 'Error! Cannot process start date data: year = {0}, doy = {1}'.format(syear, sday)
             sys.exit(err_msg)
         if eday and eyear and eday > 0 and eyear > 0:
-            edate = datetime.datetime.strptime(str(eyear)+'-'+str(eday), '%Y-%j')
+            edate = datetime.datetime.strptime(str(eyear) + '-' + str(eday),
+                                               '%Y-%j')
         else:
             err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
             sys.exit(err_msg)
@@ -389,14 +460,14 @@ class NextLevelNameFinder(object):
         if days_diff == 0:
             extension = '.L3b_DAY'
             next_lvl_name = first_char + str(syear) + str(sday) + extension +\
-                            self.l2_suite
+                            self.suite
         else:
             if days_diff == 7:
                 extension = '.L3b_8D'
             else:
                 extension = '.L3b_CU'
             next_lvl_name = first_char + str(syear) + str(sday) +\
-                            str(eyear) + str(eday) + extension + self.l2_suite
+                            str(eyear) + str(eday) + extension + self.suite
         return next_lvl_name
 
     def get_next_level_name(self):
@@ -475,31 +546,21 @@ class NextLevelNameFinder(object):
 
     def _get_smigen_name(self):
         """
-        Returns the output name from from smigen for an L3 Binned file or group
+        Returns the output name from smigen for an L3 Binned file or group
         of files.
         """
         l3_prod = None
         first_char = self.get_platform_indicator()
         if self.data_files[0].metadata:
-            if self.data_files[0].metadata['Sensor'] == 'Aquarius':
-                sday = int(self.data_files[0].metadata['Start Day'])
-                syear = int(self.data_files[0].metadata['Start Year'])
-                eday = int(self.data_files[0].metadata['End Day'])
-                eyear = int(self.data_files[0].metadata['End Year'])
+            sday, syear = get_start_day_year(self.data_files[0].metadata)
+            eday, eyear = get_start_day_year(self.data_files[0].metadata)
+
+            if 'Input Parameters' in self.data_files[0].metadata and\
+               'SUITE' in self.data_files[0].metadata['Input Parameters'] and\
+               self.data_files[0].metadata['Input Parameters']['SUITE'].strip() != '':
+                suite = '_' + self.data_files[0].metadata['Input Parameters']['SUITE'].strip()
             else:
-                sday = int(self.data_files[0].metadata['Period Start Day'])
-                syear = int(self.data_files[0].metadata['Period Start Year'])
-                eday = int(self.data_files[0].metadata['Period End Day'])
-                eyear = int(self.data_files[0].metadata['Period End Year'])
-                in_param_parts = self.data_files[0].metadata['Input Parameters'].split('|')
-                l3_prod = None
-                for part in in_param_parts:
-                    if part.find('L3BPROD') != -1:
-                        l3_prod = part.split('=')[1].split(';')[0].strip()
-                        break
-                if not l3_prod:
-                    msg = "Error! Could not locate product type in L3 file."
-                    sys.exit(msg)
+                suite = ''
         else:
             sday, syear = self._get_start_doy_year()
             eday, eyear = self._get_end_doy_year()
@@ -507,6 +568,7 @@ class NextLevelNameFinder(object):
             syear = int(syear)
             eday = int(eday)
             eyear = int(eyear)
+            suite = ''
 
         sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
         edate = datetime.datetime.strptime(str(eyear)+'-'+str(eday), '%Y-%j')
@@ -515,17 +577,18 @@ class NextLevelNameFinder(object):
         if days_diff == 0:
             extension = '.L3m_DAY'
             smi_name = '{0}{1:04d}{2:03d}{3}{4}'.format(first_char, syear, sday,
-                                                  extension, self.l2_suite)
+                                                  extension, suite)
+        elif days_diff == 7:
+            extension = '.L3m_8D'
         else:
-            if days_diff == 7:
-                extension = '.L3m_8D'
-            else:
-                extension = '.L3m_CU'
+            extension = '.L3m_CU'
             smi_name = '{0}{1:04d}{2:03d}{3:04d}{4:03d}{5}{6}'.format(
-                       first_char, syear, sday, eyear, eday, extension,
-                       self.l2_suite)
-        if l3_prod:
-            smi_name += '_' + l3_prod
+                       first_char, syear, sday, eyear, eday, extension, suite)
+        if self.product:
+            if self.product.startswith('_'):
+                smi_name += self.product
+            else:
+                smi_name += '_' + self.product
         return smi_name
 
     def _get_start_doy_year(self):
@@ -616,9 +679,10 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         'smigen':            'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, l2_suite='_OC'):
+    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
         super(ModisNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, l2_suite)
+                                                       next_level, suite,
+                                                       product)
 
     def _get_aqua_l0_to_l1a_name(self):
         """
@@ -709,8 +773,8 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                               self.data_files[0].metadata['RANGEBEGINNINGDATE'],
                               self.data_files[0].metadata['RANGEBEGINNINGTIME']) +\
                             self._get_l2_extension()
-        if self.l2_suite:
-            next_lvl_name += self.l2_suite
+        if self.suite:
+            next_lvl_name += self.suite
         return next_lvl_name
 
     def get_next_level_name(self):
@@ -838,6 +902,7 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
         'l1aextract_seawifs' : 'l1aextract_seawifs',
         'l1bgen':       'Level 1B',
         'Level 1B':     'Level 1B',
+        'level 1b':       'Level 1B',
         'l1brsgen':     'l1brsgen',
         'l1mapgen':     'l1mapgen',
         'l2gen':        'Level 2',
@@ -852,9 +917,10 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
         'smigen':       'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, l2_suite='_OC'):
+    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
         super(SeawifsNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, l2_suite)
+                                                       next_level, suite,
+                                                       product)
 
     def _get_transition_functions(self):
         """
@@ -906,9 +972,10 @@ class AquariusNextLevelNameFinder(NextLevelNameFinder):
         'smigen':         'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, l2_suite='V2.0'):
+    def __init__(self, data_files_list, next_level, suite='V2.0'):
         super(AquariusNextLevelNameFinder, self).__init__(data_files_list,
-                                                           next_level, l2_suite)
+                                                           next_level, suite,
+                                                           product=None)
 
     def _get_l2_extension(self):
         l1_parts = self.data_files[0].name.split('.')
@@ -925,7 +992,7 @@ class AquariusNextLevelNameFinder(NextLevelNameFinder):
         """
         basename = self._get_single_file_basename()
         if basename != 'indeterminate':
-            next_lvl_name = basename + self._get_l2_extension() + self.l2_suite
+            next_lvl_name = basename + self._get_l2_extension() + self.suite
         else:
             err_msg = 'Error!  Could not determine L2 name for {0}'.\
             format(self.data_files[0].name)

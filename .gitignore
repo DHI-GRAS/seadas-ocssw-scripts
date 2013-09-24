@@ -1,6 +1,8 @@
 *.csh
 *.sh
 *.pl
+*.pyc
+*~
 debug_set.env
 debug_unset.env
 findmods

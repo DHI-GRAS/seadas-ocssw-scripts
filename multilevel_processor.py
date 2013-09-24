@@ -4,6 +4,8 @@
 SeaDAS processing script (also known as the 'uber' processor).
 """
 
+__version__ = '1.0.0'
+
 __author__ = 'melliott'
 
 #import modis_processor
@@ -1661,7 +1663,6 @@ SUFFIXES = {
 input_file_data = {}
 TRUTH_VALUES = ['1', 'ON', 'on', 'TRUE', 'true', 'YES', 'yes']
 #verbose = False
-__version__ = '0.9.beta'
 
 if __name__ == "__main__":
     sys.exit(main())

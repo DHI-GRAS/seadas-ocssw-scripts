@@ -5,6 +5,8 @@ Program to return the name of the next level file that would be created from
 the input file name.
 """
 
+__version__ = '1.0.0'
+
 #import datetime
 import get_obpg_file_type
 import MetaUtils
@@ -76,16 +78,6 @@ def get_multifile_output_name(data_files_list_info, target_program, clopts):
                                                            target_program,
                                                            clopts)
     output_name = level_finder.get_next_level_name()
-#    first_char = level_finder.get_platform_indicator()
-#    time_ext = next_level_name_finder.get_time_period_extension(
-#        data_files_list_info[0].start_time,
-#        data_files_list_info[-1].end_time)
-#    output_name = first_char + \
-#                  data_files_list_info[0].start_time[0:4] +\
-#                  data_files_list_info[0].start_time[4:7] +\
-#                  data_files_list_info[-1].start_time[0:4] +\
-#                  data_files_list_info[-1].start_time[4:7] +\
-#                  get_extension(target_program) + time_ext + l2_suite
     return output_name
 
 #########################################
@@ -97,8 +89,10 @@ def get_command_line_data():
     ver_msg = ' '.join(['%prog', __version__])
     use_msg = 'usage: %prog INPUT_FILE TARGET_PROGRAM'
     cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
-    cl_parser.add_option('--l2_suite', dest='l2_suite', action='store',
-                         type='string', help='data type suite for l2gen')
+    cl_parser.add_option('--suite', dest='suite', action='store',
+                         type='string', help='data type suite')
+    cl_parser.add_option('--product', dest='product', action='store',
+                         type='string', help='product type (for smigen)')
     (clopts, clargs) = cl_parser.parse_args()
     if len(clargs) == 0:
         print "\nError! No input file or target program specified.\n"
@@ -141,40 +135,6 @@ def get_data_files_info(file_list_file):
             sys.exit(err_msg)
     file_info.sort()
     return file_info
-
-#def get_level_finder(data_file_list, target_program, clopts):
-#    """
-#    Returns an appropriate level finder object for the data file passed in.
-#    """
-#    if data_file_list[0].sensor.find('MODIS') != -1:
-#        if clopts.l2_suite:
-#            level_finder = next_level_name_finder.ModisNextLevelNameFinder(
-#                            data_file_list, target_program, clopts.l2_suite)
-#        else:
-#            level_finder = next_level_name_finder.ModisNextLevelNameFinder(
-#                            data_file_list, target_program)
-#    elif data_file_list[0].sensor.find('SeaWiFS') != -1:
-#        if clopts.l2_suite:
-#            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
-#                data_file_list, target_program, clopts.l2_suite)
-#        else:
-#            level_finder = next_level_name_finder.SeawifsNextLevelNameFinder(
-#                data_file_list, target_program)
-#    elif data_file_list[0].sensor.find('Aquarius') != -1:
-#        if clopts.l2_suite:
-#            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
-#                data_file_list, target_program, clopts.l2_suite)
-#        else:
-#            level_finder = next_level_name_finder.AquariusNextLevelNameFinder(
-#                data_file_list, target_program)
-#    else:
-#        if clopts.l2_suite:
-#            level_finder = next_level_name_finder.NextLevelNameFinder(
-#                            data_file_list, target_program, clopts.l2_suite)
-#        else:
-#            level_finder = next_level_name_finder.NextLevelNameFinder(
-#                            data_file_list, target_program)
-#    return level_finder
 
 def handle_unexpected_exception(exc_info):
     """
@@ -246,6 +206,5 @@ def main():
 DEBUG = False
 DEBUG = True  # Comment out for production use
 
-__version__ = '0.6.beta'
 if __name__ == '__main__':
     sys.exit(main())

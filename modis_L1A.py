@@ -59,6 +59,10 @@ if __name__ == "__main__":
         startnudge = options.startnudge
     if options.stopnudge:
         stopnudge = options.stopnudge
+    if options.nextgranule:
+        nextgranule = options.nextgranule
+    if options.fix:
+        fix = options.fix
     if options.log:
         log = options.log
     if options.par:
