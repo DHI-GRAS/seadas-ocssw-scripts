@@ -13,6 +13,7 @@ curlCommand = 'curl -O --retry 5 --retry-delay 5 '
 checksumFileName = 'bundles.sha256sum'
 checksumDict = {}
 downloadTries = 2
+local = None
 
 # globals for progress display
 numThings = 1
@@ -22,8 +23,9 @@ def loadChecksums():
     """
     Download and read the bundle checksums into checksumDict.
     """
-    global checksumDict
-    installFile(checksumFileName, False)
+    global checksumDict, csFile
+    installFile(checksumFileName, continueFlag=False, local=local)
+
     if verbose:
         print 'Loading checksum file.'
     try:
@@ -41,7 +43,7 @@ def testFileChecksum(fileName):
     """
     test the checksum on the given bundle file.
     """
-    global checksumDict
+    global checksumDict, bundleFile
     if verbose:
         print 'comparing checksum for ' + fileName
     if fileName not in checksumDict:
@@ -73,7 +75,7 @@ def makeDir(dirName):
     Creates the directory if needed.
     """
     fullDir = os.path.join(installDir, dirName)
-    if os.path.isdir(fullDir) == False:
+    if not os.path.isdir(fullDir):
         if verbose:
             print 'Creating dirName', fullDir
         os.makedirs(fullDir)
@@ -84,26 +86,31 @@ def deleteFile(fileName):
     """
     try:
         os.remove(os.path.join(installDir, fileName))
-    except:
+    except Exception:
         pass
 
-def installFile(fileName, continueFlag=True):
+def installFile(fileName, continueFlag=True, local=None):
     """
     Downloads the file to the install dir
     """
     if verbose:
-        print 'Downloading', fileName
+        if local:
+            print 'Installing', fileName, ' from ', local
+        else:
+            print 'Downloading', fileName
 
     commandStr = 'cd ' + installDir + '; ' + curlCommand
     if continueFlag:
         commandStr += '-C - '
     commandStr += gitBase + fileName
+    if local:
+        commandStr = "cp %s %s" % (os.path.join(local, fileName), installDir)
     retval = os.system(commandStr)
-    if retval != 0:
+    if retval:
         print 'Error - Could not run \"' + commandStr + '\"'
         exit(1)
 
-def installGitRepo(repoName, dirName):
+def installGitRepo(repoName, dirName, local=local):
     """
     Installs or updates the repo into dirName.
     """
@@ -112,27 +119,48 @@ def installGitRepo(repoName, dirName):
         if os.path.isdir(os.path.join(fullDir, ".svn")):
             print "aborting - " + fullDir + " is an svn repository."
             exit(1)
-        # directory exists try a git update
+
+        # save any local modifications using git stash
+        cmd = ['git', 'stash']
+        stashOutput = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=fullDir).communicate()[0]
+        if not stashOutput.startswith('No local changes to save'):
+            if verbose:
+                print "Saved local changes with \"git stash\""
+
+        # directory exists try a git update.
         commandStr = 'cd ' + fullDir + '; git pull --progress'
         if verbose:
             print "Updating existing directory -", fullDir
         else:
             commandStr += ' -q'
         retval = os.system(commandStr)
-        if retval != 0:
+        if retval:
             print 'Error - Could not run \"' + commandStr + '\"'
             exit(1)
+
+        # restore local modifications using git stash pop
+        if not stashOutput.startswith('No local changes to save'):
+            cmd = ['git', 'stash', 'pop']
+            if verbose:
+                print "Restoring local changes with \"git stash pop\""
+                stashStatus = subprocess.Popen(cmd, cwd=fullDir).communicate()[0]
+            else:
+                stashStatus = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=fullDir).communicate()[0]
+
     else:
         # directory does not exist
         if verbose:
-            print "Downloading new directory -", fullDir
+            if local:
+                print "Installing new directory -", fullDir
+            else:
+                print "Downloading new directory -", fullDir
 
         # download bundle
         testFailed = True
         count = 0
         while count < downloadTries:
             count += 1
-            installFile(repoName + '.bundle')
+            installFile(repoName + '.bundle',local=local)
             if testFileChecksum(repoName + '.bundle'):
                 testFailed = False
                 break
@@ -146,7 +174,7 @@ def installGitRepo(repoName, dirName):
         commandStr = 'cd ' + installDir + '; '
         commandStr += 'git clone --progress -b master ' + repoName + '.bundle ' + fullDir
         retval = os.system(commandStr)
-        if retval != 0:
+        if retval:
             print 'Error - Could not run \"' + commandStr + '\"'
             exit(1)
 
@@ -157,14 +185,14 @@ def installGitRepo(repoName, dirName):
         commandStr = 'cd ' + fullDir + '; '
         commandStr += 'git remote set-url origin ' + gitBase + repoName + '.git'
         retval = os.system(commandStr)
-        if retval != 0:
+        if retval:
             print 'Error - Could not run \"' + commandStr + '\"'
             exit(1)
 
         # git pull to make sure we are up to date
         commandStr = 'cd ' + fullDir + '; git pull --progress > /dev/null'
         retval = os.system(commandStr)
-        if retval != 0:
+        if retval:
             print 'Error - Could not run \"' + commandStr + '\"'
             exit(1)
 
@@ -219,6 +247,8 @@ if __name__ == "__main__":
            help="set system architecture (linux, linux_64, macosx_intel)")
     parser.add_option("-s", "--src", action="store_true", dest='src',
                       default=False, help="install source code")
+    parser.add_option("-l","--local", action="store", dest="local",
+                      default=None, help="local directory containing previously downloaded bundles")
 
     # add missions
     parser.add_option("--aquarius", action="store_true", dest="aquarius",
@@ -303,7 +333,7 @@ if __name__ == "__main__":
     # make sure git exists and is setup
     commandStr = "git --version > /dev/null"
     retval = os.system(commandStr)
-    if retval != 0:
+    if retval:
         print 'Error - Could not execute system command \"' + commandStr + '\"'
         exit(1)
 
@@ -314,7 +344,7 @@ if __name__ == "__main__":
     if gitResult == "":
         commandStr = "git config --global user.name \"Default Seadas User\""
         retval = os.system(commandStr)
-        if retval != 0:
+        if retval:
             print 'Error - Could not execute system command \"' + commandStr + '\"'
             exit(1)
 
@@ -325,7 +355,7 @@ if __name__ == "__main__":
     if gitResult == "":
         commandStr = "git config --global user.email \"seadas-user@localhost\""
         retval = os.system(commandStr)
-        if retval != 0:
+        if retval:
             print 'Error - Could not execute system command \"' + commandStr + '\"'
             exit(1)
 
@@ -385,127 +415,127 @@ if __name__ == "__main__":
     # install run/data/common
     # the git install checks to see if the dir is svn and bails
     printProgress('common')
-    installGitRepo('common', 'run/data/common')
+    installGitRepo('common', 'run/data/common', local=options.local)
 
     # download OCSSW_bash.env
     printProgress('OCSSW_bash.env')
-    installFile('OCSSW_bash.env', False);
+    installFile('OCSSW_bash.env', continueFlag=False)
 
     # download README
     printProgress('README')
-    installFile('README', False)
+    installFile('README', continueFlag=False)
 
     # install build source directory
     if options.src:
         printProgress('src')
-        installGitRepo('build', 'build')
+        installGitRepo('build', 'build', local=options.local)
 
     # install run/data/ocrvc
     printProgress('ocrvc')
-    installGitRepo('ocrvc', 'run/data/ocrvc')
+    installGitRepo('ocrvc', 'run/data/ocrvc', local=options.local)
 
     # install run/data/aquarius
     if options.aquarius:
         printProgress('aquarius')
-        installGitRepo('aquarius', 'run/data/aquarius')
+        installGitRepo('aquarius', 'run/data/aquarius', local=options.local)
 
     # install run/data/avhrr
     if options.avhrr:
         printProgress('avhrr')
-        installGitRepo('avhrr', 'run/data/avhrr')
+        installGitRepo('avhrr', 'run/data/avhrr', local=options.local)
 
     # install run/data/czcs
     if options.czcs:
         printProgress('czcs')
-        installGitRepo('czcs', 'run/data/czcs')
+        installGitRepo('czcs', 'run/data/czcs', local=options.local)
 
     # install run/data/eval
     if options.eval:
         printProgress('eval')
-        installGitRepo('eval', 'run/data/eval')
+        installGitRepo('eval', 'run/data/eval', local=options.local)
 
     # install run/data/goci
     if options.goci:
         printProgress('goci')
-        installGitRepo('goci', 'run/data/goci')
+        installGitRepo('goci', 'run/data/goci', local=options.local)
 
     # install run/data/hico
     if options.hico:
         printProgress('hico')
-        installGitRepo('hico', 'run/data/hico')
+        installGitRepo('hico', 'run/data/hico', local=options.local)
         printProgress('hicohs')
-        installGitRepo('hicohs', 'run/data/hicohs')
+        installGitRepo('hicohs', 'run/data/hicohs', local=options.local)
 
     # install run/data/meris
     if options.meris:
         printProgress('meris')
-        installGitRepo('meris', 'run/data/meris')
+        installGitRepo('meris', 'run/data/meris', local=options.local)
 
     # install run/data/modis
     if options.aqua or options.terra:
         printProgress('modis')
-        installGitRepo('modis', 'run/data/modis')
+        installGitRepo('modis', 'run/data/modis', local=options.local)
 
     # install run/data/aqua
     if options.aqua:
         printProgress('modisa')
-        installGitRepo('modisa', 'run/data/modisa')
+        installGitRepo('modisa', 'run/data/modisa', local=options.local)
         printProgress('hmodisa')
-        installGitRepo('hmodisa', 'run/data/hmodisa')
+        installGitRepo('hmodisa', 'run/data/hmodisa', local=options.local)
 
     # install run/data/terra
     if options.terra:
         printProgress('modist')
-        installGitRepo('modist', 'run/data/modist')
+        installGitRepo('modist', 'run/data/modist', local=options.local)
         printProgress('hmodist')
-        installGitRepo('hmodist', 'run/data/hmodist')
+        installGitRepo('hmodist', 'run/data/hmodist', local=options.local)
 
     # install run/data/mos
     if options.mos:
         printProgress('mos')
-        installGitRepo('mos', 'run/data/mos')
+        installGitRepo('mos', 'run/data/mos', local=options.local)
 
     # install run/data/ocm1
     if options.ocm1:
         printProgress('ocm1')
-        installGitRepo('ocm1', 'run/data/ocm1')
+        installGitRepo('ocm1', 'run/data/ocm1', local=options.local)
 
     # install run/data/ocm2
     if options.ocm2:
         printProgress('ocm2')
-        installGitRepo('ocm2', 'run/data/ocm2')
+        installGitRepo('ocm2', 'run/data/ocm2', local=options.local)
 
     # install run/data/octs
     if options.octs:
         printProgress('octs')
-        installGitRepo('octs', 'run/data/octs')
+        installGitRepo('octs', 'run/data/octs', local=options.local)
 
     # install run/data/osmi
     if options.osmi:
         printProgress('osmi')
-        installGitRepo('osmi', 'run/data/osmi')
+        installGitRepo('osmi', 'run/data/osmi', local=options.local)
 
     # install run/data/seawifs
     if options.seawifs:
         printProgress('seawifs')
-        installGitRepo('seawifs', 'run/data/seawifs')
+        installGitRepo('seawifs', 'run/data/seawifs', local=options.local)
 
     # install run/data/viirsn
     if options.viirsn:
         printProgress('viirsn')
-        installGitRepo('viirsn', 'run/data/viirsn')
+        installGitRepo('viirsn', 'run/data/viirsn', local=options.local)
 
     # download bin dir
     repo = 'bin-' + arch
     dirStr = 'run/bin/' + arch
     printProgress('bin')
-    installGitRepo(repo, dirStr)
+    installGitRepo(repo, dirStr, local=options.local)
 
     # download bin dir3
     repo = 'bin3-' + arch
     dirStr = 'run/bin3/' + arch
     printProgress('bin3')
-    installGitRepo(repo, dirStr)
+    installGitRepo(repo, dirStr, local=options.local)
 
     #####################################################
     # install the scripts last since it is used as
@@ -514,7 +544,7 @@ if __name__ == "__main__":
 
     # install run/scripts
     printProgress('scripts')
-    installGitRepo('scripts', 'run/scripts')
+    installGitRepo('scripts', 'run/scripts', local=options.local)
 
     # check that shared libc version will work
     commandStr = os.path.join(installDir, 'run', 'bin3', arch, 'hdp')
@@ -522,7 +552,7 @@ if __name__ == "__main__":
     if verbose:
         print 'Checking that an installed executable can run'
     retval = os.system(commandStr)
-    if retval != 0:
+    if retval:
         print 'Error - Can not run an installed executable'
         exit(1)
 
@@ -533,7 +563,7 @@ if __name__ == "__main__":
     if verbose:
         print 'Checking Python version'
     retval = os.system(commandStr)
-    if retval != 0:
+    if retval:
         print 'Error - Python version is not new enough to install luts'
         exit(1)
 
@@ -544,35 +574,35 @@ if __name__ == "__main__":
     if options.seawifs:
         printProgress('seawifs-luts')
         retval = os.system(commandStr + 'seawifs')
-        if retval != 0:
+        if retval:
             print 'Error - Could not install luts for seawifs'
             exit(1)
 
     if options.aqua:
         printProgress('aqua-luts')
         retval = os.system(commandStr + 'aqua')
-        if retval != 0:
+        if retval:
             print 'Error - Could not install luts for aqua'
             exit(1)
 
     if options.terra:
         printProgress('terra-luts')
         retval = os.system(commandStr + 'terra')
-        if retval != 0:
+        if retval:
             print 'Error - Could not install luts for terra'
             exit(1)
 
     if options.viirsn:
         printProgress('viirsn-luts')
         retval = os.system(commandStr + 'viirsn')
-        if retval != 0:
+        if retval:
             print 'Error - Could not install luts for viirsn'
             exit(1)
 
     if options.aquarius:
         printProgress('aquarius-luts')
         retval = os.system(commandStr + 'aquarius')
-        if retval != 0:
+        if retval:
             print 'Error - Could not install luts for aquarius'
             exit(1)
 

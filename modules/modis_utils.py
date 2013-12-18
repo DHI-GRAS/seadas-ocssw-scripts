@@ -1,5 +1,12 @@
+"""
+Utility functions for MODIS processing programs.
+"""
+
 from exceptions import ValueError
+import get_obpg_file_type
+import obpg_data_file
 import os
+import next_level_name_finder
 import sys
 import re
 import shutil
@@ -34,7 +41,8 @@ def buildpcf(self):
     for line in pcf:
         if self.proctype == "modisL1A":
             line = line.replace('L0DIR', self.dirs['run'])
-            line = line.replace('CURRL0GRAN0', '.'.join([self.l0file, 'constr']))
+            line = line.replace('CURRL0GRAN0',
+                                '.'.join([self.l0file, 'constr']))
             line = line.replace('CURRL0GRAN1', self.l0file)
             line = line.replace('L1ADIR', self.dirs['run'])
             line = line.replace('L1AFILE', os.path.basename(self.l1a))
@@ -113,13 +121,15 @@ def buildpcf(self):
             line = line.replace('LUTVERSION', self.lutversion)
 
         if  re.search('(GEO|L1B)', self.proctype):
-            line = line.replace("GEODIR", os.path.abspath(os.path.dirname(self.geofile)))
+            line = line.replace("GEODIR",
+                                os.path.abspath(os.path.dirname(self.geofile)))
             line = line.replace("GEOFILE", os.path.basename(self.geofile))
 
         line = line.replace('MCFDIR', self.dirs['mcf'])
         line = line.replace("CALDIR", self.dirs['cal'])
         line = line.replace("STATIC", self.dirs['static'])
-        line = line.replace("L1ADIR", os.path.abspath(os.path.dirname(self.file)))
+        line = line.replace("L1ADIR",
+                            os.path.abspath(os.path.dirname(self.file)))
         line = line.replace("L1AFILE", os.path.basename(self.file))
 
         line = line.replace("VARDIR", os.path.join(self.dirs['var'], 'modis'))
@@ -148,12 +158,13 @@ def modis_timestamp(arg):
              sat_name )
 
 
-def getversion(file):
-
+def getversion(file_name):
+    """
+    Returns the version of the file named filename.
+    """
     clean = ""
-
-    if os.path.exists(file):
-        for line in open(file):
+    if os.path.exists(file_name):
+        for line in open(file_name):
             if "$Revision" in line:
                 sidx = line.find('$Revision')
                 eidx = line.rfind('$')
@@ -168,8 +179,8 @@ def sortLUT(lut, length):
         Version comparison for LUTs
     """
     lut = lut.split("\n")
-    for l in range(len(lut)):
-        lut[l] = lut[l][length:].rstrip('.hdf')
+    for ndx in range(len(lut)):
+        lut[ndx] = lut[ndx][length:].rstrip('.hdf')
 
     lut = sorted(lut, cmp=cmpver)
     return lut[0]
@@ -181,21 +192,24 @@ def cmpver(a, b):
     """
 
     def fixup(i):
+        """
+        Returns i as an int if possible, or in its original form otherwise.
+        """
         try:
             return int(i)
         except ValueError:
             return i
 
-    a = map(fixup, re.findall("\d+|\w+", a))
-    b = map(fixup, re.findall("\d+|\w+", b))
+    a = map(fixup, re.findall(r'\d+|\w+', a))
+    b = map(fixup, re.findall(r'\d+|\w+', b))
     return cmp(b, a)
 
 
 def cleanup(lut):
     clean = ""
-    for l in range(len(lut)):
-        if l % 2:
-            clean = clean + lut[l] + "\n"
+    for ndx in range(len(lut)):
+        if ndx % 2:
+            clean = clean + lut[ndx] + "\n"
     return clean
 
 
@@ -208,7 +222,8 @@ def modis_env(self):
         print "ERROR: The " + os.path.join(os.getenv("OCDATAROOT"), "modis") + "directory does not exist."
         sys.exit(1)
 
-    os.environ["PGSMSG"] = os.path.join(os.getenv("OCDATAROOT"), "modis", "static")
+    os.environ["PGSMSG"] = os.path.join(os.getenv("OCDATAROOT"),
+                                        "modis", "static")
 
     # MODIS L1A
     if self.proctype == "modisL1A":
@@ -270,14 +285,16 @@ def modis_env(self):
     # Static input directories
     self.dirs['cal'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'cal')
     self.dirs['mcf'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'mcf')
-    self.dirs['static'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'static')
+    self.dirs['static'] = os.path.join(os.getenv("OCDATAROOT"),
+                                       'modis', 'static')
     self.dirs['dem'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'dem')
     if not os.path.exists(self.dirs['dem']):
         self.dirs['dem'] = self.dirs['static']
 
     # MODIS L1A
     if self.proctype == "modisL1A":
-        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'pcf', 'L1A_template.pcf')
+        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"),
+                                         'modis', 'pcf', 'L1A_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find the L1A PCF template: " + self.pcf_template
             sys.exit(1)
@@ -286,11 +303,13 @@ def modis_env(self):
         self.englutfile = 'ENG_DATA_LIST_' + self.sat_name.upper() + '_V' + self.pgeversion
         if self.lutversion:
             self.englutfile += '.' + self.lutversion
-        self.englutver = getversion(os.path.join(self.dirs['cal'], self.englutfile))
+        self.englutver = getversion(os.path.join(self.dirs['cal'],
+                                                 self.englutfile))
 
     # MODIS GEO
     if self.proctype == "modisGEO":
-        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'pcf', 'GEO_template.pcf')
+        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"),
+                                         'modis', 'pcf', 'GEO_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find GEO PCF template " + self.pcf_template
             sys.exit(1)
@@ -302,12 +321,16 @@ def modis_env(self):
         if self.lutversion:
             self.geolutfile += '.' + self.lutversion
             self.geomvrfile += '.' + self.lutversion
-        self.geolutver = getversion(os.path.join(self.dirs['cal'], self.geolutfile))
-        self.geomvrver = getversion(os.path.join(self.dirs['cal'], self.geomvrfile))
+        self.geolutver = getversion(os.path.join(self.dirs['cal'],
+                                                 self.geolutfile))
+        self.geomvrver = getversion(os.path.join(self.dirs['cal'],
+                                                 self.geomvrfile))
 
         self.planetfile = "de200.eos"
-        if not os.path.exists(os.path.join(self.dirs['static'], self.planetfile)):
-            if not os.path.exists(os.path.join(self.dirs['static'], 'de200.dat')):
+        if not os.path.exists(os.path.join(self.dirs['static'],
+                                           self.planetfile)):
+            if not os.path.exists(os.path.join(self.dirs['static'],
+                                               'de200.dat')):
                 print "ERROR: File " + os.path.join(self.dirs['static'], self.planetfile) + "does not exist."
                 print "       nor does " + os.path.join(self.dirs['static'], 'de200.dat') + "..."
                 print "       Something is amiss with the environment..."
@@ -324,20 +347,25 @@ def modis_env(self):
                     print "Error creating binary planetary ephemeris file"
                     sys.exit(1)
                 else:
-                    shutil.move('de200.eos', os.path.join(self.dirs['static'], 'de200.eos'))
+                    shutil.move('de200.eos', os.path.join(self.dirs['static'],
+                                                          'de200.eos'))
 
         # determine output file name
         if not self.geofile:
-            if re.search('L1A_LAC', self.file):
-                self.geofile = self.file.replace("L1A_LAC", "GEO")
-            elif re.search('L1A', self.file):
-                self.geofile = self.file.replace("L1A", "GEO")
-            else:
-                self.geofile = '.'.join([self.file, "GEO"])
+            file_typer = get_obpg_file_type.ObpgFileTyper(self.file)
+            ftype, sensor = file_typer.get_file_type()
+            stime, etime = file_typer.get_file_times()
+            data_files_list = list([obpg_data_file.ObpgDataFile(self.file,
+                                                               ftype, sensor,
+                                                               stime, etime)])
+            name_finder = next_level_name_finder.ModisNextLevelNameFinder(
+                            data_files_list, 'geo')
+            self.geofile = name_finder.get_next_level_name()
 
     # MODIS L1B
     if self.proctype == "modisL1B":
-        self.pcf_template = os.path.join(os.getenv('OCDATAROOT'), 'modis', 'pcf', 'L1B_template.pcf')
+        self.pcf_template = os.path.join(os.getenv('OCDATAROOT'), 'modis',
+                                         'pcf', 'L1B_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find the L1B PCF template", self.pcf_template
             sys.exit(1)
@@ -355,14 +383,19 @@ def modis_env(self):
             if self.lutversion:
                 print "Missing LUTDIR. LUTDIR needs to be defined if LUTVER is set"
                 sys.exit(1)
-            self.lutdir = os.path.join(os.getenv('OCSSWROOT'), 'run', 'var', self.sensor, 'cal', 'OPER')
+            self.lutdir = os.path.join(os.getenv('OCSSWROOT'), 'run',
+                                       'var', self.sensor, 'cal', 'OPER')
             lutlist = os.listdir(self.lutdir)
             for lut in lutlist:
-                if lut.find('Refl') > 0: self.refl_lut = lut
-                if lut.find('Emis') > 0: self.emis_lut = lut
-                if lut.find('QA') > 0: self.qa_lut = lut
+                if lut.find('Refl') > 0:
+                    self.refl_lut = lut
+                if lut.find('Emis') > 0:
+                    self.emis_lut = lut
+                if lut.find('QA') > 0:
+                    self.qa_lut = lut
 
-            self.lutversion = re.sub('V', '', '.'.join(self.refl_lut.split('.')[1:5]))
+            self.lutversion = re.sub('V', '',
+                                     '.'.join(self.refl_lut.split('.')[1:5]))
 
         if self.verbose:
             print ""
@@ -373,15 +406,29 @@ def modis_env(self):
             print "QA LUT: %s" % self.qa_lut
             print ""
 
-        self.dirs['mcf'] = os.path.join(os.getenv('OCDATAROOT'), self.sensor, 'mcf')
-        self.qkm_mcf = ''.join([self.prefix, '02QKM_', self.collection_id, '.mcf'])
-        self.hkm_mcf = ''.join([self.prefix, '02HKM_', self.collection_id, '.mcf'])
-        self.okm_mcf = ''.join([self.prefix, '021KM_', self.collection_id, '.mcf'])
-        self.obc_mcf = ''.join([self.prefix, '02OBC_', self.collection_id, '.mcf'])
-
+        self.dirs['mcf'] = os.path.join(os.getenv('OCDATAROOT'),
+                                        self.sensor, 'mcf')
+        self.qkm_mcf = ''.join([self.prefix, '02QKM_',
+                                self.collection_id, '.mcf'])
+        self.hkm_mcf = ''.join([self.prefix, '02HKM_',
+                                self.collection_id, '.mcf'])
+        self.okm_mcf = ''.join([self.prefix, '021KM_',
+                                self.collection_id, '.mcf'])
+        self.obc_mcf = ''.join([self.prefix, '02OBC_',
+                                self.collection_id, '.mcf'])
 
         # set output file name
-        self.base = os.path.join(self.dirs['run'], os.path.basename(self.file).split('.')[0])
+        file_typer = get_obpg_file_type.ObpgFileTyper(self.file)
+        ftype, sensor = file_typer.get_file_type()
+        stime, etime = file_typer.get_file_times()
+        data_files_list = list([obpg_data_file.ObpgDataFile(self.file,
+                                                           ftype, sensor,
+                                                           stime, etime)])
+        name_finder = next_level_name_finder.ModisNextLevelNameFinder(
+                        data_files_list, 'l1bgen')
+        l1b_name = name_finder.get_next_level_name()
+        self.base = os.path.join(self.dirs['run'],
+                                 os.path.basename(l1b_name).split('.')[0])
 
         if self.okm is None:
             if re.search('L1A_LAC', self.file):

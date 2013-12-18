@@ -4,7 +4,7 @@
 SeaDAS processing script (also known as the 'uber' processor).
 """
 
-__version__ = '1.0.0'
+__version__ = '1.0.2'
 
 __author__ = 'melliott'
 
@@ -122,6 +122,17 @@ class ProcessorConfig:
         with open(cfg_path, 'wt') as cfg_file:
             cfg_file.write('[main]\n')
             cfg_file.write('par_file_age=30  # units are days\n')
+
+def get_obpg_data_file_object(file_specification):
+    """
+    Returns an obpg_data_file object for the file named in file_specification.
+    """
+    ftyper = get_obpg_file_type.ObpgFileTyper(file_specification)
+    (ftype, sensor) =  ftyper.get_file_type()
+    (stime, etime) = ftyper.get_file_times()
+    obpg_data_file_obj = obpg_data_file.ObpgDataFile(file_specification, ftype, sensor,
+                                        stime, etime, ftyper.attributes)
+    return obpg_data_file_obj
 
 def build_file_list_file(filename, file_list):
     """
@@ -579,7 +590,8 @@ def do_processing(rules_sets, par_file):
         exc_parts = [str(l) for l in sys.exc_info()]
         err_type_parts = str(exc_parts[0]).strip().split('.')
         err_type = err_type_parts[-1].strip("'>")
-        tb_line = traceback.format_exc().splitlines()[-3]
+        tb_data = traceback.format_exc()
+        tb_line = tb_data.splitlines()[-3]
         line_num = tb_line.split(',')[1]
         err_msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(cfg_data.prog_name,
                                                err_type, exc_parts[1], line_num.strip())
@@ -887,11 +899,7 @@ def get_output_name(input_files, targ_prog):
     Determine what the output name would be if targ_prog is run on input_files.
     """
     if not isinstance(input_files, list):
-        file_typer = get_obpg_file_type.ObpgFileTyper(input_files)
-        file_type, file_instr = file_typer.get_file_type()
-        stime, etime = file_typer.get_file_times()
-        data_file = obpg_data_file.ObpgDataFile(input_files, file_type,
-                                                file_instr, stime, etime)
+        data_file = get_obpg_data_file_object(input_files)
         nm_findr = next_level_name_finder.NextLevelNameFinder([data_file],
                                                               targ_prog)
     else:
@@ -1231,11 +1239,7 @@ def run_batch_processor(ndx, processors, file_set):
     processors[ndx].input_file = file_list_name
     data_file_list = []
     for fspec in file_set:
-        ftyper = get_obpg_file_type.ObpgFileTyper(fspec)
-        (ftype, sensor) =  ftyper.get_file_type()
-        (stime, etime) = ftyper.get_file_times()
-        dfile = obpg_data_file.ObpgDataFile(fspec, ftype, sensor, stime,
-                                                  etime)
+        dfile = get_obpg_data_file_object(fspec)
         data_file_list.append(dfile)
     name_finder = next_level_name_finder.NextLevelNameFinder(data_file_list,
                                                              processors[ndx].target_type)
@@ -1386,11 +1390,7 @@ def run_l2brsgen(proc):
     logging.debug("In run_l2brsgen")
     prog = os.path.join(proc.ocssw_bin, 'l2brsgen')
     opts = get_options(proc.par_data)
-    file_typer = get_obpg_file_type.ObpgFileTyper(proc.input_file)
-    (ftype, sensor) = file_typer.get_file_type()
-    (stime, etime) = file_typer.get_file_times()
-    data_file = obpg_data_file.ObpgDataFile(proc.input_file, ftype, sensor,
-                                            stime, etime)
+    data_file = get_obpg_data_file_object(proc.input_file)
     df_list = [data_file]
     name_finder = next_level_name_finder.NextLevelNameFinder(df_list,
                                                              'l2brsgen')
@@ -1542,10 +1542,7 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
     else:
         input_file = file_set
         geo_file = None
-    ftyper = get_obpg_file_type.ObpgFileTyper(input_file)
-    (ftype, sensor) =  ftyper.get_file_type()
-    (stime, etime) = ftyper.get_file_times()
-    dfile = obpg_data_file.ObpgDataFile(input_file, ftype, sensor, stime, etime)
+    dfile = get_obpg_data_file_object(input_file)
     name_finder = next_level_name_finder.get_level_finder([dfile],
                                                     processors[ndx].target_type,
                                                     )

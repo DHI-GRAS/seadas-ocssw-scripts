@@ -1,11 +1,15 @@
 #! /usr/bin/env python
 
 
+import get_obpg_file_type
+import next_level_name_finder
+import obpg_data_file
 import os
+import ProcUtils
 import sys
 from modules.ParamUtils import ParamProcessing
 
-class modis_l1b:
+class ModisL1B:
     """
 
     Runs l1bgen_modis for a single Level 1A granule
@@ -20,7 +24,7 @@ class modis_l1b:
 
     """
 
-    def __init__(self, file=None,
+    def __init__(self, inp_file=None,
                  parfile=None,
                  geofile=None,
                  okm=None,
@@ -32,7 +36,7 @@ class modis_l1b:
                  delfiles=0,
                  log=False,
                  verbose=False):
-        self.file = file
+        self.file = inp_file
         self.parfile = parfile
         self.geofile = geofile
         self.okm = okm
@@ -58,9 +62,9 @@ class modis_l1b:
         if self.parfile:
             if self.verbose:
                 print "Reading parameter file: %s" % self.parfile
-            p = ParamProcessing(parfile=self.parfile)
-            p.parseParFile(prog='l1bgen')
-            phash = p.params['l1bgen']
+            param_proc = ParamProcessing(parfile=self.parfile)
+            param_proc.parseParFile(prog='l1bgen')
+            phash = param_proc.params['l1bgen']
             for param in (phash.keys()):
                 if not self[param]:
                     self[param] = phash[param]
@@ -68,6 +72,22 @@ class modis_l1b:
         # determine geo file name
         if self.geofile is None:
             self.geofile = '.'.join([self.file.split('.')[0], "GEO"])
+            if not os.path.exists(self.geofile):
+                geofile_parts = self.file.split('.')[:-1]
+                geofile_parts.append('GEO')
+                self.geofile = '.'.join(geofile_parts)
+            if not os.path.exists(self.geofile):
+                file_typer = get_obpg_file_type.ObpgFileTyper(self.file)
+                ftype, sensor = file_typer.get_file_type()
+                stime, etime = file_typer.get_file_times()
+                data_files_list = list([obpg_data_file.ObpgDataFile(self.file,
+                                                                   ftype,
+                                                                   sensor,
+                                                                   stime,
+                                                                   etime)])
+                name_finder = next_level_name_finder.ModisNextLevelNameFinder(
+                                data_files_list, 'geo')
+                self.geofile = name_finder.get_next_level_name()
 
             if self.verbose:
                 print "Assuming GEOFILE is %s" % self.geofile
@@ -91,20 +111,40 @@ class modis_l1b:
             print "ERROR: File", self.geofile, "does not exist."
             sys.exit(1)
 
+    def _clean_files(self):
+        """
+        Removes any unwanted files from the L1A -> L1B processing.
+        """
+        if self.delfiles & 1:
+            ProcUtils.remove(self.okm)
+        if self.delfiles & 2:
+            ProcUtils.remove(self.hkm)
+        if self.delfiles & 4:
+            ProcUtils.remove(self.qkm)
+        if self.delfiles & 8:
+            ProcUtils.remove(self.obc)
+
+        if self.log is False:
+            ProcUtils.remove(self.pcf_file)
+            base = os.path.basename(self.okm)
+            ProcUtils.remove(os.path.join(self.dirs['run'],
+                                          '.'.join(['LogReport', base])))
+            ProcUtils.remove(os.path.join(self.dirs['run'],
+                                          '.'.join(['LogStatus', base])))
+            ProcUtils.remove(os.path.join(self.dirs['run'],
+                                          '.'.join(['LogUser', base])))
 
     def run(self):
         """
         Run l1bgen_modis (MOD_PR02)
         """
-        import sys
         import subprocess
-        import os
         import shutil
-        import ProcUtils
 
         if self.verbose:
             print "Processing MODIS L1A file to L1B..."
-        l1bgen = os.path.join(self.dirs['bin'], ''.join(['l1bgen_', self.sensor]))
+        l1bgen = os.path.join(self.dirs['bin'],
+                              ''.join(['l1bgen_', self.sensor]))
         status = subprocess.call(l1bgen, shell=True)
         if self.verbose:
             print l1bgen, "exit status:", str(status)
@@ -114,24 +154,15 @@ class modis_l1b:
             ProcUtils.remove(os.path.join(self.dirs['run'], "ShmMem"))
             for l1bfile in (self.okm, self.hkm, self.qkm, self.obc):
                 if os.path.dirname(l1bfile) != self.dirs['run']:
-                    origfile = os.path.join(self.dirs['run'], os.path.basename(l1bfile))
+                    origfile = os.path.join(self.dirs['run'],
+                                            os.path.basename(l1bfile))
                     if os.path.exists(origfile):
                         shutil.move(origfile, l1bfile)
                         ProcUtils.remove('.'.join([origfile, 'met']))
                 else:
                     ProcUtils.remove('.'.join([l1bfile, 'met']))
 
-            if self.delfiles & 1: ProcUtils.remove(self.okm)
-            if self.delfiles & 2: ProcUtils.remove(self.hkm)
-            if self.delfiles & 4: ProcUtils.remove(self.qkm)
-            if self.delfiles & 8: ProcUtils.remove(self.obc)
-
-            if self.log is False:
-                ProcUtils.remove(self.pcf_file)
-                base = os.path.basename(self.okm)
-                ProcUtils.remove(os.path.join(self.dirs['run'], '.'.join(['LogReport', base])))
-                ProcUtils.remove(os.path.join(self.dirs['run'], '.'.join(['LogStatus', base])))
-                ProcUtils.remove(os.path.join(self.dirs['run'], '.'.join(['LogUser', base])))
+            self._clean_files()
 
             if self.verbose:
                 print "MODIS L1B processing complete."

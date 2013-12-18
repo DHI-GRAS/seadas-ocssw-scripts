@@ -30,6 +30,27 @@ def convert_str_to_int(short_str):
         sys.exit(err_msg)
     return int_value
 
+def create_level_finder(finder_class, clopts, data_file_list, target_program):
+    """
+    Instantiates an instance of finder_class and returns it.
+    """
+    level_finder = None
+    if clopts:
+        if clopts.suite and clopts.product:
+            level_finder = finder_class(data_file_list, target_program,
+                                        clopts.suite, clopts.product)
+        elif clopts.suite:
+            level_finder = finder_class(data_file_list, target_program,
+                                        clopts.suite)
+        elif clopts.product:
+            level_finder = finder_class(data_file_list, target_program, None,
+                                        clopts.product)
+        else:
+            level_finder = finder_class(data_file_list, target_program)
+    else:
+        level_finder = finder_class(data_file_list, target_program)
+    return level_finder
+
 def _get_data_files_info(flf):
     """
     Returns a list of data files read from the specified input file.
@@ -79,75 +100,21 @@ def get_level_finder(data_file_list, target_program, clopts=None):
     """
     Returns an appropriate level finder object for the data file passed in.
     """
-    # Todo: clean this up!  (Make one fn to which the specific finder
-    # is passed)
     if data_file_list[0].sensor.find('MODIS') != -1:
-        if clopts:
-            if clopts.suite and clopts.product:
-                level_finder = ModisNextLevelNameFinder(data_file_list,
-                                target_program, clopts.suite, clopts.product)
-            elif clopts.suite:
-                level_finder = ModisNextLevelNameFinder(data_file_list,
-                                target_program, clopts.suite)
-            elif clopts.product:
-                level_finder = ModisNextLevelNameFinder(data_file_list,
-                                target_program, None, clopts.product)
-            else:
-                level_finder = ModisNextLevelNameFinder(
-                    data_file_list, target_program)
-        else:
-            level_finder = ModisNextLevelNameFinder(
-                data_file_list, target_program)
+        level_finder = create_level_finder(ModisNextLevelNameFinder, clopts,
+                                           data_file_list, target_program)
     elif data_file_list[0].sensor.find('SeaWiFS') != -1:
-        if clopts:
-            if clopts.suite and clopts.product:
-                level_finder = SeawifsNextLevelNameFinder(data_file_list,
-                                target_program, clopts.suite, clopts.product)
-            elif clopts.suite:
-                level_finder = SeawifsNextLevelNameFinder(data_file_list,
-                                 target_program, clopts.suite)
-            elif clopts.product:
-                level_finder = SeawifsNextLevelNameFinder(data_file_list,
-                                target_program, None, clopts.product)
-            else:
-                level_finder = SeawifsNextLevelNameFinder(
-                    data_file_list, target_program)
-        else:
-            level_finder = SeawifsNextLevelNameFinder(
-                            data_file_list, target_program)
+        level_finder = create_level_finder(SeawifsNextLevelNameFinder, clopts,
+                                           data_file_list, target_program)
     elif data_file_list[0].sensor.find('Aquarius') != -1:
-        if clopts:
-            if clopts.suite and clopts.product:
-                level_finder = AquariusNextLevelNameFinder(data_file_list,
-                               target_program, clopts.suite, clopts.product)
-            elif clopts.suite:
-                level_finder = AquariusNextLevelNameFinder(data_file_list,
-                               target_program, clopts.suite)
-            elif clopts.product:
-                level_finder = AquariusNextLevelNameFinder(data_file_list,
-                               target_program, None, clopts.product)
-            else:
-                level_finder = AquariusNextLevelNameFinder(
-                    data_file_list, target_program)
-        else:
-            level_finder = AquariusNextLevelNameFinder(
-                data_file_list, target_program)
+        level_finder = create_level_finder(AquariusNextLevelNameFinder, clopts,
+                                           data_file_list, target_program)
+    elif data_file_list[0].sensor.find('MERIS') != -1:
+        level_finder = create_level_finder(MerisNextLevelNameFinder, clopts,
+                                           data_file_list, target_program)
     else:
-        if clopts:
-            if clopts.suite and clopts.product:
-                level_finder = NextLevelNameFinder(data_file_list,
-                               target_program, clopts.suite, clopts.product)
-            elif clopts.suite:
-                level_finder = NextLevelNameFinder(data_file_list,
-                               target_program, clopts.suite)
-            elif clopts.product:
-                level_finder = NextLevelNameFinder(data_file_list,
-                               target_program, None, clopts.product)
-            else:
-                level_finder = NextLevelNameFinder(data_file_list,
-                                                   target_program)
-        else:
-            level_finder = NextLevelNameFinder(data_file_list, target_program)
+        level_finder = create_level_finder(NextLevelNameFinder, clopts,
+                                           data_file_list, target_program)
     return level_finder
 
 def get_end_day_year(metadata):
@@ -338,6 +305,15 @@ class NextLevelNameFinder(object):
         dt_obj = datetime.datetime(year, mon, dom, hour, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
 
+    def _get_data_type(self):
+        """
+        Returns the data type (usually GAC or LAC).
+        """
+        if 'Data Type' in self.data_files[0].metadata:
+            return self.data_files[0].metadata['Data Type']
+        else:
+            return "LAC"
+
     def _get_end_doy_year(self):
         """
         Extract a day of year and year from an L0 file's metadata and return
@@ -373,7 +349,7 @@ class NextLevelNameFinder(object):
         """
         Returns the file extension for L1B files.
         """
-        return '.L1B_LAC'
+        return '.L1B_' + self._get_data_type()
 
     def _get_l1b_name(self):
         """
@@ -532,7 +508,8 @@ class NextLevelNameFinder(object):
         data in the file is from.  This is usually used as the first character
         of an output file.
         """
-        indicator_dict = {'Aquarius': 'Q', 'CZCS': 'C', 'HICO': 'H',
+        indicator_dict = {'Aquarius': 'Q', 'CZCS': 'C', 'GOCI': 'G',
+                          'HICO': 'H',
                           'MERIS': 'M',
                           'MODIS Aqua':  'A', 'MODIS Terra': 'T',
                           'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
@@ -663,6 +640,33 @@ class NextLevelNameFinder(object):
         """
         return ['L1A', 'L1B', 'L2', 'L3bin']
 
+
+#########################################
+
+class MerisNextLevelNameFinder(NextLevelNameFinder):
+    """
+    A class to determine what the standard OBPG filename would be
+    for MERIS files when the given input name is run through the next
+    level of OBPG processing.
+    """
+
+    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
+        super(MerisNextLevelNameFinder, self).__init__(data_files_list,
+                                                       next_level, suite,
+                                                       product)
+
+    def _get_l2_extension(self):
+        """
+        Return the appropriate extension for an L2 file.
+        """
+        ext = '.BOGUS_MERIS_L2_EXTENSION'
+        if 'SPH_DESCRIPTOR' in self.data_files[0].metadata:
+            ext = ''.join(['.L2_', self.data_files[0].metadata['SPH_DESCRIPTOR'].split('_')[1]])
+        #for data_file in self.data_files:
+        #    if data_file.name.find('GAC') != -1:
+        #        ext = '.L2_GAC'
+        #        break
+        return ext
 
 #########################################
 

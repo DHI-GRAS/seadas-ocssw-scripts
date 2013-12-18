@@ -1,14 +1,22 @@
 #! /usr/bin/env python
+
+"""
+Wrapper program for running the l1bgen program on MODIS L1A files.
+"""
+
 from modules.modis_utils import buildpcf, modis_env
 
 import modules.modis_L1B_utils as modisL1B
-import resource
 from optparse import OptionParser
 from modules.setupenv import env
+import resource
+import sys
 
-
-if __name__ == "__main__":
-    file = None
+def main():
+    """
+    This is the primary driver function for the modis_L1B.py program.
+    """
+    l1a_file = None
     parfile = None
     geofile = None
     okm = None
@@ -22,7 +30,7 @@ if __name__ == "__main__":
     verbose = False
     version = "%prog 1.0"
 
-    delfilekey = {'1KM':1,'HKM':2,'QKM':4,'OBC':8}
+    delfilekey = {'1KM':1, 'HKM':2, 'QKM':4, 'OBC':8}
     # Read commandline options...
     usage = '''
     %prog [OPTIONS] L1AFILE [GEOFILE]
@@ -67,7 +75,7 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     if args:
-        file = args[0]
+        l1a_file = args[0]
         if len(args) == 2:
             geofile = args[1]
 
@@ -100,33 +108,37 @@ if __name__ == "__main__":
     if options.par:
         parfile = options.par
 
-    if file is None and parfile is None:
+    if l1a_file is None and parfile is None:
         parser.print_help()
         exit(0)
 
     # Set stacksize - if able to (Mac can't, but code is compiled to use a
     # larger stack on the Mac...)
     try:
-        resource.setrlimit(3, [-1,-1])
+        resource.setrlimit(3, [-1, -1])
     except Exception:
         pass
 
 
-    m = modisL1B.modis_l1b(file=file,
-                           parfile=parfile,
-                           geofile=geofile,
-                           okm=okm,
-                           hkm=hkm,
-                           qkm=qkm,
-                           obc=obc,
-                           lutver=lutver,
-                           lutdir=lutdir,
-                           delfiles=delfiles,
-                           log=log,
-                           verbose=verbose
+    l1b_instance = modisL1B.ModisL1B(inp_file=l1a_file,
+                                   parfile=parfile,
+                                   geofile=geofile,
+                                   okm=okm,
+                                   hkm=hkm,
+                                   qkm=qkm,
+                                   obc=obc,
+                                   lutver=lutver,
+                                   lutdir=lutdir,
+                                   delfiles=delfiles,
+                                   log=log,
+                                   verbose=verbose
     )
-    env(m)
-    modis_env(m)
-    m.chk()
-    buildpcf(m)
-    m.run()
+    env(l1b_instance)
+    modis_env(l1b_instance)
+    l1b_instance.chk()
+    buildpcf(l1b_instance)
+    l1b_instance.run()
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())

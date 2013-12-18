@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 def convert_millisecs_to_time_str(millisecs):
     """
@@ -27,6 +28,12 @@ def convert_millisecs_to_time_str(millisecs):
     secs = secs - (mins * 60)
     tm_str = '{0:02}{1:02}{2:02}'.format(hrs, mins, secs)
     return tm_str
+
+def convert_month_day_to_doy(mon, dom, yr):
+    date_obj = datetime.datetime(int(yr), mon, int(dom))
+    doy = date_obj.timetuple().tm_yday
+#    doy_str = '%03d'.format(doy)
+    return doy
 
 def get_timestamp_from_month_day(sdate, stime):
     """
@@ -326,6 +333,12 @@ class ObpgFileTyper(object):
                 if self.instrument == 'VIIRS':
                     if 'N_Dataset_Type_Tag' in self.attributes:
                         self.file_type = self.attributes['N_Dataset_Type_Tag']
+            elif 'Product Level' in self.attributes:
+                if 'Sensor name' in self.attributes:
+                    self.instrument = self.attributes['Sensor name']
+                    self.file_type = self.attributes['Product Level']
+                    if not self.file_type.startswith('Level'):
+                        self.file_type = 'Level ' + self.file_type
         else:
             self._get_type_using_l0_cnst()
         if self.instrument.find('MODISA') != -1:
@@ -402,6 +415,31 @@ class ObpgFileTyper(object):
             end_time = get_timestamp_from_month_day(\
                 self.attributes['Ending_Date'],
                 self.attributes['Ending_Time'])
+        elif self.instrument.find('GOCI') != -1:
+            if 'start_time' in self.attributes and \
+               self.attributes['start_time'] != 'unknown':
+                start_time = self.attributes['start_time']
+            elif 'processing start time' in self.attributes:
+                yr = int(self.attributes['processing start time'][7:11])
+                mon = time.strptime(self.attributes['processing start time'][3:6], '%b').tm_mon
+                dom = int(self.attributes['processing start time'][0:2])
+                doy = convert_month_day_to_doy(mon, dom, yr)
+                start_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(yr, doy,
+                    int(self.attributes['processing start time'][12:14]),
+                    self.attributes['processing start time'][15:17],
+                    self.attributes['processing start time'][18:20])
+            if 'end_time' in self.attributes and \
+               self.attributes['end_time'] != 'unknown':
+                end_time = self.attributes['end_time']
+            elif 'processing end time' in self.attributes:
+                yr = int(self.attributes['processing end time'][7:11])
+                mon = time.strptime(self.attributes['processing end time'][3:6], '%b').tm_mon
+                dom = int(self.attributes['processing end time'][0:2])
+                doy = convert_month_day_to_doy(mon, dom, yr)
+                end_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(yr, doy,
+                    int(self.attributes['processing end time'][12:14]),
+                    self.attributes['processing end time'][15:17],
+                    self.attributes['processing end time'][18:20])
         return start_time, end_time
 
     def _get_type_using_l0_cnst(self):
