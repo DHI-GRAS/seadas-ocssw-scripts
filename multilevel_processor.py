@@ -10,6 +10,7 @@ __author__ = 'melliott'
 
 #import modis_processor
 
+import aquarius_next_level_name_finder
 import benchmark_timer
 import ConfigParser
 import datetime
@@ -19,6 +20,7 @@ import optparse
 import os
 import MetaUtils
 import next_level_name_finder
+import name_finder_utils
 import obpg_data_file
 import ProcUtils
 import processor
@@ -151,25 +153,27 @@ def build_general_rules():
     action to take (function name)
     """
     rules_dict = {
-        'level 1a': processing_rules.Rule('level 1a', ['level 0'], False,
-                                          run_bottom_error),
-        'l1brsgen': processing_rules.Rule('l1brsgen', ['l1'], False,
-                                          run_l1brsgen),
-        'l2brsgen': processing_rules.Rule('l2brsgen', ['l2gen'], False,
-                                          run_l2brsgen),
-        'l1mapgen': processing_rules.Rule('l1mapgen', ['l1'], False,
-                                          run_l1mapgen),
-        'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'], False,
-                                          run_l2mapgen),
+        'level 1a': processing_rules.Rule('level 1a', ['level 0'],
+                                           run_bottom_error, False),
+        'l1brsgen': processing_rules.Rule('l1brsgen', ['l1'], run_l1brsgen,
+                                           False),
+        'l2brsgen': processing_rules.Rule('l2brsgen', ['l2gen'],
+                                           run_l2brsgen, False),
+        'l1mapgen': processing_rules.Rule('l1mapgen', ['l1'],
+                                           run_l1mapgen,  False),
+        'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'],
+                                           run_l2mapgen, False),
         'level 1b': processing_rules.Rule('level 1b', ['level 1a', 'geo'],
-                                          False, run_l1b),
-        'l2gen': processing_rules.Rule('l2gen', ['level 1b'], False, run_l2gen),
-        'l2extract': processing_rules.Rule('l2extract', ['l2gen'], False,
-                                           run_l2extract),
-        'l2bin': processing_rules.Rule('l2bin', ['l2gen'], True, run_l2bin),
-        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], True, run_l3bin),
-#        'smigen': processing_rules.Rule('smigen', ['l3bin'], False, run_smigen)
-        'smigen': processing_rules.Rule('smigen', ['l2bin'], False, run_smigen)
+                                           run_l1b, False),
+        'l2gen': processing_rules.Rule('l2gen', ['level 1b'], run_l2gen,
+                                        False),
+        'l2extract': processing_rules.Rule('l2extract', ['l2gen'],
+                                            run_l2extract, False),
+        'l2bin': processing_rules.Rule('l2bin', ['l2gen'], run_l2bin, True),
+        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], run_l3bin, True),
+#        'smigen': processing_rules.Rule('smigen', ['l3bin'], run_smigen, False)
+        'smigen': processing_rules.Rule('smigen', ['l2bin'], run_smigen,
+                                         False)
     }
     rules_order = ['level 1a', 'l1brsgen', 'l1mapgen', 'level 1b', 'l2gen',
                    'l2extract', 'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
@@ -201,32 +205,35 @@ def build_modis_rules():
     Builds the MODIS rules set.
     """
     rules_dict =  {
-        'level 0': processing_rules.Rule('level 0', ['nothing lower'], False,
-                                          run_bottom_error),
-        'level 1a': processing_rules.Rule('level 1a', ['level 0'], False,
-                                          run_modis_l1a),
-        'l1brsgen': processing_rules.Rule('l1brsgen', ['l1'], False,
-                                          run_l1brsgen),
-        'l1mapgen': processing_rules.Rule('l1mapgen', ['l1'], False,
-                                          run_l1mapgen),
-        'geo': processing_rules.Rule('geo', ['level 1a'], False, run_modis_geo),
+        'level 0': processing_rules.Rule('level 0', ['nothing lower'],
+                                          run_bottom_error,  False),
+        'level 1a': processing_rules.Rule('level 1a', ['level 0'],
+                                          run_modis_l1a, False),
+        'l1brsgen': processing_rules.Rule('l1brsgen', ['l1'], run_l1brsgen,
+                                          False),
+        'l1mapgen': processing_rules.Rule('l1mapgen', ['l1'], run_l1mapgen,
+                                          False),
+        'geo': processing_rules.Rule('geo', ['level 1a'], run_modis_geo,
+                                      False),
         'l1aextract_modis': processing_rules.Rule('l1aextract_modis',
-                                                  ['level 1a', 'geo'], False,
-                                                  run_l1aextract_modis),
+                                                    ['level 1a', 'geo'],
+                                                    run_l1aextract_modis,
+                                                    False),
         'level 1b': processing_rules.Rule('level 1b', ['level 1a', 'geo'],
-                                          False, run_modis_l1b),
-        'l2gen': processing_rules.Rule('l2gen', ['level 1b','geo'], False,
-                                       run_l2gen),
-        'l2extract': processing_rules.Rule('l2extract', ['l2gen'], False,
-                                           run_l2extract),
-        'l2brsgen': processing_rules.Rule('l2brsgen', ['l2gen'], False,
-                                          run_l2brsgen),
-        'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'], False,
-                                          run_l2mapgen),
-        'l2bin': processing_rules.Rule('l2bin', ['l2gen'], True, run_l2bin),
-        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], True, run_l3bin),
+                                           run_modis_l1b, False),
+        'l2gen': processing_rules.Rule('l2gen', ['level 1b','geo'],
+                                       run_l2gen, False),
+        'l2extract': processing_rules.Rule('l2extract', ['l2gen'],
+                                           run_l2extract, False),
+        'l2brsgen': processing_rules.Rule('l2brsgen', ['l2gen'],
+                                          run_l2brsgen, False),
+        'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'], run_l2mapgen,
+                                           False),
+        'l2bin': processing_rules.Rule('l2bin', ['l2gen'], run_l2bin, True),
+        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], run_l3bin, True),
 #        'smigen': processing_rules.Rule('smigen', ['l3bin'], False, run_smigen)
-        'smigen': processing_rules.Rule('smigen', ['l2bin'], False, run_smigen)
+        'smigen': processing_rules.Rule('smigen', ['l2bin'], run_smigen,
+                                         False)
     }
     rules_order = ['level 0', 'level 1a', 'l1brsgen', 'l1mapgen', 'geo',
                    'l1aextract_modis', 'level 1b', 'l2gen', 'l2extract',
@@ -239,28 +246,31 @@ def build_seawifs_rules():
     Builds the general rules set.
     """
     rules_dict =  {
-        'level 1a': processing_rules.Rule('level 1a', ['level 0'], False,
-                                          run_bottom_error),
+        'level 1a': processing_rules.Rule('level 1a', ['level 0'],
+                                           run_bottom_error, False),
         'l1aextract_seawifs': processing_rules.Rule('l1aextract_seawifs',
-                                                    ['level 1a'], False,
-                                                    run_l1aextract_seawifs),
-        'l1brsgen': processing_rules.Rule('l1brsgen', ['l1'], False,
-                                          run_l1brsgen),
-        'l1mapgen': processing_rules.Rule('l1mapgen', ['l1'], False,
-                                          run_l1mapgen),
-        'level 1b': processing_rules.Rule('level 1b', ['level 1a'], False,
-                                          run_l1b),
-        'l2gen': processing_rules.Rule('l2gen', ['level 1b'], False, run_l2gen),
-        'l2extract': processing_rules.Rule('l2extract', ['l2gen'], False,
-                                           run_l2extract),
-        'l2brsgen': processing_rules.Rule('l2brsgen', ['l2gen'], False,
-                                          run_l2brsgen),
-        'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'], False,
-                                          run_l2mapgen),
-        'l2bin': processing_rules.Rule('l2bin', ['l2gen'], True, run_l2bin),
-        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], True, run_l3bin),
-#        'smigen': processing_rules.Rule('smigen', ['l3bin'], False, run_smigen)
-        'smigen': processing_rules.Rule('smigen', ['l2bin'], False, run_smigen)
+                                                      ['level 1a'],
+                                                      run_l1aextract_seawifs,
+                                                      False),
+        'l1brsgen': processing_rules.Rule('l1brsgen', ['l1'],
+                                           run_l1brsgen, False),
+        'l1mapgen': processing_rules.Rule('l1mapgen', ['l1'],
+                                           run_l1mapgen,  False),
+        'level 1b': processing_rules.Rule('level 1b', ['level 1a'],
+                                           run_l1b, False),
+        'l2gen': processing_rules.Rule('l2gen', ['level 1b'], run_l2gen,
+                                        False),
+        'l2extract': processing_rules.Rule('l2extract', ['l2gen'],
+                                            run_l2extract, False),
+        'l2brsgen': processing_rules.Rule('l2brsgen', ['l2gen'],
+                                           run_l2brsgen, False),
+        'l2mapgen': processing_rules.Rule('l2mapgen', ['l2gen'],
+                                           run_l2mapgen, False),
+        'l2bin': processing_rules.Rule('l2bin', ['l2gen'], run_l2bin, True),
+        'l3bin': processing_rules.Rule('l3bin', ['l2bin'], run_l3bin, True),
+#        'smigen': processing_rules.Rule('smigen', ['l3bin'], run_smigen, False)
+        'smigen': processing_rules.Rule('smigen', ['l2bin'], run_smigen,
+                                         False)
     }
     rules_order = ['level 1a', 'l1aextract_seawifs', 'l1brsgen',
                    'l1mapgen', 'level 1b', 'l2gen', 'l2extract',
@@ -401,6 +411,9 @@ def do_processing(rules_sets, par_file):
     (par_contents, input_files_list) = get_par_file_contents(par_file,
                                                              FILE_USE_OPTS)
     if par_contents['main']:
+        if not 'ifile' in par_contents['main']:
+            msg = 'Error! No ifile specified in the main section of {0}.'.format(par_file)
+            sys.exit(msg)
         # Avoid overwriting file options that are already turned on in cfg_data
         # (from command line input).
         keepfiles, use_existing, overwrite = get_file_handling_opts(par_contents)
@@ -813,6 +826,10 @@ def get_input_files_type_data(input_files_list):
             inp_path = inp_file
         file_typer = get_obpg_file_type.ObpgFileTyper(inp_file)
         file_type, file_instr = file_typer.get_file_type()
+        #if file_type in converter:
+        #    file_type = converter[file_type.lower()]
+        #else:
+        #    err_msg = 'Error! Cannot process file type {0} of {1}'.format(file_type, inp_file)
         file_type = converter[file_type.lower()]
         input_file_type_data[inp_file] = (file_type, file_instr.lower())
     return input_file_type_data
@@ -971,6 +988,7 @@ def get_par_file_contents(par_file, acceptable_single_keys):
 
         'l1aextract_modis' : 'l1aextract_modis',
         'l1aextract_seawifs' : 'l1aextract_seawifs',
+        'l1brsgen' : 'l1brsgen',
         'geo' : 'geo', 'modis_GEO.py': 'geo',
         'level 1b' : 'level 1b', 'l1b' : 'level 1b', 'l1bgen' : 'level 1b',
         'modis_L1B.py': 'level 1b',
@@ -1376,6 +1394,7 @@ def run_l2bin(proc):
               format(proc.rule_set.rules[proc.target_type].action)
     args = 'infile=' + proc.input_file
     args += ' ofile=' + proc.output_file
+    args += ' ' + get_options(proc.par_data)
     cmd = ' '.join([prog, args])
     logging.debug('Running l2bin cmd: ' + cmd)
     if cfg_data.verbose:
@@ -1390,13 +1409,13 @@ def run_l2brsgen(proc):
     logging.debug("In run_l2brsgen")
     prog = os.path.join(proc.ocssw_bin, 'l2brsgen')
     opts = get_options(proc.par_data)
-    data_file = get_obpg_data_file_object(proc.input_file)
-    df_list = [data_file]
-    name_finder = next_level_name_finder.NextLevelNameFinder(df_list,
-                                                             'l2brsgen')
-    output_name = name_finder.get_next_level_name()
+    #data_file = get_obpg_data_file_object(proc.input_file)
+    #df_list = [data_file]
+    #name_finder = next_level_name_finder.NextLevelNameFinder(df_list,
+    #                                                         'l2brsgen')
+    #output_name = name_finder.get_next_level_name()
     cmd = ' '.join([prog, opts, 'ifile='+proc.input_file,
-                   'ofile=' + output_name])
+                   'ofile=' + proc.output_file])
     logging.debug('Executing: {0}'.format(cmd))
     status = execute_command(cmd)
     return status
@@ -1543,7 +1562,7 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
         input_file = file_set
         geo_file = None
     dfile = get_obpg_data_file_object(input_file)
-    name_finder = next_level_name_finder.get_level_finder([dfile],
+    name_finder = name_finder_utils.get_level_finder([dfile],
                                                     processors[ndx].target_type,
                                                     )
     output_file = os.path.join(processors[ndx].out_directory,

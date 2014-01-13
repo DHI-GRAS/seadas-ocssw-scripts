@@ -11,6 +11,7 @@ import datetime
 import get_obpg_file_type
 import obpg_data_file
 import os
+#import namer_constants
 import ProcUtils
 import re
 import sys
@@ -29,27 +30,6 @@ def convert_str_to_int(short_str):
         err_msg = "Error! Unable to convert {0} to integer.".format(short_str)
         sys.exit(err_msg)
     return int_value
-
-def create_level_finder(finder_class, clopts, data_file_list, target_program):
-    """
-    Instantiates an instance of finder_class and returns it.
-    """
-    level_finder = None
-    if clopts:
-        if clopts.suite and clopts.product:
-            level_finder = finder_class(data_file_list, target_program,
-                                        clopts.suite, clopts.product)
-        elif clopts.suite:
-            level_finder = finder_class(data_file_list, target_program,
-                                        clopts.suite)
-        elif clopts.product:
-            level_finder = finder_class(data_file_list, target_program, None,
-                                        clopts.product)
-        else:
-            level_finder = finder_class(data_file_list, target_program)
-    else:
-        level_finder = finder_class(data_file_list, target_program)
-    return level_finder
 
 def _get_data_files_info(flf):
     """
@@ -95,27 +75,6 @@ def get_l0_timestamp(l0_file_name):
             format(l0_file_name)
             sys.exit(err_msg)
     return time_stamp
-
-def get_level_finder(data_file_list, target_program, clopts=None):
-    """
-    Returns an appropriate level finder object for the data file passed in.
-    """
-    if data_file_list[0].sensor.find('MODIS') != -1:
-        level_finder = create_level_finder(ModisNextLevelNameFinder, clopts,
-                                           data_file_list, target_program)
-    elif data_file_list[0].sensor.find('SeaWiFS') != -1:
-        level_finder = create_level_finder(SeawifsNextLevelNameFinder, clopts,
-                                           data_file_list, target_program)
-    elif data_file_list[0].sensor.find('Aquarius') != -1:
-        level_finder = create_level_finder(AquariusNextLevelNameFinder, clopts,
-                                           data_file_list, target_program)
-    elif data_file_list[0].sensor.find('MERIS') != -1:
-        level_finder = create_level_finder(MerisNextLevelNameFinder, clopts,
-                                           data_file_list, target_program)
-    else:
-        level_finder = create_level_finder(NextLevelNameFinder, clopts,
-                                           data_file_list, target_program)
-    return level_finder
 
 def get_end_day_year(metadata):
     """
@@ -236,19 +195,19 @@ class NextLevelNameFinder(object):
             sys.exit(err_msg)
         if next_level in self.PROCESSING_LEVELS.keys():
             self.next_level = self.PROCESSING_LEVELS[next_level]
-        elif next_level in PROCESSABLE_PROGRAMS:
-            if len(data_files_list) == 1:
-                file_list = data_files_list[0].name
-            elif len(data_files_list) == 2:
-                file_list = data_files_list[0].name + ' and ' + \
-                            data_files_list[1].name
-            else:
-                file_list = ', '.join([str(df.name)
-                                       for df in data_files_list[:-1]])
-                file_list += ', and ' + data_files_list[-1].name
-            err_msg = 'Error! Cannot transition {0} to {1}.'.format(file_list,
-                                                                     next_level)
-            sys.exit(err_msg)
+        #elif next_level in namer_constants.PROCESSABLE_PROGRAMS:
+        #    if len(data_files_list) == 1:
+        #        file_list = data_files_list[0].name
+        #    elif len(data_files_list) == 2:
+        #        file_list = data_files_list[0].name + ' and ' + \
+        #                    data_files_list[1].name
+        #    else:
+        #        file_list = ', '.join([str(df.name)
+        #                               for df in data_files_list[:-1]])
+        #        file_list += ', and ' + data_files_list[-1].name
+        #    err_msg = 'Error! Cannot transition {0} to {1}.'.format(file_list,
+        #                                                             next_level)
+        #    sys.exit(err_msg)
         else:
             err_msg = 'Error!  "{0}" is not a recognized target output type.'.\
             format(next_level)
@@ -332,6 +291,20 @@ class NextLevelNameFinder(object):
                 self.data_files[-1].name)
             sys.exit(err_msg)
         return day, year
+
+    def _get_extra_extensions(self):
+        """
+        Return "extra" extensions, if any.  Particularly meant for handling
+        input file names like "A2014009000000.L1A_LAC.x.hdf".
+        """
+        extra_ext = None
+        if len(self.data_files) == 1:
+            base_name = os.path.basename(self.data_files[0].name)
+            if base_name.count('.') > 1:
+                name_parts = re.split("""\.L.*?\.""", base_name)
+                if len(name_parts) > 1:
+                    extra_ext = name_parts[1]
+        return extra_ext
 
     def _get_l1aextract_name(self):
         """
@@ -492,6 +465,9 @@ class NextLevelNameFinder(object):
                 err_msg = 'Error! Cannot transition {0} to {1}.'.format(
                           self.data_files[0].name, self.next_level)
                 sys.exit(err_msg)
+        extra_ext = self._get_extra_extensions()
+        if extra_ext:
+                next_level_name += '.' + extra_ext
         return next_level_name
 
     def _get_next_suffixes(self):
@@ -513,7 +489,7 @@ class NextLevelNameFinder(object):
                           'MERIS': 'M',
                           'MODIS Aqua':  'A', 'MODIS Terra': 'T',
                           'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
-                          'OSMI': 'K', 'SeaWiFS': 'S'}
+                          'OSMI': 'K'}
 
         if self.data_files[0].sensor in indicator_dict.keys():
             indicator = indicator_dict[self.data_files[0].sensor]
@@ -526,6 +502,9 @@ class NextLevelNameFinder(object):
                 if indicator != indicator_dict[dfile.sensor]:
                     indicator = 'X'
                     break
+            else:
+                indicator = 'X'
+                break
         return indicator
 
     def _get_single_file_basename(self):
@@ -829,6 +808,9 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                     next_level_name = self.transition_functions[\
                                       self.data_files[0].file_type]\
                                       [self.next_level]()
+        extra_ext = self._get_extra_extensions()
+        if extra_ext:
+            next_level_name += '.' + extra_ext
         if next_level_name:
             return next_level_name
         else:
@@ -947,6 +929,14 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
                                                        next_level, suite,
                                                        product)
 
+    def get_platform_indicator(self):
+        """
+        Returns a character which indicates what platform (instrument) the
+        data in the file is from.  This is usually used as the first character
+        of an output file.
+        """
+        return 'S'
+
     def _get_transition_functions(self):
         """
         An internal method to set up the "table" of functions to be
@@ -971,87 +961,82 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
 
 #########################################
 
-class AquariusNextLevelNameFinder(NextLevelNameFinder):
-    """
-    A class to determine what the standard OBPG filename would be for
-    Aquarius files when the given input name is run through the next
-    level of OBPG processing.
-    """
-    PROCESSING_LEVELS = {
-        'l1agen':         'Level 1A',
-        'Level 1A':       'Level 1A',
-        'l1aextract_seawifs' : 'l1aextract_seawifs',
-        'l1bgen':         'Level 1B',
-        'Level 1B':       'Level 1B',
-        'l1brsgen':       'l1brsgen',
-        'l1mapgen':       'l1mapgen',
-        'l2gen_aquarius': 'Level 2',
-        'Level 2':        'Level 2',
-        'l2bin_aquarius': 'l2bin_aquarius',
-        'l2brsgen':       'l2brsgen',
-        'l2extract':      'l2extract',
-        'l2mapgen':       'l2mapgen',
-        'l3bin':          'l3bin',
-        'L3b':            'l3bin',
-        'SMI':            'SMI',
-        'smigen':         'SMI'
-    }
-
-    def __init__(self, data_files_list, next_level, suite='V2.0'):
-        super(AquariusNextLevelNameFinder, self).__init__(data_files_list,
-                                                           next_level, suite,
-                                                           product=None)
-
-    def _get_l2_extension(self):
-        l1_parts = self.data_files[0].name.split('.')
-        if len(l1_parts) > 2:
-            err_msg = 'Error! Unable to determine extension for {0}'.\
-                      format(self.data_files[0].name)
-            sys.exit(err_msg)
-        extension = re.sub(r'L1[AB]_(.*)', r'.L2_\g<1>', l1_parts[1])
-        return extension
-
-    def _get_l2_name(self):
-        """
-        An internal method to return the L2 name from an L1 file.
-        """
-        basename = self._get_single_file_basename()
-        if basename != 'indeterminate':
-            next_lvl_name = basename + self._get_l2_extension() + self.suite
-        else:
-            err_msg = 'Error!  Could not determine L2 name for {0}'.\
-            format(self.data_files[0].name)
-            sys.exit(err_msg)
-        return next_lvl_name
-
-    def _get_transition_functions(self):
-        """
-        An internal method to set up the "table" of functions to be
-        called for each level of processing.
-        """
-        return {'Level 1A': {
-                    'Level 1B': self._get_l1b_name,
-                    'l1aextract_seawifs' : self._get_l1aextract_name,
-                    'l1bgen' : self._get_l1b_name,
-                    'l1mapgen': self._get_l1mapgen_name,
-                    'Level 2' : self._get_l2_name },
-                'Level 1B': {
-                    'Level 2': self._get_l2_name,
-                    'l1brsgen': self._get_l1brsgen_name,
-                    'l1mapgen': self._get_l1mapgen_name },
-                'Level 2': { 'l2bin_aquarius': self._get_l3bin_name,
-                    'l2extract': self._get_l2extract_name,
-                    'l3bin': self._get_l3bin_name,
-                    'l2brsgen': self._get_l2brsgen_name,
-                    'l2mapgen': self._get_l2mapgen_name },
-                'Level 3 Binned': {
-                    'l3bin' : self._get_l3bin_name,
-                    'SMI' : self._get_smigen_name}
-        }
+#class AquariusNextLevelNameFinder(NextLevelNameFinder):
+#    """
+#    A class to determine what the standard OBPG filename would be for
+#    Aquarius files when the given input name is run through the next
+#    level of OBPG processing.
+#    """
+#    PROCESSING_LEVELS = {
+#        'l1agen':         'Level 1A',
+#        'Level 1A':       'Level 1A',
+#        'l1aextract_seawifs' : 'l1aextract_seawifs',
+#        'l1bgen':         'Level 1B',
+#        'Level 1B':       'Level 1B',
+#        'l1brsgen':       'l1brsgen',
+#        'l1mapgen':       'l1mapgen',
+#        'l2gen_aquarius': 'Level 2',
+#        'Level 2':        'Level 2',
+#        'l2bin_aquarius': 'l2bin_aquarius',
+#        'l2brsgen':       'l2brsgen',
+#        'l2extract':      'l2extract',
+#        'l2mapgen':       'l2mapgen',
+#        'l3bin':          'l3bin',
+#        'L3b':            'l3bin',
+#        'SMI':            'SMI',
+#        'smigen':         'SMI'
+#    }
+#
+#    def __init__(self, data_files_list, next_level, suite='V2.0'):
+#        super(AquariusNextLevelNameFinder, self).__init__(data_files_list,
+#                                                           next_level, suite,
+#                                                           product=None)
+#
+#    def _get_l2_extension(self):
+#        l1_parts = self.data_files[0].name.split('.')
+#        if len(l1_parts) > 2:
+#            err_msg = 'Error! Unable to determine extension for {0}'.\
+#                      format(self.data_files[0].name)
+#            sys.exit(err_msg)
+#        extension = re.sub(r'L1[AB]_(.*)', r'.L2_\g<1>', l1_parts[1])
+#        return extension
+#
+#    def _get_l2_name(self):
+#        """
+#        An internal method to return the L2 name from an L1 file.
+#        """
+#        basename = self._get_single_file_basename()
+#        if basename != 'indeterminate':
+#            next_lvl_name = basename + self._get_l2_extension() + self.suite
+#        else:
+#            err_msg = 'Error!  Could not determine L2 name for {0}'.\
+#            format(self.data_files[0].name)
+#            sys.exit(err_msg)
+#        return next_lvl_name
+#
+#    def _get_transition_functions(self):
+#        """
+#        An internal method to set up the "table" of functions to be
+#        called for each level of processing.
+#        """
+#        return {'Level 1A': {
+#                    'Level 1B': self._get_l1b_name,
+#                    'l1aextract_seawifs' : self._get_l1aextract_name,
+#                    'l1bgen' : self._get_l1b_name,
+#                    'l1mapgen': self._get_l1mapgen_name,
+#                    'Level 2' : self._get_l2_name },
+#                'Level 1B': {
+#                    'Level 2': self._get_l2_name,
+#                    'l1brsgen': self._get_l1brsgen_name,
+#                    'l1mapgen': self._get_l1mapgen_name },
+#                'Level 2': { 'l2bin_aquarius': self._get_l3bin_name,
+#                    'l2extract': self._get_l2extract_name,
+#                    'l3bin': self._get_l3bin_name,
+#                    'l2brsgen': self._get_l2brsgen_name,
+#                    'l2mapgen': self._get_l2mapgen_name },
+#                'Level 3 Binned': {
+#                    'l3bin' : self._get_l3bin_name,
+#                    'SMI' : self._get_smigen_name}
+#        }
 
 #########################################
-
-PROCESSABLE_PROGRAMS = set(NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-                          ModisNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-                          SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-                          AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys())

@@ -10,6 +10,8 @@ __version__ = '1.0.0'
 #import datetime
 import get_obpg_file_type
 import MetaUtils
+import namer_constants
+import name_finder_utils
 import next_level_name_finder
 import obpg_data_file
 import optparse
@@ -38,7 +40,7 @@ def get_1_file_name(data_file, target_program, clopts):
     """
     Return the next level name for a single file.
     """
-    level_finder = next_level_name_finder.get_level_finder([data_file],
+    level_finder = name_finder_utils.get_level_finder([data_file],
                                                            target_program,
                                                            clopts)
     next_level_name = level_finder.get_next_level_name()
@@ -74,7 +76,7 @@ def get_multifile_output_name(data_files_list_info, target_program, clopts):
             err_msg = 'Error!  File types do not match for {0} and {1}'.\
                       format(data_files_list_info[0].name, data_file.name)
             sys.exit(err_msg)
-    level_finder = next_level_name_finder.get_level_finder(data_files_list_info,
+    level_finder = name_finder_utils.get_level_finder(data_files_list_info,
                                                            target_program,
                                                            clopts)
     output_name = level_finder.get_next_level_name()
@@ -156,7 +158,7 @@ def main():
     ret_status = 0
     clopts, inp_name, targ_prog = get_command_line_data()
 
-    if not targ_prog in next_level_name_finder.PROCESSABLE_PROGRAMS:
+    if not targ_prog in namer_constants.PROCESSABLE_PROGRAMS:
         err_msg = 'Error!  The target program, "{0}", is not known.'.\
                   format(targ_prog)
         sys.exit(err_msg)

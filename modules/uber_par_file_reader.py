@@ -133,11 +133,11 @@ class ParReader(object):
                                 key, val = line.split('=', 2)
                                 if key == 'par':
                                     add_par_entry(sect_dict, 'par',
-                                                   val.strip())
+                                                   val.strip().strip('"').strip("'"))
                                 else:
                                     try:
                                         add_sect_entry(sect_dict, key,
-                                                       val.strip())
+                                                       val.strip().strip('"').strip("'"))
                                     except DuplicateEntry, dup_exc:
                                         err_msg = 'Duplicate entry found for {0} in {1}'.format(str(dup_exc), self.filename)
                                         sys.exit(err_msg)

@@ -10,11 +10,11 @@ class Rule():
     """
     Rule contains the data needed to create one target from its sources.
     """
-    def __init__(self, targt, src_types, req_batch, actn):
+    def __init__(self, targt, src_types, actn, req_batch=False):
         self.target_type = targt
         self.src_file_types = src_types
-        self.requires_batch = req_batch
         self.action = actn
+        self.requires_batch = req_batch
 
 #    def __repr__(self):
 #        return "Rule to convert: {0} to {1} using {2}".format(str(self.src_file_types), self.target_type, self.action)
