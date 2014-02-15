@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 """
-SeaDAS processing script (also known as the 'uber' processor).
+Program to perform multilevel processing (previously known as the
+seadas_processor and sometimes referred to as the'uber' processor).
 """
 
-__version__ = '1.0.2'
+__version__ = '1.0.3dev'
 
 __author__ = 'melliott'
 
@@ -400,7 +401,7 @@ def create_help_message(rules_sets):
     return message
 
 
-def do_processing(rules_sets, par_file):
+def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     """
     Perform the processing for each step (element of processor_list) needed.
     """
@@ -408,10 +409,20 @@ def do_processing(rules_sets, par_file):
     #todo:  Break this up into smaller parts!
     files_to_keep = []
     files_to_delete = []
+    input_files_list = []
     (par_contents, input_files_list) = get_par_file_contents(par_file,
                                                              FILE_USE_OPTS)
+    if cmd_line_ifile:
+        skip_par_ifile = True
+        if os.path.exists(cmd_line_ifile):
+            input_files_list = [cmd_line_ifile]
+        else:
+            msg = 'Error! Specified ifile {0} does not exist.'.format(cmd_line_ifile)
+            sys.exit(msg)
+    else:
+        skip_par_ifile = False
     if par_contents['main']:
-        if not 'ifile' in par_contents['main']:
+        if (not skip_par_ifile) and (not 'ifile' in par_contents['main']):
             msg = 'Error! No ifile specified in the main section of {0}.'.format(par_file)
             sys.exit(msg)
         # Avoid overwriting file options that are already turned on in cfg_data
@@ -482,10 +493,15 @@ def do_processing(rules_sets, par_file):
                 proc_timer = benchmark_timer.BenchmarkTimer()
                 proc_timer.start()
             proc_src_types = processors[ndx].rule_set.rules[processors[ndx].target_type].src_file_types
-            if proc_src_types[0] in source_files:
+            src_key = None
+            if proc_src_types[0] == 'l1':
+                if 'level 1a' in source_files:
+                    src_key = 'level 1a'
+                elif 'level 1b' in source_files:
+                    src_key = 'level 1b'
+            elif proc_src_types[0] in source_files:
                 src_key = proc_src_types[0]
             else:
-                src_key = None
                 for cand_proc in reversed(processors[:ndx]):
                     if SUFFIXES[cand_proc.target_type] == \
                        processors[ndx].rule_set.rules[processors[ndx].target_type].src_file_types[0]:
@@ -782,9 +798,10 @@ def get_file_handling_opts(par_contents):
 
 def get_input_files(par_data):
     """
-    Get input files found in the uber par file's ifile line, an file list file,
+    Get input files found in the uber par file's ifile line, a file list file,
     or both.  Ensure that the list contains no duplicates.
     """
+    #inp_file_list = None
     from_ifiles = []
     from_infilelist = []
     if 'ifile' in par_data['main']:
@@ -800,8 +817,12 @@ def get_input_files(par_data):
                     inp_lines = in_file_list_file.readlines()
                 from_infilelist = [fn.rstrip() for fn in inp_lines
                                    if not re.match(r'^\s*#', fn)]
-    inp_file_list = uniqify_list(from_ifiles + from_infilelist)
-    return inp_file_list
+    if len(from_ifiles) > 0 or len(from_infilelist) > 0:
+        # Make sure there are no duplicates.  Tests with timeit showed that
+        # list(set()) is much faster than a "uniqify" function.
+        return(list(set(from_ifiles + from_infilelist)))
+    else:
+        return None
 
 def get_input_files_type_data(input_files_list):
     """
@@ -917,11 +938,9 @@ def get_output_name(input_files, targ_prog):
     """
     if not isinstance(input_files, list):
         data_file = get_obpg_data_file_object(input_files)
-        nm_findr = next_level_name_finder.NextLevelNameFinder([data_file],
-                                                              targ_prog)
+        nm_findr = name_finder_utils.get_level_finder([data_file],targ_prog)
     else:
-        nm_findr = next_level_name_finder.NextLevelNameFinder(input_files,
-                                                              targ_prog)
+        nm_findr = name_finder_utils.get_level_finder(input_files, targ_prog)
     return nm_findr.get_next_level_name()
 
 #def get_output_name(input_name, suffix):
@@ -992,6 +1011,7 @@ def get_par_file_contents(par_file, acceptable_single_keys):
         'geo' : 'geo', 'modis_GEO.py': 'geo',
         'level 1b' : 'level 1b', 'l1b' : 'level 1b', 'l1bgen' : 'level 1b',
         'modis_L1B.py': 'level 1b',
+        'level 2' : 'l2gen',
         'l2gen' : 'l2gen',
         'l2bin' : 'l2bin',
         'l2brsgen' : 'l2brsgen',
@@ -1026,9 +1046,9 @@ The recognized programs are: {2}""".format(par_file, key, acc_key_str)
 #        else:
 #            instrument = None
         input_files_list = get_input_files(par_contents)
-        if input_files_list is None:
-            err_msg = 'Error!  No input files specified in {0}'.format(par_file)
-            log_and_exit(err_msg)
+        #if input_files_list is None:
+        #    err_msg = 'Error!  No input files specified in {0}'.format(par_file)
+        #    log_and_exit(err_msg)
     else:
         err_msg = 'Error! Could not find section "main" in {0}'.format(par_file)
         log_and_exit(err_msg)
@@ -1149,6 +1169,11 @@ def main():
                 err_msg = 'Error! The tar file, {0}, already exists.'.\
                           format(options.tar_file)
                 log_and_exit(err_msg)
+        if options.ifile:
+            if not os.path.exists(options.ifile):
+                err_msg = 'Error! The specified input file, {0}, does not exist.'.\
+                          format(options.ifile)
+                log_and_exit(err_msg)
         cfg_data = ProcessorConfig('.seadas_data', os.getcwd(), options.verbose,
                                    options.overwrite, options.use_existing,
                                    options.tar_file, options.timing,
@@ -1170,7 +1195,10 @@ def main():
                     print timing_msg
                     logging.info(timing_msg)
                 else:
-                    do_processing(rules_sets, args[0])
+                    if options.ifile:
+                        do_processing(rules_sets, args[0], options.ifile)
+                    else:
+                        do_processing(rules_sets, args[0])
             except Exception:
                 exc_parts = [str(l) for l in sys.exc_info()]
                 err_type_parts = str(exc_parts[0]).strip().split('.')
@@ -1179,6 +1207,9 @@ def main():
                 line_num = tb_line.split(',')[1]
                 err_msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(os.path.basename(sys.argv[0]), err_type, exc_parts[1], line_num.strip())
                 log_and_exit(err_msg)
+        else:
+            err_msg = 'Error! Parameter file {0} does not exist.'.format(args[0])
+            sys.exit(err_msg)
         logging.shutdown()
     return 0
 
@@ -1193,6 +1224,8 @@ def process_command_line(cl_parser):
     cl_parser.add_option('-k', '--keepfiles', action='store_true',
                          dest='keepfiles', default=False,
                          help='keep files created during processing')
+    cl_parser.add_option('--ifile', action='store', type='string',
+                         dest='ifile', help="input file")
     cl_parser.add_option('--output_dir', '--odir',
                          action='store', type='string', dest='odir',
                          help="user specified directory for output")
@@ -1350,8 +1383,10 @@ def run_l1brsgen(proc):
         suffix = l1brs_suffixes[proc.par_data['outmode']]
     else:
         suffix = l1brs_suffixes['0']
-    output_name = get_output_name(proc.par_data['ifile'], suffix)
-    cmd = ' '.join([prog, opts, ' ofile=' + output_name])
+    #output_name = get_output_name(proc.par_data['ifile'], suffix)
+    output_name = get_output_name(proc.input_file, 'l1brsgen')
+    cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
+                    'ofile=' + output_name, 'outmode=' + suffix])
     logging.debug('Executing: {0}'.format(cmd))
     status = execute_command(cmd)
     return status

@@ -8,9 +8,10 @@ the input file name.
 __version__ = '1.0.0'
 
 #import datetime
+import aquarius_next_level_name_finder
 import get_obpg_file_type
 import MetaUtils
-import namer_constants
+#import namer_constants
 import name_finder_utils
 import next_level_name_finder
 import obpg_data_file
@@ -158,7 +159,8 @@ def main():
     ret_status = 0
     clopts, inp_name, targ_prog = get_command_line_data()
 
-    if not targ_prog in namer_constants.PROCESSABLE_PROGRAMS:
+    #if not targ_prog in namer_constants.PROCESSABLE_PROGRAMS:
+    if not targ_prog in PROCESSABLE_PROGRAMS:
         err_msg = 'Error!  The target program, "{0}", is not known.'.\
                   format(targ_prog)
         sys.exit(err_msg)
@@ -207,6 +209,11 @@ def main():
 #global DEBUG
 DEBUG = False
 DEBUG = True  # Comment out for production use
+PROCESSABLE_PROGRAMS = \
+    set(next_level_name_finder.NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+        next_level_name_finder.ModisNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+        next_level_name_finder.SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+        aquarius_next_level_name_finder.AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys())
 
 if __name__ == '__main__':
     sys.exit(main())

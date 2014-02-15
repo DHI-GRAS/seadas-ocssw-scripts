@@ -162,6 +162,7 @@ class NextLevelNameFinder(object):
         'l1agen':         'Level 1A',
         'Level 1':        'Level 1B',
         'Level 1A':       'Level 1A',
+        'level 1a':       'Level 1A',
         'l1bgen':         'Level 1B',
         'Level 1B':       'Level 1B',
         'level 1b':       'Level 1B',
@@ -169,6 +170,7 @@ class NextLevelNameFinder(object):
         'l1mapgen':       'l1mapgen',
         'l2gen':          'Level 2',
         'Level 2':        'Level 2',
+        'level 2':        'Level 2',
         'l2bin':          'l2bin',
         'l2brsgen':       'l2brsgen',
         'l2extract':      'l2extract',
@@ -188,7 +190,7 @@ class NextLevelNameFinder(object):
     }
 
     def __init__(self, data_files_list, next_level, suite='_OC',
-                  product = None):
+                  product = None, l1brs_outmode = '8bit', l2brs_outmode = 0):
         if len(data_files_list) == 0:
             err_msg = "Error! No data file specified for {0}.".format(
                                                         self.__class__.__name__)
@@ -489,7 +491,7 @@ class NextLevelNameFinder(object):
                           'MERIS': 'M',
                           'MODIS Aqua':  'A', 'MODIS Terra': 'T',
                           'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
-                          'OSMI': 'K'}
+                          'OSMI': 'K', 'SeaWiFS': 'S'}
 
         if self.data_files[0].sensor in indicator_dict.keys():
             indicator = indicator_dict[self.data_files[0].sensor]
@@ -659,6 +661,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         'l1agen':            'Level 1A',
         'modis_L1A.py':      'Level 1A',
         'Level 1A':          'Level 1A',
+        'level 1a':          'Level 1A',
         'geo':               'GEO',
         'geogen':            'GEO',
         'modis_GEO.py':      'GEO',
@@ -672,6 +675,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         'l1mapgen':          'l1mapgen',
         'l2gen':             'Level 2',
         'Level 2':           'Level 2',
+        'level 2':           'Level 2',
         'l2bin':             'l2bin',
         'l2brsgen':          'l2brsgen',
         'l2extract':         'l2extract',
@@ -945,6 +949,7 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
         return {'Level 1A': {'Level 1B': self._get_l1b_name,
                                'l1aextract_seawifs' : self._get_l1aextract_name,
                                'l1bgen' : self._get_l1b_name,
+                               'l1brsgen': self._get_l1brsgen_name,
                                'l1mapgen': self._get_l1mapgen_name,
                                'Level 2' : self._get_l2_name },
                 'Level 1B': {'Level 2': self._get_l2_name,
