@@ -334,7 +334,7 @@ def check_sensor(file):
               'Ocean Color and Temperature Scanner (OCTS)': 'octs',
               'Ocean Scanning Multi-Spectral Imager (OSMI)': 'osmi',
               'Ocean   Color   Monitor   OCM-2': 'ocm2',
-              'MOS': 'mos', 'VIIRS': 'viirs', 'Aquarius': 'aquarius'}
+              'MOS': 'mos', 'VIIRS': 'viirs', 'Aquarius': 'aquarius','hico':'hico'}
 
     from MetaUtils import readMetadata
     import re
