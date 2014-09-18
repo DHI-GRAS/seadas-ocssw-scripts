@@ -4,6 +4,8 @@
 from operator import sub
 import gc
 
+DEFAULT_ANC_DIR_TEXT = "$OCVARROOT"
+
 class getanc:
     """
     utilities for ancillary file search

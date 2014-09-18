@@ -70,10 +70,17 @@ if __name__ == "__main__":
         help="Time of last scanline", metavar="STOP")
     parser.add_option("--ancdir", dest='ancdir',
         help="Use a custom directory tree for ancillary files", metavar="ANCDIR")
+
+    ancdb_help_text = "Use a custom file for ancillary database. If full "\
+                      "path not given, ANCDB is assumed to exist (or "\
+                      "will be created) under " + ga.DEFAULT_ANC_DIR_TEXT + \
+                      "/log/. If " + ga.DEFAULT_ANC_DIR_TEXT + "/log/ does "\
+                      "not exist, ANCDB is assumed (or will be created) "\
+                      " under the current working directory"
+
     parser.add_option("--ancdb", dest='ancdb',
-                      help="Use a custom file for ancillary database. If full path not given, ANCDB is assumed to "\
-                           "exist (or will be created) under $OCSSWROOT/log/. If $OCSSWROOT/log/ does not exist,  "\
-                           "ANCDB is assumed (or will be created) under the current working directory", metavar="ANCDB")
+                      help= ancdb_help_text, metavar="ANCDB")
+
     parser.add_option("-c", "--curdir", action="store_true",dest='curdir',
         default=False, help="Download ancillary files directly into current working directory")
     parser.add_option("-m","--mission",dest="sensor",help="Mission name",metavar="MISSION")

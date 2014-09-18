@@ -16,6 +16,7 @@ import re
 import subprocess
 import sys
 import time
+import time_utils
 
 def convert_millisecs_to_time_str(millisecs):
     """
@@ -28,12 +29,6 @@ def convert_millisecs_to_time_str(millisecs):
     secs = secs - (mins * 60)
     tm_str = '{0:02}{1:02}{2:02}'.format(hrs, mins, secs)
     return tm_str
-
-def convert_month_day_to_doy(mon, dom, yr):
-    date_obj = datetime.datetime(int(yr), mon, int(dom))
-    doy = date_obj.timetuple().tm_yday
-#    doy_str = '%03d'.format(doy)
-    return doy
 
 def get_timestamp_from_month_day(sdate, stime):
     """
@@ -189,10 +184,15 @@ class ObpgFileTyper(object):
         """
         Get the instrument and file type from the attributes for an 20 file.
         """
-        title_parts = self.attributes['Title'].split()
         file_type = 'Level 2'
-        if self.attributes['Title'].find('Browse Data') != -1:
-            file_type += ' Browse Data'
+        if 'Title' in self.attributes:
+            title_parts = self.attributes['Title'].split()
+            if self.attributes['Title'].find('Browse Data') != -1:
+                file_type += ' Browse Data'
+        elif 'title' in self.attributes:
+            title_parts = self.attributes['title'].split()
+            if self.attributes['title'].find('Browse Data') != -1:
+                file_type += ' Browse Data'
         instrument = title_parts[0].strip()
         return file_type, instrument
 
@@ -201,9 +201,16 @@ class ObpgFileTyper(object):
         Get the instrument and file type from the attributes for an L3 file.
         """
         file_type = 'unknown'
-        if self.attributes['Title'].find('Level-3 Binned') != -1:
+        if 'Title' in self.attributes:
+            working_title = self.attributes['Title']
+        elif 'title' in self.attributes:
+            working_title = self.attributes['title']
+        elif 'instrument' in self.attributes:
+            pass
+        if (working_title.find('Level-3 Binned') != -1) or \
+           (working_title.find('level-3_binned') != -1):
             file_type = 'Level 3 Binned'
-        elif self.attributes['Title'].find('Level-3 Standard Mapped Image') != -1:
+        elif working_title.find('Level-3 Standard Mapped Image') != -1:
             file_type = 'Level 3 SMI'
         instrument = self._get_instrument()
         return file_type, instrument
@@ -213,9 +220,15 @@ class ObpgFileTyper(object):
         Get the instrument from the attributes.
         """
         instrument = 'unknown'
-        title_parts = self.attributes['Title'].split()
-        if title_parts[0].find('Level') == -1:
-            instrument = title_parts[0].strip()
+        if 'Title' in self.attributes or 'title' in self.attributes:
+            if 'Title' in self.attributes:
+                title_parts = self.attributes['Title'].split()
+            else:
+                title_parts = self.attributes['title'].split()
+            if title_parts[0].find('Level') == -1:
+                instrument = title_parts[0].strip()
+        elif 'instrument' in self.attributes:
+            instrument = self.attributes['instrument']
         if not (instrument in KNOWN_SENSORS):
             if 'Sensor Name' in self.attributes:
                 instrument = self.attributes['Sensor Name'].strip()
@@ -251,6 +264,54 @@ class ObpgFileTyper(object):
             l0cnst_results = None
         return l0cnst_results
 
+    def _get_landsat_times(self):
+        # The Landsat OLI metadata only contains a acquistion date and
+        # scene center time.  (For now) It is assumed that the scene center
+        # time is the start time and the end time is one second later.
+        acquisition_date = self.attributes['DATE_ACQUIRED']
+        center_time = self.attributes['SCENE_CENTER_TIME']
+
+        start_yr = int(acquisition_date[0:4])
+        start_mon = int(acquisition_date[5:7])
+        start_dom = int(acquisition_date[8:10])
+        start_doy = time_utils.convert_month_day_to_doy(start_mon, start_dom, start_yr)
+        start_date_str = '{0:04d}{1:03d}'.format(start_yr, start_doy)
+        start_hr = center_time[0:2]
+        start_min = center_time[3:5]
+        start_sec = center_time[6:8]
+        start_time =  ''.join([start_date_str, start_hr, start_min,
+                               start_sec])
+
+        end_yr = start_yr
+        end_doy = start_doy
+        end_hr = int(start_hr)
+        end_min = int(start_min)
+        end_sec = int(start_sec) + 1
+        if end_sec >= 60:
+            end_sec = 0
+            end_min += 1
+            if end_min >= 60:
+                end_min = 0
+                end_hr += 1
+                if end_hr >= 24:
+                    end_hr = 0
+                    end_doy += 1
+                    if end_yr % 4 == 0:
+                        if end_doy > 366:
+                            end_doy = 1
+                            end_yr += 1
+                    elif end_doy > 365:
+                        end_doy = 1
+                        end_yr += 1
+        end_time = '{0:4d}{1:03d}{2:02d}{3:02d}{4:02d}'.format(end_yr,
+                                                                   end_doy,
+                                                                   end_hr,
+                                                                   end_min,
+                                                                   end_sec)
+                               # ])
+        return start_time, end_time
+
+
     def get_file_attributes(self):
         """
         API method to return the file's attributes.
@@ -276,8 +337,32 @@ class ObpgFileTyper(object):
         elif self.file_type.find('Level 2') != -1 or \
            self.file_type.find('Level 3') != -1:
             try:
-                start_time = self.attributes['Start Time'][0:13]
-                end_time = self.attributes['End Time'][0:13]
+                if 'Start Time' in self.attributes:
+                    start_time = self.attributes['Start Time'][0:13]
+                elif 'time_coverage_start' in self.attributes:
+                    start_doy = '{0:03d}'.format(
+                                time_utils.convert_month_day_to_doy(
+                                self.attributes['time_coverage_start'][5:7],
+                                self.attributes['time_coverage_start'][8:10],
+                                self.attributes['time_coverage_start'][0:4]))
+                    start_time = ''.join([self.attributes['time_coverage_start'][0:4],
+                                        str(start_doy),
+                                        self.attributes['time_coverage_start'][11:13],
+                                        self.attributes['time_coverage_start'][14:16],
+                                        self.attributes['time_coverage_start'][17:19]])
+                if 'End Time' in self.attributes:
+                    end_time = self.attributes['End Time'][0:13]
+                elif 'time_coverage_end' in self.attributes:
+                    end_doy = '{0:03d}'.format(
+                                time_utils.convert_month_day_to_doy(
+                                self.attributes['time_coverage_end'][5:7],
+                                self.attributes['time_coverage_end'][8:10],
+                                self.attributes['time_coverage_end'][0:4]))
+                    end_time =  ''.join([self.attributes['time_coverage_end'][0:4],
+                                        str(end_doy),
+                                        self.attributes['time_coverage_end'][11:13],
+                                        self.attributes['time_coverage_end'][14:16],
+                                        self.attributes['time_coverage_end'][17:19]])
             except KeyError:
                 if self.instrument.find('Aquarius') != -1:
                     stime_str = convert_millisecs_to_time_str(
@@ -339,6 +424,16 @@ class ObpgFileTyper(object):
                     self.file_type = self.attributes['Product Level']
                     if not self.file_type.startswith('Level'):
                         self.file_type = 'Level ' + self.file_type
+            elif 'SENSOR_ID' in self.attributes:
+                # Landsat 8 OLI
+                if self.attributes['SENSOR_ID'].find('OLI_TIRS') != -1:
+                    self.instrument = 'OLI'
+                else:
+                    self.instrument = self.attributes['SENSOR_ID'].strip().strip('"')
+                if self.attributes['DATA_TYPE'].find('L1T') != -1:
+                    self.file_type = 'Level 1B'
+                else:
+                    self.file_type = 'Level ' + self.attributes['DATA_TYPE'].strip().strip('"')
         else:
             self._get_type_using_l0_cnst()
         if self.instrument.find('MODISA') != -1:
@@ -373,8 +468,30 @@ class ObpgFileTyper(object):
            self.instrument.find('CZCS') != -1 or\
            self.instrument.find('MOS') != -1 or\
            self.instrument.find('OSMI') != -1:
-            start_time = self.attributes['Start Time'][0:13]
-            end_time = self.attributes['End Time'][0:13]
+            if 'Start Time' in self.attributes:
+                start_time = self.attributes['Start Time'][0:13]
+            elif 'time_coverage_start' in self.attributes:
+                start_time = get_timestamp_from_month_day(''.join([
+                                self.attributes['time_coverage_start'][0:4],
+                                self.attributes['time_coverage_start'][5:7],
+                                self.attributes['time_coverage_start'][8:10]
+                                ]), ''.join([
+                                self.attributes['time_coverage_start'][11:13],
+                                self.attributes['time_coverage_start'][14:16],
+                                self.attributes['time_coverage_start'][17:19]
+                ]))
+            if 'End Time' in self.attributes:
+                end_time = self.attributes['End Time'][0:13]
+            elif 'time_coverage_end' in self.attributes:
+                end_time = get_timestamp_from_month_day(''.join([
+                                self.attributes['time_coverage_end'][0:4],
+                                self.attributes['time_coverage_end'][5:7],
+                                self.attributes['time_coverage_end'][8:10]
+                                ]), ''.join([
+                                self.attributes['time_coverage_end'][11:13],
+                                self.attributes['time_coverage_end'][14:16],
+                                self.attributes['time_coverage_end'][17:19]
+                ]))
         elif self.instrument.find('MODIS') != -1:
             start_time = self._create_modis_l1_timestamp(
                 self.attributes['RANGEBEGINNINGDATE'],
@@ -423,7 +540,7 @@ class ObpgFileTyper(object):
                 yr = int(self.attributes['processing start time'][7:11])
                 mon = time.strptime(self.attributes['processing start time'][3:6], '%b').tm_mon
                 dom = int(self.attributes['processing start time'][0:2])
-                doy = convert_month_day_to_doy(mon, dom, yr)
+                doy = time_utils.convert_month_day_to_doy(mon, dom, yr)
                 start_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(yr, doy,
                     int(self.attributes['processing start time'][12:14]),
                     self.attributes['processing start time'][15:17],
@@ -435,11 +552,13 @@ class ObpgFileTyper(object):
                 yr = int(self.attributes['processing end time'][7:11])
                 mon = time.strptime(self.attributes['processing end time'][3:6], '%b').tm_mon
                 dom = int(self.attributes['processing end time'][0:2])
-                doy = convert_month_day_to_doy(mon, dom, yr)
+                doy = time_utils.convert_month_day_to_doy(mon, dom, yr)
                 end_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(yr, doy,
                     int(self.attributes['processing end time'][12:14]),
                     self.attributes['processing end time'][15:17],
                     self.attributes['processing end time'][18:20])
+        elif self.instrument.find('OLI') != -1:
+            start_time, end_time = self._get_landsat_times()
         return start_time, end_time
 
     def _get_type_using_l0_cnst(self):
@@ -489,7 +608,7 @@ class ObpgFileTyper(object):
         elif title.find('Level-2') != -1 or title.find('Level 2') != -1:
             self.file_type, self.instrument = \
             self._get_data_from_l2_attributes()
-        elif title.find('Level-3') != -1:
+        elif (title.find('Level-3') != -1) or (title.find('level-3') != -1):
             self.file_type, self.instrument = \
             self._get_data_from_l3_attributes()
         elif title.find('Level-0') != -1:

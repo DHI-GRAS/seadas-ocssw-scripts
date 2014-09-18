@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import anc_utils
 from modules.modis_utils import buildpcf, modis_env
 
 import modules.modis_GEO_utils as modisGEO
@@ -49,10 +50,15 @@ if __name__ == "__main__":
         help="Input ephemeris file 2 (chronological)", metavar="EPH2")
     parser.add_option("--ancdir", dest='ancdir',
         help="Use a custom directory tree for ancillary files", metavar="ANCDIR")
-    parser.add_option("--ancdb", dest='ancdb',
-        help="Use a custom file for ancillary database. If full path not given, ANCDB is assumed to "\
-             "exist (or will be created) under $OCSSWROOT/log/. If $OCSSWROOT/log/ does not exist,  "\
-             "ANCDB is assumed (or will be created) under the current working directory", metavar="ANCDB")
+    ancdb_help_text = "Use a custom file for ancillary database. If " \
+                      "full path not given, ANCDB is assumed to exist " \
+                      "(or will be created) under " \
+                      + anc_utils.DEFAULT_ANC_DIR_TEXT + \
+                      "/log/. If " + anc_utils.DEFAULT_ANC_DIR_TEXT + \
+                      "/log/ does not exist,  " \
+                      "ANCDB is assumed (or will be created) under the " \
+                      "current working directory"
+    parser.add_option("--ancdb", dest='ancdb', help=ancdb_help_text, metavar="ANCDB")
     parser.add_option("--threshold", dest='geothresh',
         help="% of geo-populated pixels required to pass geocheck validation test", metavar="THRESHOLD")
     parser.add_option("-r", "--refreshDB", action="store_true", dest='refreshDB',

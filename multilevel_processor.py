@@ -2,10 +2,10 @@
 
 """
 Program to perform multilevel processing (previously known as the
-seadas_processor and sometimes referred to as the'uber' processor).
+seadas_processor and sometimes referred to as the 'uber' processor).
 """
 
-__version__ = '1.0.3dev'
+__version__ = '1.0.1'
 
 __author__ = 'melliott'
 
@@ -86,7 +86,8 @@ class ProcessorConfig:
             cfg_parser.read(cfg_path)
             try:
                 self.max_file_age = ProcessorConfig.SECS_PER_DAY * \
-                                    int(cfg_parser.get('main', 'par_file_age').\
+                                    int(cfg_parser.get('main',
+                                                       'par_file_age').\
                                     split(' ', 2)[0])
             except ConfigParser.NoSectionError, nse:
                 print 'nse: ' + str(nse)
@@ -108,12 +109,12 @@ class ProcessorConfig:
         """
         if os.path.exists('/tmp') and os.path.isdir('/tmp') and \
            os.access('/tmp', os.W_OK):
-            self.temp_dir = '/tmp'
+            return '/tmp'
         else:
             cwd = os.getcwd()
             if os.path.exists(cwd) and os.path.isdir(cwd) and \
                os.access(cwd, os.W_OK):
-                self.temp_dir = cwd
+                return cwd
             else:
                 log_and_exit('Error! Unable to establish a temporary ' +
                              'directory.')
@@ -133,8 +134,8 @@ def get_obpg_data_file_object(file_specification):
     ftyper = get_obpg_file_type.ObpgFileTyper(file_specification)
     (ftype, sensor) =  ftyper.get_file_type()
     (stime, etime) = ftyper.get_file_times()
-    obpg_data_file_obj = obpg_data_file.ObpgDataFile(file_specification, ftype, sensor,
-                                        stime, etime, ftyper.attributes)
+    obpg_data_file_obj = obpg_data_file.ObpgDataFile(file_specification, ftype,
+                                        sensor, stime, etime, ftyper.attributes)
     return obpg_data_file_obj
 
 def build_file_list_file(filename, file_list):
@@ -288,6 +289,21 @@ def build_rules():
                  seawifs = build_seawifs_rules())
     return rules
 
+def check_options(options):
+    """
+    Check command line options
+    """
+    if options.tar_file:
+        if os.path.exists(options.tar_file):
+            err_msg = 'Error! The tar file, {0}, already exists.'. \
+                format(options.tar_file)
+            log_and_exit(err_msg)
+    if options.ifile:
+        if not os.path.exists(options.ifile):
+            err_msg = 'Error! The specified input file, {0}, does not exist.'. \
+                format(options.ifile)
+            log_and_exit(err_msg)
+
 def clean_files(delete_list):
     """
     Delete unwanted files created during processing.
@@ -385,7 +401,8 @@ def create_help_message(rules_sets):
 
     lvl_name_help = ''
     for lname in level_names:
-        lvl_name_help += '        {0:24s}{1}\n'.format(lname[0] + ':', ', '.join(lname[1]))
+        lvl_name_help += '        {0:24s}{1}\n'.\
+                         format(lname[0] + ':', ', '.join(lname[1]))
 
     message += lvl_name_help
     message += """
@@ -400,7 +417,6 @@ def create_help_message(rules_sets):
     """
     return message
 
-
 def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     """
     Perform the processing for each step (element of processor_list) needed.
@@ -410,41 +426,43 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     files_to_keep = []
     files_to_delete = []
     input_files_list = []
-    (par_contents, input_files_list) = get_par_file_contents(par_file,
-                                                             FILE_USE_OPTS)
+    (par_contnts, input_files_list) = get_par_file_contents(par_file,
+                                                            FILE_USE_OPTS)
     if cmd_line_ifile:
         skip_par_ifile = True
         if os.path.exists(cmd_line_ifile):
             input_files_list = [cmd_line_ifile]
         else:
-            msg = 'Error! Specified ifile {0} does not exist.'.format(cmd_line_ifile)
+            msg = 'Error! Specified ifile {0} does not exist.'.\
+                  format(cmd_line_ifile)
             sys.exit(msg)
     else:
         skip_par_ifile = False
-    if par_contents['main']:
-        if (not skip_par_ifile) and (not 'ifile' in par_contents['main']):
-            msg = 'Error! No ifile specified in the main section of {0}.'.format(par_file)
+    if par_contnts['main']:
+        if (not skip_par_ifile) and (not 'ifile' in par_contnts['main']):
+            msg = 'Error! No ifile specified in the main section of {0}.'.\
+                  format(par_file)
             sys.exit(msg)
         # Avoid overwriting file options that are already turned on in cfg_data
         # (from command line input).
-        keepfiles, use_existing, overwrite = get_file_handling_opts(par_contents)
+        keepfiles, use_existing, overwrite = get_file_handling_opts(par_contnts)
         if keepfiles:
             cfg_data.keepfiles = True
         if use_existing:
             cfg_data.use_existing = True
         if overwrite:
             cfg_data.overwrite = True
-        if 'use_nrt_anc' in par_contents['main'] and \
-           int(par_contents['main']['use_nrt_anc']) == 0:
+        if 'use_nrt_anc' in par_contnts['main'] and \
+           int(par_contnts['main']['use_nrt_anc']) == 0:
             cfg_data.get_anc = False
-        if 'odir' in par_contents['main']:
-            dname = par_contents['main']['odir']
+        if 'odir' in par_contnts['main']:
+            dname = par_contnts['main']['odir']
             if os.path.exists(dname):
                 if os.path.isdir(dname):
                     if cfg_data.output_dir_is_settable:
                         cfg_data.output_dir = os.path.realpath(dname)
                     else:
-                        logging.info('Ignoring par file specification for output directory, {0}; using command line value, {1}.'.format(par_contents['main']['odir'],
+                        logging.info('Ignoring par file specification for output directory, {0}; using command line value, {1}.'.format(par_contnts['main']['odir'],
                                      cfg_data.output_dir))
                 else:
                     msg = 'Error! {0} is not a directory.'.format(dname)
@@ -473,11 +491,10 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     else:
         rules = rules_sets['general']
 
-    source_files = get_source_files(input_file_data)
-    lowest_source_level = get_lowest_source_level(source_files)
-    logging.debug("lowest_source_level: " + str(lowest_source_level))
-    processors = get_processors(cfg_data, instrument, par_contents, rules,
-                                lowest_source_level)
+    src_files = get_source_files(input_file_data)
+    lowest_src_lvl = get_lowest_source_level(src_files)
+    logging.debug("lowest_source_level: " + str(lowest_src_lvl))
+    processors = get_processors(instrument, par_contnts, rules, lowest_src_lvl)
     logging.debug("processors: " + str(processors))
     if cfg_data.tar_filename:
         tar_file = tarfile.open(cfg_data.tar_filename, 'w')
@@ -486,152 +503,89 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                                                        ', '.join([p.target_type for p in processors]))
     sys.stdout.flush()
     try:
-        #todo: can probably make the loop work with 'for proc in processors:'
         for ndx, proc in enumerate(processors):
+            logging.debug('')
+            logging.debug('Processing for {0}:'.format(proc.target_type))
             proc.out_directory = cfg_data.output_dir
             if cfg_data.timing:
                 proc_timer = benchmark_timer.BenchmarkTimer()
                 proc_timer.start()
-            proc_src_types = processors[ndx].rule_set.rules[processors[ndx].target_type].src_file_types
+            proc_src_types = proc.rule_set.rules[proc.target_type].src_file_types
             src_key = None
             if proc_src_types[0] == 'l1':
-                if 'level 1a' in source_files:
+                if 'level 1a' in src_files:
                     src_key = 'level 1a'
-                elif 'level 1b' in source_files:
+                elif 'level 1b' in src_files:
                     src_key = 'level 1b'
-            elif proc_src_types[0] in source_files:
+            elif proc_src_types[0] in src_files:
                 src_key = proc_src_types[0]
             else:
                 for cand_proc in reversed(processors[:ndx]):
                     if SUFFIXES[cand_proc.target_type] == \
-                       processors[ndx].rule_set.rules[processors[ndx].target_type].src_file_types[0]:
-                        if cand_proc.target_type in source_files:
+                       proc.rule_set.rules[proc.target_type].src_file_types[0]:
+                        if cand_proc.target_type in src_files:
                             src_key = cand_proc.target_type
                             break
                 if src_key is None:
-                    err_msg = 'Error! Unable to find source files for {0}.'.\
-                              format(processors[ndx].target_type)
+                    err_msg = 'Error! Cannot find source files for {0}.'.\
+                              format(proc.target_type)
                     log_and_exit(err_msg)
             logging.debug('proc_src_types:')
             logging.debug('\n  '.join([pst for pst in proc_src_types]))
             if proc.requires_batch_processing():
                 logging.debug('Performing batch processing for ' + str(proc))
-                output_file = run_batch_processor(ndx, processors,
-                                                  source_files[src_key])
-                if processors[ndx].target_type in source_files:
-                    if not output_file in source_files[processors[ndx].target_type]:
-                        source_files[processors[ndx].target_type].\
-                            append(output_file)
+                out_file = run_batch_processor(ndx, processors,
+                                               src_files[src_key])
+                if proc.target_type in src_files:
+                    if not out_file in src_files[proc.target_type]:
+                        src_files[proc.target_type].append(out_file)
                 else:
-                    source_files[processors[ndx].target_type] = [output_file]
+                    src_files[proc.target_type] = [out_file]
             else:
                 logging.debug('Performing nonbatch processing for ' +
                               str(proc))
-                if len(proc_src_types) == 1:
-                    try:
-                        src_file_sets = source_files[src_key]
-                    except Exception:
-                        print "Exception encountered: "
-                        e_info = sys.exc_info()
-                        err_msg = ''
-                        for info in e_info:
-                            err_msg += "  " + str(info)
-                        log_and_exit(99)
-                elif len(proc_src_types) == 2:
-                    if proc_src_types[0] in source_files \
-                      and proc_src_types[1] in source_files:
-                        src_file_sets = zip(source_files[proc_src_types[0]],
-                                            source_files[proc_src_types[1]])
-                    else:
-                        if proc_src_types[0] in source_files:
-                            if proc_src_types[1] == 'geo':
-                                inp_files = source_files[proc_src_types[0]]
-                                geo_files = []
-                                for inp_file in inp_files:
-                                    geo_file = find_geo_file(inp_file)
-                                    if geo_file:
-                                        geo_files.append(geo_file)
-                                    else:
-                                        err_msg = 'Error! Cannot find GEO ' \
-                                                  'file {0}.'.format(geo_file)
-                                        log_and_exit(err_msg)
-                                src_file_sets = zip(source_files[proc_src_types[0]],
-                                                    geo_files)
-                            else:
-                                err_msg = 'Error! Cannot find all {0} and' \
-                                          ' {1} source files.'.format(
-                                          proc_src_types[0], proc_src_types[1])
-                                log_and_exit(err_msg)
-                        elif proc_src_types[1] in source_files:
-                            if proc_src_types[0] == 'geo':
-                                inp_files = source_files[proc_src_types[1]]
-                                geo_files = []
-                                for inp_file in inp_files:
-                                    geo_file = find_geo_file(inp_file)
-                                    if geo_file:
-                                        geo_files.append(geo_file)
-                                    else:
-                                        err_msg = 'Error! Cannot find GEO '\
-                                                  'file {0}.'.format(geo_file)
-                                        log_and_exit(err_msg)
-#                                err_msg= 'Error! Cannot find GEO files.'
-#                                log_and_exit(err_msg)
-                                src_file_sets = zip(source_files[proc_src_types[1]],
-                                                    geo_files)
-                            else:
-                                err_msg = 'Error! Cannot find all {0} and'\
-                                          ' {1} source files.'.format(
-                                    proc_src_types[0], proc_src_types[1])
-                                log_and_exit(err_msg)
-                        else:
-                            err_msg = 'Error! Cannot find all source files.'
-                            log_and_exit(err_msg)
-                else:
-                    err_msg = 'Error! Encountered too many source file types.'
-                    log_and_exit(err_msg)
+                src_file_sets = get_source_file_sets(proc_src_types,
+                                                     src_files, src_key)
                 for file_set in src_file_sets:
-                    output_file = run_nonbatch_processor(ndx, processors,
-                                                         input_file_data,
-                                                         file_set)
-                    if processors[ndx].target_type in source_files:
-                        if not output_file in source_files[processors[ndx].target_type]:
-                            source_files[processors[ndx].target_type].\
-                                append(output_file)
+                    out_file = run_nonbatch_processor(ndx, processors,
+                                                      input_file_data, file_set)
+                    if proc.target_type in src_files:
+                        if not out_file in src_files[proc.target_type]:
+                            src_files[proc.target_type].append(out_file)
                     else:
-                        source_files[processors[ndx].target_type] = [output_file]
-            if cfg_data.keepfiles or processors[ndx].keepfiles:
-                files_to_keep.append(output_file)
+                        src_files[proc.target_type] = [out_file]
+            if cfg_data.keepfiles or proc.keepfiles:
+                files_to_keep.append(out_file)
                 if cfg_data.tar_filename:
-                    tar_file.add(output_file)
-                logging.debug('Added ' + output_file + ' to tar file list')
+                    tar_file.add(out_file)
+                logging.debug('Added ' + out_file + ' to tar file list')
             #todo: add "target" files to files_to_keep and other files to files_to_delete, as appropriate
             if cfg_data.timing:
                 proc_timer.end()
-                timing_msg = 'Time for {0} process: {1}'.format(proc.target_type,
-                                                               proc_timer.get_total_time_str())
+                timing_msg = 'Time for {0} process: {1}'.format(
+                             proc.target_type, proc_timer.get_total_time_str())
                 print timing_msg
                 logging.info(timing_msg)
-            print '{0}: processor {1} of {2} complete.'.format(cfg_data.prog_name,
-                                                               ndx + 1,
-                                                               len(processors))
+            print '{0}: processor {1} of {2} complete.'.format(
+                                                            cfg_data.prog_name,
+                                                            ndx + 1,
+                                                            len(processors))
             sys.stdout.flush()
+            logging.debug('Processing complete for {0}.'.format(proc.target_type))
     except Exception:
-        exc_parts = [str(l) for l in sys.exc_info()]
-        err_type_parts = str(exc_parts[0]).strip().split('.')
-        err_type = err_type_parts[-1].strip("'>")
-        tb_data = traceback.format_exc()
-        tb_line = tb_data.splitlines()[-3]
-        line_num = tb_line.split(',')[1]
-        err_msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(cfg_data.prog_name,
-                                               err_type, exc_parts[1], line_num.strip())
-        log_and_exit(err_msg)
+        if DEBUG:
+            err_msg = get_traceback_message()
+            log_and_exit(err_msg)
+        else:
+            err_msg = "Unrecoverable error encountered in processing."
+            log_and_exit(err_msg)
     finally:
         if cfg_data.tar_filename:
             tar_file.close()
             logging.debug('closed tar file')
-        # Since the clean_files function will delete hidden files as well as the
-        # files in files_to_delete, it should be called regardless of whether
-        # files_to_delete contains anything.
+        # Since the clean_files function will delete hidden files as well as
+        # the files in files_to_delete, it should be called regardless of
+        # whether files_to_delete contains anything.
         clean_files(files_to_delete)
     if cfg_data.verbose:
         print "Processing complete."
@@ -850,7 +804,9 @@ def get_input_files_type_data(input_files_list):
         #if file_type in converter:
         #    file_type = converter[file_type.lower()]
         #else:
-        #    err_msg = 'Error! Cannot process file type {0} of {1}'.format(file_type, inp_file)
+        #    err_msg =
+        # 'Error! Cannot process file type {0} of {1}'.format(file_type,
+        #  inp_file)
         file_type = converter[file_type.lower()]
         input_file_type_data[inp_file] = (file_type, file_instr.lower())
     return input_file_type_data
@@ -938,7 +894,7 @@ def get_output_name(input_files, targ_prog):
     """
     if not isinstance(input_files, list):
         data_file = get_obpg_data_file_object(input_files)
-        nm_findr = name_finder_utils.get_level_finder([data_file],targ_prog)
+        nm_findr = name_finder_utils.get_level_finder([data_file], targ_prog)
     else:
         nm_findr = name_finder_utils.get_level_finder(input_files, targ_prog)
     return nm_findr.get_next_level_name()
@@ -958,7 +914,7 @@ def get_output_name2(input_name, input_files, suffix):
     """
     Determine the output name for a program to be run.
     """
-    # Todo: refactor to be get_output_name and delete the other get_output_name
+    # Todo: rename to get_output_name and delete other get_output_name
     output_name = None
     if input_name in input_files:
         if input_files[input_name][0] == 'level 0' and \
@@ -1047,7 +1003,8 @@ The recognized programs are: {2}""".format(par_file, key, acc_key_str)
 #            instrument = None
         input_files_list = get_input_files(par_contents)
         #if input_files_list is None:
-        #    err_msg = 'Error!  No input files specified in {0}'.format(par_file)
+        #    err_msg = 'Error!  No input files specified in {0}'.\
+        # format(par_file)
         #    log_and_exit(err_msg)
     else:
         err_msg = 'Error! Could not find section "main" in {0}'.format(par_file)
@@ -1055,8 +1012,7 @@ The recognized programs are: {2}""".format(par_file, key, acc_key_str)
 #    return par_contents, instrument, input_files_list
     return par_contents, input_files_list
 
-def get_processors(cfg_data, instrument, par_contents, rules,
-                   lowest_source_level):
+def get_processors(instrument, par_contents, rules, lowest_source_level):
     """
     Determine the processors which are needed.
     """
@@ -1073,20 +1029,6 @@ def get_processors(cfg_data, instrument, par_contents, rules,
                                                   lowest_source_level)
         processors.sort()
     return processors
-
-def get_source_files(input_files):
-    """
-    Returns a dictionary containing the programs to be run (as keys) and the
-    a list of files on which that program should be run.
-    """
-    source_files = {}
-    for file_path in input_files:
-        ftype = input_files[file_path][0]
-        if ftype in source_files:
-            source_files[ftype].append(file_path)
-        else:
-            source_files[ftype] = [file_path]
-    return source_files
 
 def get_required_programs(target_program, ruleset, lowest_source_level):
     """
@@ -1111,6 +1053,90 @@ def get_required_programs(target_program, ruleset, lowest_source_level):
                         programs_to_run.insert(0, prog)
     return programs_to_run
 
+def get_source_file_sets(proc_src_types, source_files, src_key):
+    """
+    Returns the set of source files needed.
+    """
+    if len(proc_src_types) == 1:
+        try:
+            src_file_sets = source_files[src_key]
+        except Exception:
+            # print "Exception encountered: "
+            # e_info = sys.exc_info()
+            # err_msg = ''
+            # for info in e_info:
+            #     err_msg += "  " + str(info)
+            if DEBUG:
+                err_msg = get_traceback_message()
+                log_and_exit(err_msg)
+            else:
+                err_msg = 'Error! Unable to determine what source files are required for the specified output files.'
+                log_and_exit(err_msg)
+    elif len(proc_src_types) == 2:
+        if proc_src_types[0] in source_files \
+                and proc_src_types[1] in source_files:
+            src_file_sets = zip(source_files[proc_src_types[0]],
+                                source_files[proc_src_types[1]])
+        else:
+            if proc_src_types[0] in source_files:
+                if proc_src_types[1] == 'geo':
+                    inp_files = source_files[proc_src_types[0]]
+                    geo_files = []
+                    for inp_file in inp_files:
+                        geo_file = find_geo_file(inp_file)
+                        if geo_file:
+                            geo_files.append(geo_file)
+                        else:
+                            err_msg = 'Error! Cannot find GEO ' \
+                                      'file {0}.'.format(geo_file)
+                            log_and_exit(err_msg)
+                    src_file_sets = zip(source_files[proc_src_types[0]],
+                                        geo_files)
+                else:
+                    err_msg = 'Error! Cannot find all {0} and' \
+                              ' {1} source files.'.format(
+                        proc_src_types[0], proc_src_types[1])
+                    log_and_exit(err_msg)
+            elif proc_src_types[1] in source_files:
+                if proc_src_types[0] == 'geo':
+                    inp_files = source_files[proc_src_types[1]]
+                    geo_files = []
+                    for inp_file in inp_files:
+                        geo_file = find_geo_file(inp_file)
+                        if geo_file:
+                            geo_files.append(geo_file)
+                        else:
+                            err_msg = 'Error! Cannot find GEO file {0}.'.format(geo_file)
+                            log_and_exit(err_msg)
+                    src_file_sets = zip(source_files[proc_src_types[1]],
+                                        geo_files)
+                else:
+                    err_msg = 'Error! Cannot find all {0} and' \
+                              ' {1} source files.'.format(
+                        proc_src_types[0], proc_src_types[1])
+                    log_and_exit(err_msg)
+            else:
+                err_msg = 'Error! Cannot find all source files.'
+                log_and_exit(err_msg)
+    else:
+        err_msg = 'Error! Encountered too many source file types.'
+        log_and_exit(err_msg)
+    return src_file_sets
+
+def get_source_files(input_files):
+    """
+    Returns a dictionary containing the programs to be run (as keys) and the
+    a list of files on which that program should be run.
+    """
+    source_files = {}
+    for file_path in input_files:
+        ftype = input_files[file_path][0]
+        if ftype in source_files:
+            source_files[ftype].append(file_path)
+        else:
+            source_files[ftype] = [file_path]
+    return source_files
+
 def get_source_products_types(targt_prod, ruleset):
     """
     Return the list of source product typess needed to produce the final product.
@@ -1125,6 +1151,20 @@ def get_source_products_types(targt_prod, ruleset):
                     new_prod_names.append(src_typ)
     src_prod_names += new_prod_names
     return src_prod_names
+
+def get_traceback_message():
+    """
+    Returns an error message built from traceback data.
+    """
+    exc_parts = [str(l) for l in sys.exc_info()]
+    err_type_parts = str(exc_parts[0]).strip().split('.')
+    err_type = err_type_parts[-1].strip("'>")
+    tb_data = traceback.format_exc()
+    tb_line = tb_data.splitlines()[-3]
+    line_num = tb_line.split(',')[1]
+    msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(cfg_data.prog_name,
+                                err_type, exc_parts[1], line_num.strip())
+    return msg
 
 def is_option_value_true(opt_val_str):
     """
@@ -1151,9 +1191,10 @@ def main():
     global cfg_data
     global DEBUG
     rules_sets = build_rules()
-    ver_msg = ' '.join(['%prog', __version__])
-    use_msg = create_help_message(rules_sets)
-    cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
+    # ver_msg = ' '.join(['%prog', __version__])
+    # use_msg = create_help_message(rules_sets)
+    cl_parser = optparse.OptionParser(usage=create_help_message(rules_sets),
+                                      version=' '.join(['%prog', __version__]))
     (options, args) = process_command_line(cl_parser)
 
     if len(args) < 1:
@@ -1164,23 +1205,13 @@ def main():
             # Don't just set DEBUG = options.debug, as that would override the
             # in-program setting.
             DEBUG = True
-        if options.tar_file:
-            if os.path.exists(options.tar_file):
-                err_msg = 'Error! The tar file, {0}, already exists.'.\
-                          format(options.tar_file)
-                log_and_exit(err_msg)
-        if options.ifile:
-            if not os.path.exists(options.ifile):
-                err_msg = 'Error! The specified input file, {0}, does not exist.'.\
-                          format(options.ifile)
-                log_and_exit(err_msg)
-        cfg_data = ProcessorConfig('.seadas_data', os.getcwd(), options.verbose,
-                                   options.overwrite, options.use_existing,
-                                   options.tar_file, options.timing,
-                                   options.odir)
+        check_options(options)
+        cfg_data = ProcessorConfig('.seadas_data', os.getcwd(),
+                                   options.verbose, options.overwrite,
+                                   options.use_existing, options.tar_file,
+                                   options.timing, options.odir)
         if not(os.access(cfg_data.hidden_dir, os.R_OK) ):
-            err_msg = "Error!  The working directory is not readable!"
-            log_and_exit(err_msg)
+            log_and_exit("Error!  The working directory is not readable!")
         if os.path.exists(args[0]):
             log_timestamp = datetime.datetime.today().strftime('%Y%m%d%H%M%S')
             start_logging(log_timestamp)
@@ -1200,15 +1231,16 @@ def main():
                     else:
                         do_processing(rules_sets, args[0])
             except Exception:
-                exc_parts = [str(l) for l in sys.exc_info()]
-                err_type_parts = str(exc_parts[0]).strip().split('.')
-                err_type = err_type_parts[-1].strip("'>")
-                tb_line = traceback.format_exc().splitlines()[-3]
-                line_num = tb_line.split(',')[1]
-                err_msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(os.path.basename(sys.argv[0]), err_type, exc_parts[1], line_num.strip())
-                log_and_exit(err_msg)
+                if DEBUG:
+                    err_msg = get_traceback_message()
+                    log_and_exit(err_msg)
+                else:
+                    # todo: make a friendlier error message
+                    err_msg = 'Unknown error encountered during processing!'
+                    log_and_exit(err_msg)
         else:
-            err_msg = 'Error! Parameter file {0} does not exist.'.format(args[0])
+            err_msg = 'Error! Parameter file {0} does not exist.'.\
+                      format(args[0])
             sys.exit(err_msg)
         logging.shutdown()
     return 0
@@ -1229,8 +1261,8 @@ def process_command_line(cl_parser):
     cl_parser.add_option('--output_dir', '--odir',
                          action='store', type='string', dest='odir',
                          help="user specified directory for output")
-    cl_parser.add_option('--overwrite', action='store_true', dest='overwrite',
-                         default=False,
+    cl_parser.add_option('--overwrite', action='store_true',
+                         dest='overwrite', default=False,
                          help='overwrite files which already exist (default = stop processing if file already exists)')
     cl_parser.add_option('-t', '--tar', type=str, dest='tar_file',
                          help=optparse.SUPPRESS_HELP)
@@ -1293,10 +1325,10 @@ def run_batch_processor(ndx, processors, file_set):
         dfile = get_obpg_data_file_object(fspec)
         data_file_list.append(dfile)
     name_finder = next_level_name_finder.NextLevelNameFinder(data_file_list,
-                                                             processors[ndx].target_type)
+                                                    processors[ndx].target_type)
 #    output_file = get_batch_output_name(file_set, suffixes[suffix_key])
     processors[ndx].output_file = os.path.join(processors[ndx].out_directory,
-                                               name_finder.get_next_level_name())
+                                              name_finder.get_next_level_name())
     processors[ndx].execute()
     return processors[ndx].output_file
 

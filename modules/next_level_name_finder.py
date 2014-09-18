@@ -15,6 +15,7 @@ import os
 import ProcUtils
 import re
 import sys
+import time_utils
 import types
 
 DEBUG = False
@@ -85,6 +86,11 @@ def get_end_day_year(metadata):
         eday = int(metadata['End Day'])
     elif 'Period End Day' in metadata:
         eday = int(metadata['Period End Day'])
+    elif 'time_coverage_end' in metadata:
+        eday = time_utils.convert_month_day_to_doy(
+                                    metadata['time_coverage_end'][5:7],
+                                    metadata['time_coverage_end'][8:10],
+                                    metadata['time_coverage_end'][0:4])
     else:
         err_msg = 'Error! Cannot determine end day.'
         sys.exit(err_msg)
@@ -92,6 +98,8 @@ def get_end_day_year(metadata):
         eyear = int(metadata['End Year'])
     elif 'Period End Year' in metadata:
         eyear = int(metadata['Period End Year'])
+    elif 'time_coverage_end' in metadata:
+        eyear = int(metadata['time_coverage_end'][0:4])
     else:
         err_msg = 'Error! Cannot determine end year.'
         sys.exit(err_msg)
@@ -106,6 +114,11 @@ def get_start_day_year(metadata):
         sday = int(metadata['Start Day'])
     elif 'Period Start Day' in metadata:
         sday = int(metadata['Period Start Day'])
+    elif 'time_coverage_start' in metadata:
+        sday = time_utils.convert_month_day_to_doy(
+                                    metadata['time_coverage_start'][5:7],
+                                    metadata['time_coverage_start'][8:10],
+                                    metadata['time_coverage_start'][0:4])
     else:
         err_msg = 'Error! Cannot determine start day.'
         sys.exit(err_msg)
@@ -113,6 +126,8 @@ def get_start_day_year(metadata):
         syear = int(metadata['Start Year'])
     elif 'Period Start Year' in metadata:
         syear = int(metadata['Period Start Year'])
+    elif 'time_coverage_start' in metadata:
+        syear = int(metadata['time_coverage_start'][0:4])
     else:
         err_msg = 'Error! Cannot determine start year.'
         sys.exit(err_msg)
@@ -208,7 +223,7 @@ class NextLevelNameFinder(object):
         #                               for df in data_files_list[:-1]])
         #        file_list += ', and ' + data_files_list[-1].name
         #    err_msg = 'Error! Cannot transition {0} to {1}.'.format(file_list,
-        #                                                             next_level)
+        #                                                            next_level)
         #    sys.exit(err_msg)
         else:
             err_msg = 'Error!  "{0}" is not a recognized target output type.'.\
@@ -469,7 +484,7 @@ class NextLevelNameFinder(object):
                 sys.exit(err_msg)
         extra_ext = self._get_extra_extensions()
         if extra_ext:
-                next_level_name += '.' + extra_ext
+            next_level_name += '.' + extra_ext
         return next_level_name
 
     def _get_next_suffixes(self):
@@ -491,7 +506,8 @@ class NextLevelNameFinder(object):
                           'MERIS': 'M',
                           'MODIS Aqua':  'A', 'MODIS Terra': 'T',
                           'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
-                          'OSMI': 'K', 'SeaWiFS': 'S'}
+                          'OLI': 'L', 'OSMI': 'K',
+                          'SeaWiFS': 'S'}
 
         if self.data_files[0].sensor in indicator_dict.keys():
             indicator = indicator_dict[self.data_files[0].sensor]
@@ -532,7 +548,7 @@ class NextLevelNameFinder(object):
         first_char = self.get_platform_indicator()
         if self.data_files[0].metadata:
             sday, syear = get_start_day_year(self.data_files[0].metadata)
-            eday, eyear = get_start_day_year(self.data_files[0].metadata)
+            eday, eyear = get_end_day_year(self.data_files[0].metadata)
 
             if 'Input Parameters' in self.data_files[0].metadata and\
                'SUITE' in self.data_files[0].metadata['Input Parameters'] and\
@@ -832,6 +848,11 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
             indicator = 'A'
         elif self.data_files[0].sensor.find('Terra') != -1:
             indicator = 'T'
+        elif self.data_files[0].sensor.find('MODIS') != -1:
+            if self.data_files[0].metadata['platform'].find('Aqua') != -1:
+                indicator = 'A'
+            elif self.data_files[0].metadata['platform'].find('Terra') != -1:
+                indicator = 'T'
         elif self.data_files[0].metadata is not None:
             if 'LONGNAME' in self.data_files[0].metadata.keys():
                 if self.data_files[0].metadata['LONGNAME'].find('Aqua') != -1:
@@ -964,84 +985,3 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
                                      'SMI' : self._get_smigen_name }
                 }
 
-#########################################
-
-#class AquariusNextLevelNameFinder(NextLevelNameFinder):
-#    """
-#    A class to determine what the standard OBPG filename would be for
-#    Aquarius files when the given input name is run through the next
-#    level of OBPG processing.
-#    """
-#    PROCESSING_LEVELS = {
-#        'l1agen':         'Level 1A',
-#        'Level 1A':       'Level 1A',
-#        'l1aextract_seawifs' : 'l1aextract_seawifs',
-#        'l1bgen':         'Level 1B',
-#        'Level 1B':       'Level 1B',
-#        'l1brsgen':       'l1brsgen',
-#        'l1mapgen':       'l1mapgen',
-#        'l2gen_aquarius': 'Level 2',
-#        'Level 2':        'Level 2',
-#        'l2bin_aquarius': 'l2bin_aquarius',
-#        'l2brsgen':       'l2brsgen',
-#        'l2extract':      'l2extract',
-#        'l2mapgen':       'l2mapgen',
-#        'l3bin':          'l3bin',
-#        'L3b':            'l3bin',
-#        'SMI':            'SMI',
-#        'smigen':         'SMI'
-#    }
-#
-#    def __init__(self, data_files_list, next_level, suite='V2.0'):
-#        super(AquariusNextLevelNameFinder, self).__init__(data_files_list,
-#                                                           next_level, suite,
-#                                                           product=None)
-#
-#    def _get_l2_extension(self):
-#        l1_parts = self.data_files[0].name.split('.')
-#        if len(l1_parts) > 2:
-#            err_msg = 'Error! Unable to determine extension for {0}'.\
-#                      format(self.data_files[0].name)
-#            sys.exit(err_msg)
-#        extension = re.sub(r'L1[AB]_(.*)', r'.L2_\g<1>', l1_parts[1])
-#        return extension
-#
-#    def _get_l2_name(self):
-#        """
-#        An internal method to return the L2 name from an L1 file.
-#        """
-#        basename = self._get_single_file_basename()
-#        if basename != 'indeterminate':
-#            next_lvl_name = basename + self._get_l2_extension() + self.suite
-#        else:
-#            err_msg = 'Error!  Could not determine L2 name for {0}'.\
-#            format(self.data_files[0].name)
-#            sys.exit(err_msg)
-#        return next_lvl_name
-#
-#    def _get_transition_functions(self):
-#        """
-#        An internal method to set up the "table" of functions to be
-#        called for each level of processing.
-#        """
-#        return {'Level 1A': {
-#                    'Level 1B': self._get_l1b_name,
-#                    'l1aextract_seawifs' : self._get_l1aextract_name,
-#                    'l1bgen' : self._get_l1b_name,
-#                    'l1mapgen': self._get_l1mapgen_name,
-#                    'Level 2' : self._get_l2_name },
-#                'Level 1B': {
-#                    'Level 2': self._get_l2_name,
-#                    'l1brsgen': self._get_l1brsgen_name,
-#                    'l1mapgen': self._get_l1mapgen_name },
-#                'Level 2': { 'l2bin_aquarius': self._get_l3bin_name,
-#                    'l2extract': self._get_l2extract_name,
-#                    'l3bin': self._get_l3bin_name,
-#                    'l2brsgen': self._get_l2brsgen_name,
-#                    'l2mapgen': self._get_l2mapgen_name },
-#                'Level 3 Binned': {
-#                    'l3bin' : self._get_l3bin_name,
-#                    'SMI' : self._get_smigen_name}
-#        }
-
-#########################################

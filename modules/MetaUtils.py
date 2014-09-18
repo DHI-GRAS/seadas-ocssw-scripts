@@ -159,6 +159,20 @@ def readMetadata(filename):
             return attrs
         elif text[0][0:4] == 'CWIF':
             return {'Title': 'SeaWiFS Level-0'}
+        elif text[0].find('GROUP = L1_METADATA_FILE') != -1:
+            in_metadata_group = False
+            attrs = {}
+            for line in text:
+                if in_metadata_group:
+                    if line.find('END_GROUP = PRODUCT_METADATA') != -1:
+                        break
+                    else:
+                        line_parts = line.split('=')
+                        attr_key = line_parts[0].strip()
+                        attr_val = line_parts[1].strip()
+                        attrs[attr_key] = attr_val
+                elif line.find('GROUP = PRODUCT_METADATA') != -1:
+                    in_metadata_group = True
         else:
             for line in text:
                 if line.find('title = ') != -1:
@@ -263,12 +277,28 @@ def get_xml_attr(metaxml):
     """
     parse xml formatted metadata
     """
-    from BeautifulSoup import BeautifulStoneSoup
-    attrSoup = BeautifulStoneSoup(metaxml)
-    attrs = attrSoup.findAll('attribute')
+    # from BeautifulSoup import BeautifulStoneSoup
+    import BeautifulSoup
+
+    attrSoup = BeautifulSoup.BeautifulStoneSoup(metaxml)
+    raw_attrs = attrSoup.findAll('attribute')
+
     attr = {}
-    for i in attrs:
-        attr[str(i.attrs[0][1]).strip()] = (str(i.contents[5].contents[1].contents[0]).strip()).strip('"')
+
+    try:
+        for ndx, cur_attr in enumerate(raw_attrs):
+            if (cur_attr != '\n') and \
+               (type(cur_attr) is types.ListType or
+                type(cur_attr) is BeautifulSoup.Tag):
+                if cur_attr.contents and \
+                   (type(cur_attr.contents[5]) is types.ListType or
+                    type(cur_attr.contents[5]) is BeautifulSoup.Tag):
+                    if cur_attr.contents[5].contents[1]:
+                        if cur_attr.contents[5].contents[1].contents[0]: #).strip()).strip('"'):
+                            attr[str(cur_attr.attrs[0][1]).strip()] = (str(cur_attr.contents[5].contents[1].contents[0]).strip()).strip('"')
+    except TypeError:
+        for ei in sys.exc_info():
+            print ei
     return attr
 
 

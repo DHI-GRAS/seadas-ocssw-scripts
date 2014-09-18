@@ -337,7 +337,7 @@ if __name__ == "__main__":
     makeDir('run/bin3')
 
     # add a few places to the path to help find git
-    os.environ['PATH'] += ':' + os.environ['HOME'] + '/bin:/opt/local/bin:/usr/local/git/bin:/usr/local/bin'
+    os.environ['PATH'] += ':' + os.environ['HOME'] + '/bin:/opt/local/bin:/usr/local/git/bin:/usr/local/bin:/sw/bin'
 
     # make sure git exists and is setup
     commandStr = "git --version > /dev/null"
