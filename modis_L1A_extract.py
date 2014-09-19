@@ -2,6 +2,7 @@
 
 import anc_utils
 from optparse import OptionParser
+import resource
 from modules.modis_utils import buildpcf, modis_env
 import modules.modis_l1aextract_utils as ex
 import modules.modis_GEO_utils as ga
@@ -106,6 +107,14 @@ if __name__ == "__main__":
         ancdir = options.ancdir
     if options.par:
         parfile = options.par
+
+
+    # Set stacksize - if able to (Mac can't, but code is compiled to use a
+    # larger stack on the Mac...)
+    try:
+        resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+    except Exception:
+        pass
 
     m = ex.extract(file=file,
                    parfile=parfile,
