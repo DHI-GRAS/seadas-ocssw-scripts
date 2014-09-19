@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 
+import anc_utils
 from optparse import OptionParser
+import resource
 from modules.modis_utils import buildpcf, modis_env
 import modules.modis_l1aextract_utils as ex
 import modules.modis_GEO_utils as ga
@@ -19,6 +21,8 @@ if __name__ == "__main__":
     west = None
     east = None
     extract_geo = None
+    ancdb = 'ancillary_data.db'
+    ancdir = None
     dirs = {}
     verbose = False
     version = "%prog 1.0"
@@ -51,6 +55,17 @@ if __name__ == "__main__":
                       help="Easternmost desired longitude", metavar="EAST")
     parser.add_option("--extract_geo", dest="extract_geo",
                       help="extract geolocation filename", metavar="EXGEO")
+    ancdb_help_text = "Use a custom file for ancillary database. If " \
+                      "full path not given, ANCDB is assumed to exist "\
+                      "(or will be created) under " + \
+                      anc_utils.DEFAULT_ANC_DIR_TEXT + "/log/. If " + \
+                      anc_utils.DEFAULT_ANC_DIR_TEXT + "/log/ does not " \
+                      "exist, ANCDB is assumed (or will be created) " \
+                      "under the current working directory"
+    parser.add_option("--ancdb", dest='ancdb',
+        help=ancdb_help_text, metavar="ANCDB")
+    parser.add_option("--ancdir", dest='ancdir',
+        help="Use a custom directory tree for ancillary files", metavar="ANCDIR")
     parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
                       default=False, help="print status messages")
     parser.add_option("--log", action="store_true", dest='log',
@@ -86,8 +101,20 @@ if __name__ == "__main__":
         log = options.log
     if options.extract_geo:
         extract_geo = options.extract_geo
+    if options.ancdb:
+        ancdb = options.ancdb
+    if options.ancdir:
+        ancdir = options.ancdir
     if options.par:
         parfile = options.par
+
+
+    # Set stacksize - if able to (Mac can't, but code is compiled to use a
+    # larger stack on the Mac...)
+    try:
+        resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+    except Exception:
+        pass
 
     m = ex.extract(file=file,
                    parfile=parfile,
@@ -108,6 +135,8 @@ if __name__ == "__main__":
     # Create geolocation file for extract
         g = ga.modis_geo(file=sub_l1a,
                          geofile=extract_geo,
+        		 ancdb=ancdb,
+        		 ancdir=ancdir,
                          log=log,
                          verbose=verbose)
 
