@@ -8,12 +8,15 @@ import hashlib
 
 verbose = False
 installDir = None
-gitBase = 'http://oceandata.sci.gsfc.nasa.gov/ocssw/'
+gitBase = None
+gitBranch = None
 curlCommand = 'curl -O --retry 5 --retry-delay 5 '
 checksumFileName = 'bundles.sha256sum'
 checksumDict = {}
 downloadTries = 2
 local = None
+FNULL = open(os.devnull, 'w')
+
 
 # globals for progress display
 numThings = 1
@@ -119,7 +122,7 @@ def installGitRepo(repoName, dirName):
         if local:
             print "Not updating Git Repository, in local mode"
         else:
-            if os.path.isdir(os.path.join(fullDir, ".svn")):
+            if subprocess.call(['svn', 'info'], cwd=fullDir, stdout=FNULL, stderr=subprocess.STDOUT) == 0:
                 print "aborting - " + fullDir + " is an svn repository."
                 exit(1)
     
@@ -130,12 +133,34 @@ def installGitRepo(repoName, dirName):
                 if verbose:
                     print "Saved local changes with \"git stash\""
     
-            # directory exists try a git update.
+            # directory exists try a git fetch.
+            commandStr = 'cd ' + fullDir + '; git fetch'
+            if verbose:
+                print "Updating (fetch) existing repository - ", fullDir
+            else:
+                commandStr += ' -q > /dev/null'
+            retval = os.system(commandStr)
+            if retval:
+                print 'Error - Could not run \"' + commandStr + '\"'
+                exit(1)
+
+            # try a git chechout.
+            commandStr = 'cd ' + fullDir + '; git checkout -t -B ' + gitBranch + ' remotes/origin/' + gitBranch
+            if verbose:
+                print "Switching to branch - ", gitBranch
+            else:
+                commandStr += ' -q > /dev/null'
+            retval = os.system(commandStr)
+            if retval:
+                print 'Error - Could not run \"' + commandStr + '\"'
+                exit(1)
+            
+            # try a git pull.
             commandStr = 'cd ' + fullDir + '; git pull --progress'
             if verbose:
-                print "Updating existing directory -", fullDir
+                print "Pulling from remote repository"
             else:
-                commandStr += ' -q'
+                commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
                 print 'Error - Could not run \"' + commandStr + '\"'
@@ -154,9 +179,9 @@ def installGitRepo(repoName, dirName):
         # directory does not exist
         if verbose:
             if local:
-                print "Installing new directory -", fullDir
+                print "Installing new directory - ", fullDir
             else:
-                print "Downloading new directory -", fullDir
+                print "Downloading new directory - ", fullDir
 
         # download bundle
         testFailed = True
@@ -196,7 +221,34 @@ def installGitRepo(repoName, dirName):
         if local:
             print 'Not updating Git Repository, in local mode'
         else:
+            # try a git fetch.
+            commandStr = 'cd ' + fullDir + '; git fetch'
+            if verbose:
+                print "Updating (fetch) existing repository -", fullDir
+            else:
+                commandStr += ' -q > /dev/null'
+            retval = os.system(commandStr)
+            if retval:
+                print 'Error - Could not run \"' + commandStr + '\"'
+                exit(1)
+
+            # try a git chechout.
+            commandStr = 'cd ' + fullDir + '; git checkout -t -B ' + gitBranch + ' remotes/origin/' + gitBranch
+            if verbose:
+                print "Switching to branch - ", gitBranch
+            else:
+                commandStr += ' -q > /dev/null'
+            retval = os.system(commandStr)
+            if retval:
+                print 'Error - Could not run \"' + commandStr + '\"'
+                exit(1)
+            
+            # try a git pull.
             commandStr = 'cd ' + fullDir + '; git pull --progress > /dev/null'
+            if verbose:
+                print "Pulling from remote repository -", fullDir
+            else:
+                commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
                 print 'Error - Could not run \"' + commandStr + '\"'
@@ -237,7 +289,7 @@ def printProgress(name):
 if __name__ == "__main__":
 
     # Read commandline options...
-    version = "%prog 1.1"
+    version = "%prog 2.0"
     usage = '''usage: %prog [options]'''
     parser = OptionParser(usage=usage, version=version)
 
@@ -248,9 +300,12 @@ if __name__ == "__main__":
                       help="destination directory for install. Defaults to $OCSSWROOT or \"$HOME/ocssw\" if neither are given.")
     parser.add_option("-g", "--git-base", action="store", dest="git_base",
                       default="http://oceandata.sci.gsfc.nasa.gov/ocssw/",
-                      help="Web location for the git repositories")
+                      help="web location for the git repositories")
+    parser.add_option("-b", "--git-branch", action="store", dest="git_branch",
+                      default="master",
+                      help="branch in the git repositories to checkout")
     parser.add_option("-a", "--arch", action="store", dest='arch',
-           help="set system architecture (linux, linux_64, macosx_intel)")
+                      help="set system architecture (linux, linux_64, macosx_intel)")
     parser.add_option("-s", "--src", action="store_true", dest='src',
                       default=False, help="install source code")
     parser.add_option("-l","--local", action="store", dest="local",
@@ -299,6 +354,7 @@ if __name__ == "__main__":
     gitBase = options.git_base
     if not gitBase.endswith('/'):
         gitBase += '/'
+    gitBranch = options.git_branch
 
     verbose = options.verbose
     local = options.local
@@ -325,6 +381,7 @@ if __name__ == "__main__":
     # print out info if in verbose mode
     if verbose:
         print '\ngitBase     =', gitBase
+        print 'gitBranch   =', gitBranch
         print 'install dir =', installDir
         print 'arch        =', arch
         if local:
