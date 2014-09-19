@@ -115,7 +115,7 @@ def main():
     # Set stacksize - if able to (Mac can't, but code is compiled to use a
     # larger stack on the Mac...)
     try:
-        resource.setrlimit(3, [-1, -1])
+        resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
     except Exception:
         pass
 
