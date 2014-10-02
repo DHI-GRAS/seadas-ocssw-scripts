@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import hashlib
+import shutil
 
 verbose = False
 installDir = None
@@ -310,6 +311,8 @@ if __name__ == "__main__":
                       default=False, help="install source code")
     parser.add_option("-l","--local", action="store", dest="local",
                       default=None, help="local directory containing previously downloaded bundles")
+    parser.add_option("-c", "--clean", action="store_true", dest="clean",
+                      default=False, help="Do a clean install by deleting the install directory first, if it exists")
 
     # add missions
     parser.add_option("--aquarius", action="store_true", dest="aquarius",
@@ -387,6 +390,11 @@ if __name__ == "__main__":
         if local:
             print 'local dir   =', local
         print
+
+    # remove the install directory if --clean and it exists
+    if options.clean:
+        if os.path.exists(installDir):
+            shutil.rmtree(installDir)
 
     # create directory structure
     makeDir('run/data')
