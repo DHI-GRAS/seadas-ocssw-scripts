@@ -47,8 +47,8 @@ class getanc:
         if self.atteph:
             self.proctype = 'modisGEO'
 
-        self.query_site = "http://oceancolor.gsfc.nasa.gov"
-        self.data_site = "http://oceandata.sci.gsfc.nasa.gov"
+        self.query_site = "oceancolor.gsfc.nasa.gov"
+        self.data_site = "oceandata.sci.gsfc.nasa.gov"
 
 
     def chk(self):
@@ -267,10 +267,13 @@ Using current working directory for storing the ancillary database file: %s''' %
         import re
         import ProcUtils
         import sys
+        import httplib
         import modules.ancDB as db
 #        import modules.ancDBmysql as db
 
         #dlstat = 0
+        
+
         msn = {"modisa": "A", "modist": "T", "aqua": "A", "terra": "T", "meris": "M", "seawifs": "S", "octs": "O",
                "czcs": "C", "aquarius":"Q"}
 
@@ -291,9 +294,8 @@ Using current working directory for storing the ancillary database file: %s''' %
             msnchar = msn[str(self.sensor).lower()]
 
         if self.stop is None:
-            dlstat = ProcUtils.httpdl(''.join([self.query_site,
-                                        '/sdpscgi/public/display_ancillary_files.cgi?', 'type=',
-                                        anctype,
+            dlstat = ProcUtils.httpdl(self.query_site,''.join(['/sdpscgi/public/display_ancillary_files.cgi?', 
+                                        'type=',anctype,
                                         '&start_time=', self.start, "&mission_letter=",
                                         msnchar, opt_flag]),
                                         os.path.abspath(os.path.dirname(self.server_file)),
@@ -302,9 +304,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                                         verbose=self.verbose
             )
         else:
-            dlstat = ProcUtils.httpdl(''.join([self.query_site,
-                                        '/sdpscgi/public/display_ancillary_files.cgi?', 'type=',
-                                        anctype,
+            dlstat = ProcUtils.httpdl(self.query_site,''.join(['/sdpscgi/public/display_ancillary_files.cgi?', 
+                                        'type=',anctype,
                                         '&start_time=', self.start, "&stop_time=", self.stop,
                                         "&mission_letter=",
                                         msnchar, opt_flag]),
@@ -421,6 +422,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         import re
         import ProcUtils
         import sys
+        import httplib
 
         FILES = []
         for f in (self.files.keys()):
@@ -433,6 +435,8 @@ Using current working directory for storing the ancillary database file: %s''' %
             FILES.append(os.path.basename(self.files[f]))
 
         dl_msg = 1
+
+        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
 
         for FILE in FILES:
             year = FILE[1:5]
@@ -473,10 +477,12 @@ Using current working directory for storing the ancillary database file: %s''' %
                     if self.verbose:
                         print "  " + FILE
                 else:
+
                     if self.verbose:
                         print "Downloading '" + FILE + "' to " + self.dirs['path']
-                    status = ProcUtils.httpdl(''.join([self.data_site, '/cgi/getfile/', FILE]),
-                            self.dirs['path'],timeout=self.timeout, uncompress=True,verbose=self.verbose)
+                    status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
+                            self.dirs['path'],timeout=self.timeout, uncompress=True, 
+                            reuseConn=True, urlConn=urlConn, verbose=self.verbose)
                     gc.collect()
                     if status:
                         print "*** ERROR: The HTTP transfer failed with status code " + str(status) + "."
@@ -499,6 +505,9 @@ Using current working directory for storing the ancillary database file: %s''' %
                         continue
                 if FILE == self.files[f]:
                     self.files[f] = os.path.join(self.dirs['path'], FILE)
+                    
+        urlConn.close()
+
 
     def write_anc_par(self):
         """

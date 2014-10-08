@@ -2,6 +2,7 @@ import os
 import re
 from shutil import copyfile
 import ProcUtils as ProcUtils
+import httplib
 
 class lut_utils:
     def __init__(self, mission=None, verbose=False, curdir=False, ancdir=None, timeout=10):
@@ -20,13 +21,14 @@ class lut_utils:
         self.timeout = timeout
 
         self.query_site = "http://oceancolor.gsfc.nasa.gov"
-        self.data_site = "http://oceandata.sci.gsfc.nasa.gov"
+        self.data_site = "oceandata.sci.gsfc.nasa.gov"
 
 
     def update_aquarius(self):
         """
         update the aquarius luts
         """
+        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
         if self.verbose: print "[ Aquarius ]"
         # Get most recent version from local disk
         outputdir = os.path.join(self.dirs['var'], 'aquarius')
@@ -41,8 +43,8 @@ class lut_utils:
         # Get remote list of files and download if necessary
         # OPER
         status = ProcUtils.httpdl(
-            self.data_site + "/Ancillary/LUTs/aquarius/index.html",
-            localpath=outputdir, timeout=self.timeout, verbose=self.verbose)
+            self.data_site, "/Ancillary/LUTs/aquarius/index.html",
+            localpath=outputdir, timeout=self.timeout,reuseConn=True, urlConn=urlConn, verbose=self.verbose)
         if status:
             print "Error downloading %s" % '/'.join(
                 [self.data_site, "Ancillary/LUTs/aquarius/"])
@@ -52,14 +54,15 @@ class lut_utils:
         ProcUtils.remove(listFile)
         for f in operlist:
             status = ProcUtils.httpdl(
-                self.data_site + "/Ancillary/LUTs/aquarius/" + f,
-                localpath=outputdir, timeout=self.timeout, verbose=self.verbose)
+                self.data_site, "/Ancillary/LUTs/aquarius/" + f,
+                localpath=outputdir, timeout=self.timeout, reuseConn=True, urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "Error downloading %s" % f
                 self.status = 1
             else:
                 if self.verbose: print "+ " + f
-
+                
+        urlConn.close()
         if self.verbose: print "[ Done ]\n"
 
 
@@ -67,12 +70,15 @@ class lut_utils:
         """
         update the SeaWiFS elements.dat and time_anomaly files
         """
+        
+        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+
         if self.verbose: print "[ SeaWiFS ]"
 
         # elements.dat
-        url = self.data_site + "/Ancillary/LUTs/seawifs/elements.dat"
+        url = "/Ancillary/LUTs/seawifs/elements.dat"
         outputdir = os.path.join(self.dirs['var'], 'seawifs')
-        status = ProcUtils.httpdl(url, localpath=outputdir, timeout=self.timeout,verbose=self.verbose)
+        status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, reuseConn=True, urlConn=urlConn, timeout=self.timeout,verbose=self.verbose)
         if status:
             print "* ERROR: The download failed with status code: " + str(status)
             print "* Please check your network connection and for the existence of the remote file:"
@@ -82,9 +88,9 @@ class lut_utils:
             if self.verbose: print "+ elements.dat"
 
         # time_anomaly.txt
-        url = self.data_site + "/Ancillary/LUTs/seawifs/time_anomaly.txt"
+        url =  "/Ancillary/LUTs/seawifs/time_anomaly.txt"
         outputdir = os.path.join(self.dirs['var'], 'seawifs')
-        status = ProcUtils.httpdl(url, localpath=outputdir, timeout=self.timeout,verbose=self.verbose)
+        status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True, urlConn=urlConn, verbose=self.verbose)
         if status:
             print "*** ERROR: The download failed with status code: " + str(status)
             print "*** Please check your network connection and for the existence of the remote file:"
@@ -92,7 +98,8 @@ class lut_utils:
             self.status = 1
         else:
             if self.verbose: print "+ time_anomaly.txt"
-
+            
+        urlConn.close()
         if self.verbose: print "[ Done ]\n"
 
 
@@ -100,6 +107,7 @@ class lut_utils:
         """
         update the calibration LUTs, utcpole.dat and leapsec.dat files
         """
+        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
 
         msn = {'aqua': 'modisa', 'terra': 'modist', 'viirsn': 'viirsn'}
 
@@ -108,9 +116,9 @@ class lut_utils:
             if self.verbose:
                 print "[ MODIS ]"
 
-            url = self.data_site + "/Ancillary/LUTs/modis/leapsec.dat"
+            url =  "/Ancillary/LUTs/modis/leapsec.dat"
             outputdir = os.path.join(self.dirs['var'], 'modis')
-            status = ProcUtils.httpdl(url, localpath=outputdir, timeout=self.timeout,verbose=self.verbose)
+            status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "* ERROR: The download failed with status code: " + str(status)
                 print "* Please check your network connection and for the existence of the remote file:"
@@ -119,9 +127,9 @@ class lut_utils:
             else:
                 if self.verbose: print "+ leapsec.dat"
 
-            url = self.data_site + "/Ancillary/LUTs/modis/utcpole.dat"
+            url = "/Ancillary/LUTs/modis/utcpole.dat"
             outputdir = os.path.join(self.dirs['var'], 'modis')
-            status = ProcUtils.httpdl(url, localpath=outputdir, timeout=self.timeout,verbose=self.verbose)
+            status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn,verbose=self.verbose)
             if status:
                 print "* ERROR: The download failed with status code: " + str(status)
                 print "* Please check your network connection and for the existence of the remote file:"
@@ -149,8 +157,8 @@ class lut_utils:
             # Get remote list of files and download if necessary
             # OPER
             status = ProcUtils.httpdl(
-                self.data_site + "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER/index.html",
-                localpath=outputdir, timeout=self.timeout, verbose=self.verbose)
+                self.data_site , "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER/index.html",
+                localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "Error downloading %s" % '/'.join(
                     [self.data_site, "Ancillary/LUTs", msn[self.mission], cal, "OPER/"])
@@ -220,8 +228,8 @@ class lut_utils:
             for f in operlist:
                 if not os.path.exists(os.path.join(outputdir, f)):
                     status = ProcUtils.httpdl(
-                        self.data_site + "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER/" + f,
-                        localpath=outputdir, timeout=self.timeout, verbose=self.verbose)
+                        self.data_site, "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER/" + f,
+                        localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
                     if status:
                         print "Error downloading %s" % f
                         self.status = 1
@@ -234,8 +242,8 @@ class lut_utils:
             listFile = os.path.join(outputdir, "index.html")
 
             status = ProcUtils.httpdl(
-                self.data_site + "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/EVAL/index.html",
-                localpath=outputdir, timeout=self.timeout, verbose=self.verbose)
+                self.data_site, "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/EVAL/index.html",
+                localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "Error downloading %s" % '/'.join(
                     [self.data_site, "Ancillary/LUTs", msn[self.mission], cal, "EVAL/"])
@@ -246,12 +254,13 @@ class lut_utils:
             for f in evallist:
                 if not os.path.exists(os.path.join(outputdir, f)):
                     status = ProcUtils.httpdl(
-                        self.data_site + "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/EVAL/" + f,
-                        localpath=outputdir, timeout=self.timeout, verbose=self.verbose)
+                        self.data_site, "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/EVAL/" + f,
+                        localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
                     if status:
                         print "Error downloading %s" % f
                         self.status = 1
                     else:
                         if self.verbose: print "+ EVAL:" + f
 
+        urlConn.close()
         if self.verbose: print "[ Done ]\n"

@@ -4,24 +4,23 @@ SeaDAS library for commonly used functions within other python scripts
 
 """
 
-def getUrlFileName(openUrl):
+def getUrlFileName(openUrl,request):
     """
     get filename from URL - use content-disposition if provided
     """
     import os
-    from urlparse import urlsplit
 
-    if 'Content-Disposition' in openUrl.info():
-        # If the response has Content-Disposition, try to get filename from it
-        filename = openUrl.info()['Content-Disposition'].split('filename=')[1]
-        if filename: return filename
+    # If the response has Content-Disposition, try to get filename from it
+    filename = openUrl.getheader('content-disposition')
+    if filename: 
+        return filename.split('filename=')[1]
     else:
         # if no filename was found above, parse it out of the final URL.
-        return os.path.basename(urlsplit(openUrl.url)[2])
+        return os.path.basename(request)
 
 
-def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
-           timeout=10., reqHeaders={},verbose=False):
+def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompress=False,
+           timeout=10., reqHeaders={},verbose=False, reuseConn=False, urlConn=None):
     """
     Copy the contents of a file from a given URL to a local file
     Inputs:
@@ -29,10 +28,15 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
         localpath - path to place downloaded file
         outputfilename - name to give retreived file (default: URL basename)
         ntries - number to retry attempts
-        uncompress - uncompress the downloaded file, if necessary
+        uncompress - uncompress the downloaded file, if necessary (boolean, default False) 
+        timeout - sets the connection timeout (seconds)
+        reqHeaders - hash containing URL headers
+        reuseConn - reuse existing connection (boolean, default False) 
+        urlConn - existing httplib.connection (needed if reuseConn set, default None)
+        verbose - get chatty about connection issues (boolean, default False) 
     """
     global file
-    from urllib2 import Request, urlopen, HTTPError, URLError
+    import httplib
     import os
     import re
     import shutil
@@ -40,102 +44,94 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
 
     from time import sleep
 
-    sleepytime = 15 + ((30. * (1. / (float(ntries) + 1.))))
+    sleepytime = int(5 + ((30. * (1. / (float(ntries) + 1.)))))
 
     if not os.path.exists(localpath):
         os.umask(002)
         os.makedirs(localpath, mode=02775)
 
-    req = Request(url, headers=reqHeaders)
+    if urlConn is None:
+        urlConn = httplib.HTTPConnection(url,timeout=timeout)
+
+    req = urlConn.request('GET',request, headers=reqHeaders)
     status = 0
     response = None
     try:
-        response = urlopen(req, timeout=timeout)
-    except HTTPError as ehttp:
-        if hasattr(ehttp, 'code') and ehttp.code in (400,401,403,404):
-            status = ehttp.code
-        elif ntries > 0:
-            if response:
-                response.close()
-            if verbose:
-                print "Connection interrupted, retrying up to %d more time(s)" % ntries
-            sleep(sleepytime)
-            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress,verbose=verbose)
-        else:
-            print 'We failed to reach a server.'
-            print 'Please retry this request at a later time.'
+        response = urlConn.getresponse()
 
-            print 'URL attempted: %s' % url
-            if hasattr(ehttp, 'code'):
-                print 'HTTP Error code: ', ehttp.code
-                status = ehttp.code
+        if response.status in (400,401,403,404,416):
+            status = reponse.status
+        elif response.status not in (200, 206):
+            if ntries > 0:
+                urlConn.close()
+                if verbose:
+                    print "Connection interrupted, retrying up to %d more time(s)" % ntries
+                sleep(sleepytime)
+                status = httpdl(url,request, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
             else:
-                print 'It is likely that the OBPG limits on access per IP have been exceeded.'
-                status = 500
-
-    except URLError as eurl:
-        if ntries > 0:
-            if response:
-                response.close()
-            if verbose:
-                print "Connection interrupted, retrying up to %d more time(s)" % ntries
-            sleep(sleepytime)
-            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress,verbose=verbose)
-        else:
-            print 'The server could not fulfill the request.'
-            print 'URL attempted: %s' % url
-            if hasattr(eurl, 'reason'):
-                print 'Reason: ', eurl.reason
-            else:
-                print 'It is likely that the OBPG limits on access per IP have been exceeded.'
-            print 'Please retry this request at a later time.'
-            status = 500
+                print 'We failed to reach a server.'
+                print 'Please retry this request at a later time.'
+    
+                print 'URL attempted: %s' % url
+                print 'HTTP Error: %d - %s' ( response.status, reponse.reason)
+                status = response.status
 
     except socket.error as socmsg:
         if ntries > 0:
             if response:
-                response.close()
+                urlConn.close()
             if verbose:
                 print "Connection error, retrying up to %d more time(s)" % ntries
             sleep(sleepytime)
-            status = httpdl(url, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress)
+            status = httpdl(url, request, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
         else:
             print 'URL attempted: %s' % url
             print 'Well, this is embarrassing...an error occurred that we just cannot get past...'
             print 'Here is what we know: %s' % socmsg
             print 'Please retry this request at a later time.'
             status = 500
+    except:
+        print 'Well, the server did not like this...reports: %s' % response.reason
+        status = response.status
 
     else:
-        if response.code == 200 or response.code == 206:
+        if response.status == 200  or response.status == 206:
             if outputfilename:
                 file = os.path.join(localpath, outputfilename)
             else:
-                file = os.path.join(localpath, getUrlFileName(response))
+                file = os.path.join(localpath, getUrlFileName(response,request))
 
             filename = file
-            if response.code == 200:
+            data = response.read()
+            if response.status == 200:
                 with open(file, 'wb') as file:
-                    shutil.copyfileobj(response, file)
+                    file.write(data)
+                file.close()
             else:
                 with open(file, 'ab') as file:
-                    shutil.copyfileobj(response, file)
+                    file.write(data)
+                file.close()
 
-            headers = dict(response.info())
+            headers = dict(response.getheaders())
             if headers.has_key('content-length'):
-                expectedLength = int(response.info()['Content-Length'])
+                expectedLength = int(headers.get('content-length'))
+                if headers.has_key('content-range'):
+                    expectedLength = int(headers.get('content-range').split('/')[1])
+                                         
                 actualLength = os.stat(filename).st_size
+
                 if expectedLength != actualLength:
                     #continuation - attempt again where it left off...
-                    startbyte = actualLength + 1
-                    bytestr = "bytes=%s-%s" % (startbyte, expectedLength)
+                    bytestr = "bytes=%s-" % (actualLength)
                     reqHeader = {'Range': bytestr}
-
-                    response.close()
+                    print bytestr, sleepytime
+                    urlConn.close()
                     sleep(sleepytime)
-                    status = httpdl(url, localpath=localpath, timeout=timeout, uncompress=uncompress,
-                        reqHeaders=reqHeader)
-            response.close()
+                    status = httpdl(url, request, localpath=localpath, timeout=timeout, uncompress=uncompress,
+                        reqHeaders=reqHeader, reuseConn=reuseConn, urlConn=None, verbose=verbose)
+            
+            if not reuseConn:
+                urlConn.close()
 
             if re.search(".(Z|gz|bz2)$", filename) and uncompress:
                 compressStatus = uncompressFile(filename)
@@ -144,44 +140,11 @@ def httpdl(url, localpath='.', outputfilename=None, ntries=5, uncompress=False,
             else:
                 status = 0
         else:
-            status = response.code
-            response.close()
+            status = response.status
+            if not reuseConn:
+                urlConn.close()
 
     return status
-
-
-def urlFileSearch(url):
-    """
-    half-baked - don't use :)
-    """
-    from urllib2 import Request, urlopen, URLError
-    import re
-    import socket
-    from BeautifulSoup import BeautifulSoup
-
-    socket.setdefaulttimeout(10)
-
-    req = Request(url)
-    try:
-        response = urlopen(req)
-        soup = BeautifulSoup(response)
-        all = soup.findAll('a', href=re.compile('.*getfile.*'))
-        files = []
-        for i in all:
-            files.append(i.contents[0])
-        return files
-
-    except URLError, e:
-        if hasattr(e, 'reason'):
-            print 'We failed to reach a server.'
-            print 'URL attempted: %s' % url
-            print 'Reason: ', e.reason
-            return 110
-        elif hasattr(e, 'code'):
-            print 'The server could not fulfill the request.'
-            print 'Error code: ', e.code
-            return e.code
-
 
 def uncompressFile(file):
     """
