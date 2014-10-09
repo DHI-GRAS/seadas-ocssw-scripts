@@ -142,8 +142,6 @@ class lut_utils:
             print "[ MODIS: %s ]" % self.mission.upper()
 
         for cal in ('cal', 'xcal'):
-            if self.mission == 'viirsn' and cal == 'xcal':
-                continue
             # Get most recent version from local disk
             outputdir = os.path.join(self.dirs['var'], msn[self.mission], cal, 'OPER')
             listFile = os.path.join(outputdir, "index.html")
@@ -173,7 +171,7 @@ class lut_utils:
             if cal == 'xcal':
                 listsplitstr = '_'
                 listelem = 2
-            if self.mission == 'viirsn':
+            if self.mission == 'viirsn' and cal != 'xcal':
                 listsplitstr = "SDR-F-LUT_npp_"
                 listelem = 1
             operversion = operlist[0].split(listsplitstr)[listelem]
@@ -189,7 +187,7 @@ class lut_utils:
 
 
                 # modify msl12_defaults.par
-                if self.mission in ('aqua','terra') and cal == 'xcal':
+                if cal == 'xcal':
                     do_modify = True
                     msl12_defaults = os.path.join(self.dirs['root'], msn[self.mission] ,'msl12_defaults.par')
                     if operversion in open(msl12_defaults).read():
