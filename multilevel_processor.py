@@ -1472,15 +1472,9 @@ def run_l2brsgen(proc):
     """
     Runs the l2brsgen executable.
     """
-#    l2brs_suffixes = {'0': 'L2_BRS', '1': 'ppm', '2': 'png'}
     logging.debug("In run_l2brsgen")
     prog = os.path.join(proc.ocssw_bin, 'l2brsgen')
     opts = get_options(proc.par_data)
-    #data_file = get_obpg_data_file_object(proc.input_file)
-    #df_list = [data_file]
-    #name_finder = next_level_name_finder.NextLevelNameFinder(df_list,
-    #                                                         'l2brsgen')
-    #output_name = name_finder.get_next_level_name()
     cmd = ' '.join([prog, opts, 'ifile='+proc.input_file,
                    'ofile=' + proc.output_file])
     logging.debug('Executing: {0}'.format(cmd))
@@ -1540,24 +1534,14 @@ def run_l2mapgen(proc):
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
         args += ' ' + key + '=' + proc.par_data[key]
-#    if 'outmode' in proc.par_data:
-#        if proc.par_data['outmode'].upper() in ['PPM', 'PGM', 'PNG', 'TIFF']:
-#            ext = proc.par_data['outmode']
-#        else:
-#            err_msg = 'Error!  Unknown l2mapgen outmode {0}.'.\
-#                      format(proc.par_data['outmode'])
-#            log_and_exit(err_msg)
-#    else:
-#        ext = 'PGM'
-#    redirect_part = '> ' + os.path.splitext(proc.output_file)[0] + '.' + ext
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
     logging.debug('Executing: {0}'.format(cmd))
     status = execute_command(cmd)
     logging.debug("l2mapgen run complete with status " + str(status))
     if status == 110:
-        # A return status of 110 indicates that there was insufficient data to
-        # plot.  We want to handle this as a normal condition here.
+        # A return status of 110 indicates that there was insufficient data
+        # to plot.  That status should be handled as a normal condition here.
         return 0
     else:
         return status
@@ -1698,7 +1682,8 @@ def start_logging(time_stamp):
     Opens log file(s) for debugging.
     """
     info_log_name = ''.join(['Processor_', time_stamp, '.log'])
-    debug_log_name = ''.join(['seadas_processor_debug_', time_stamp, '.log'])
+    debug_log_name = ''.join(['multilevel_processor_debug_', time_stamp,
+                              '.log'])
     info_log_path = os.path.join(cfg_data.output_dir, info_log_name)
     debug_log_path = os.path.join(cfg_data.output_dir, debug_log_name)
     seadas_logger = logging.getLogger()

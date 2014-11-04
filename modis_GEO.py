@@ -116,7 +116,7 @@ if __name__ == "__main__":
     # Set stacksize - if able to (Mac can't, but code is compiled to use a
     # larger stack on the Mac...)
     try:
-        resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+        resource.setrlimit(resource.RLIMIT_STACK, (33554432,33554432))
     except Exception:
         pass
 

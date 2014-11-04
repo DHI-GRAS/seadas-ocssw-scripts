@@ -123,10 +123,12 @@ def installGitRepo(repoName, dirName):
         if local:
             print "Not updating Git Repository, in local mode"
         else:
-            if subprocess.call(['svn', 'info'], cwd=fullDir, stdout=FNULL, stderr=subprocess.STDOUT) == 0:
-                print "aborting - " + fullDir + " is an svn repository."
-                exit(1)
-    
+            try:
+                if subprocess.call(['svn', 'info'], cwd=fullDir, stdout=FNULL, stderr=subprocess.STDOUT) == 0:
+                    print "aborting - " + fullDir + " is an svn repository."
+                    exit(1)
+            except OSError:
+                pass
             # save any local modifications using git stash
             cmd = ['git', 'stash']
             stashOutput = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=fullDir).communicate()[0]

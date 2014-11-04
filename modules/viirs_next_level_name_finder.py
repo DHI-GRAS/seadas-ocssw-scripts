@@ -41,7 +41,6 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         super(ViirsNextLevelNameFinder, self).__init__(data_files_list,
                                                        next_level, suite,
                                                        product)
-        print 'ViirsNextLevelNameFinder instantiated.'
 
     def get_platform_indicator(self):
         """
