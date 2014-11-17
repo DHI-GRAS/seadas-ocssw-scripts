@@ -5,6 +5,7 @@ import get_obpg_file_type
 import next_level_name_finder
 import obpg_data_file
 import os
+import platform
 import ProcUtils
 import sys
 from modules.ParamUtils import ParamProcessing
@@ -143,7 +144,12 @@ class ModisL1B:
 
         if self.verbose:
             print "Processing MODIS L1A file to L1B..."
-        l1bgen = os.path.join(self.dirs['bin'],
+        if ((platform.platform().startswith('Darwin')) and
+            (float(platform.mac_ver()[0].split("10.")[1]) >= 8)):
+            l1bgen = os.path.join(self.dirs['bin'],
+                              ''.join(['l1bgen_', self.sensor,'.post10.7']))
+        else:
+            l1bgen = os.path.join(self.dirs['bin'],
                               ''.join(['l1bgen_', self.sensor]))
         status = subprocess.call(l1bgen, shell=True)
         if self.verbose:
