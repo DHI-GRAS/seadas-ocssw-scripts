@@ -144,8 +144,8 @@ class ModisL1B:
 
         if self.verbose:
             print "Processing MODIS L1A file to L1B..."
-        if ((platform.platform().startswith('Darwin')) and
-            (float(platform.mac_ver()[0].split("10.")[1]) >= 8)):
+        if ((platform.platform().startswith('Darwin')) and 
+            (float(platform.mac_ver()[0].split(".")[1]) >= 8)):
             l1bgen = os.path.join(self.dirs['bin'],
                               ''.join(['l1bgen_', self.sensor,'.post10.7']))
         else:
