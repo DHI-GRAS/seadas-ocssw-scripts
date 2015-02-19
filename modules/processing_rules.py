@@ -17,7 +17,8 @@ class Rule():
         self.requires_batch = req_batch
 
 #    def __repr__(self):
-#        return "Rule to convert: {0} to {1} using {2}".format(str(self.src_file_types), self.target_type, self.action)
+#        return "Rule to convert: {0} to {1} using {2}".format(
+#               str(self.src_file_types), self.target_type, self.action)
 
     def __str__(self):
         return "{0} <- {1}".format(self.target_type, str(self.src_file_types))
@@ -26,8 +27,8 @@ class RuleSet():
     """
     Ruleset contains all the rules for a given instrument.
     """
-    def __init__(self, nm, ruls, ordr):
-        self.name = nm
+    def __init__(self, rs_name, ruls, ordr):
+        self.name = rs_name
         self.rules = ruls
         self.order = ordr
 
@@ -63,18 +64,14 @@ class RuleSet():
         Determine if a target type can be created from the given source types.
         """
         return True
-        print 'Entering can_process for: %s, %s' % (target_type, source_types)
         if target_type in self.rules:
             srcs_fnd = 0
             for src_type in source_types:
                 if src_type in self.rules:
                     srcs_fnd += 1
-                # Todo: add (recursive) code to search "further back" in the
-                #       sources of sources, etc. to see if we can process this.
+                # Todo: add (recursive) code to search "further back" in
+                #    the sources of sources, etc. to see if we can process this.
             if srcs_fnd == len(self.rules):
                 return True
-#            else:
-#                print 'calling can_process for ' + str(self.rules[target].rules[source]) + ', ' + str(source)
-#                return self.can_process(self.rules[target], source)
         else:
             return False

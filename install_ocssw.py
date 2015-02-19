@@ -14,7 +14,7 @@ gitBranch = None
 curlCommand = 'curl -O --retry 5 --retry-delay 5 '
 checksumFileName = 'bundles.sha256sum'
 checksumDict = {}
-downloadTries = 2
+downloadTries = 5
 local = None
 FNULL = open(os.devnull, 'w')
 
@@ -110,9 +110,10 @@ def installFile(fileName, continueFlag=True):
     if local:
         commandStr = "cp %s %s" % (os.path.join(local, fileName), installDir)
     retval = os.system(commandStr)
-    if retval:
-        print 'Error - Could not run \"' + commandStr + '\"'
-        exit(1)
+    if retval != 0:
+        print 'Error - Executing command \"' + commandStr + '\"'
+        return False
+    return True
 
 def installGitRepo(repoName, dirName):
     """
@@ -191,7 +192,9 @@ def installGitRepo(repoName, dirName):
         count = 0
         while count < downloadTries:
             count += 1
-            installFile(repoName + '.bundle')
+            retval = installFile(repoName + '.bundle')
+            if retval == False:
+                continue
             if testFileChecksum(repoName + '.bundle'):
                 testFailed = False
                 break
