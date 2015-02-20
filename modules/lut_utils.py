@@ -186,7 +186,7 @@ class lut_utils:
                     if self.verbose: print "- OPER:" + f
 
 
-                # modify msl12_defaults.par
+                # modify xcalfile value in msl12_defaults.par
                 if cal == 'xcal':
                     do_modify = True
                     msl12_defaults = os.path.join(self.dirs['root'], msn[self.mission] ,'msl12_defaults.par')
@@ -216,6 +216,27 @@ class lut_utils:
                                 xcalfile = '_'.join(['xcal',msn[self.mission],operversion])
                                 xcalfilepath = os.path.join('$OCVARROOT', msn[self.mission] ,cal,'OPER',xcalfile)
                                 line = "xcalfile=%s\n" % xcalfilepath
+                            mod.write(line)
+                        mod.close()
+                        copyfile(mod_defaults, msl12_defaults)
+                        os.remove(mod_defaults)
+
+                # modify calfile value in msl12_defaults.par for VIIRS
+                elif  self.mission == 'viirsn':
+                    do_modify = True
+                    msl12_defaults = os.path.join(self.dirs['root'], msn[self.mission] ,'msl12_defaults.par')
+                    if operversion in open(msl12_defaults).read():
+                        do_modify = False
+
+                    if do_modify:
+                        mod_defaults = msl12_defaults + '.new'
+                        defaults = [line for line in open(msl12_defaults, 'r')]
+                        mod = open(mod_defaults, 'w')
+                        for line in defaults:
+                            if re.match('^calfile', line):
+                                calfile = '_'.join(['VIIRS-SDR-F-LUT_npp',operversion])
+                                calfilepath = os.path.join('$OCVARROOT', msn[self.mission] ,cal,'OPER',calfile)
+                                line = "calfile=%s\n" % calfilepath
                             mod.write(line)
                         mod.close()
                         copyfile(mod_defaults, msl12_defaults)
