@@ -89,7 +89,7 @@ class getanc_aquarius:
                                self.ancfiles['sssfile1'],
                                self.ancfiles['sssfile2'],
                                sdt, edt])
-
+        print mk_anc_cmd
         status = subprocess.call(mk_anc_cmd, shell=True)
 
         if status:

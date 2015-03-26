@@ -344,6 +344,8 @@ if __name__ == "__main__":
                       help="install OCM2 files")
     parser.add_option("--octs", action="store_true", dest="octs", default=False,
                       help="install OCTS files")
+    parser.add_option("--oli", action="store_true", dest="oli", default=False,
+                      help="install Landsat 8 OLI files")
     parser.add_option("--osmi", action="store_true", dest="osmi", default=False,
                       help="install OSMI files")
     parser.add_option("--seawifs", action="store_true", dest="seawifs",
@@ -477,6 +479,8 @@ if __name__ == "__main__":
         numThings += 1     # ocm2
     if options.octs:
         numThings += 1     # octs
+    if options.oli:
+        numThings += 1     # oli
     if options.osmi:
         numThings += 1     # osmi
     if options.seawifs:
@@ -593,6 +597,11 @@ if __name__ == "__main__":
     if options.osmi:
         printProgress('osmi')
         installGitRepo('osmi', 'run/data/osmi')
+
+    # install run/data/osmi
+    if options.oli:
+        printProgress('oli')
+        installGitRepo('oli', 'run/data/oli')
 
     # install run/data/seawifs
     if options.seawifs:

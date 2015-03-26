@@ -6,22 +6,41 @@ the "uber" processor.
 
 __author__ = 'melliott'
 
-class Rule():
-    """
-    Rule contains the data needed to create one target from its sources.
-    """
-    def __init__(self, targt, src_types, actn, req_batch=False):
-        self.target_type = targt
-        self.src_file_types = src_types
-        self.action = actn
-        self.requires_batch = req_batch
+import collections
 
-#    def __repr__(self):
-#        return "Rule to convert: {0} to {1} using {2}".format(
-#               str(self.src_file_types), self.target_type, self.action)
+Rule = collections.namedtuple('Rule', ['target_type', 'src_file_types',
+                                        'action', 'requires_batch',
+                                        'requires_all_sources'])
 
-    def __str__(self):
-        return "{0} <- {1}".format(self.target_type, str(self.src_file_types))
+def build_rule(targ_typ, src_types, actn, req_batch = False,
+               req_all_src = True):
+    """
+    Create and return a rule, using defaults for requires_batch and
+    requires_all_sources if no values are provided.
+    """
+    rule = Rule(targ_typ, src_types, actn, req_batch, req_all_src)
+    return rule
+
+# class Rule():
+#     """
+#     Rule contains the data needed to create one target from its sources.
+#     """
+#     def __init__(self, targt, src_types, actn, req_batch=False,
+#                  req_all_src = True):
+#         self.target_type = targt
+#         self.src_file_types = src_types
+#         self.action = actn
+#         self.requires_batch = req_batch
+#         self.requires_all_sources = req_all_src
+#
+# #    def __repr__(self):
+# #        return "Rule to convert: {0} to {1} using {2}".format(
+# #               str(self.src_file_types), self.target_type, self.action)
+#
+#     def __str__(self):
+#         return "{0} <- {1}".format(self.target_type, str(self.src_file_types))
+
+
 
 class RuleSet():
     """

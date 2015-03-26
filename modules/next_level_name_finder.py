@@ -511,6 +511,18 @@ class NextLevelNameFinder(object):
 
         if self.data_files[0].sensor in indicator_dict.keys():
             indicator = indicator_dict[self.data_files[0].sensor]
+        elif self.data_files[0].sensor == 'MODIS':
+            base_file_name = os.path.basename(self.data_files[0].name)
+            if base_file_name[0] == 'A':
+                indicator = 'A'
+            elif base_file_name[0] == 'T':
+                indicator = 'T'
+            elif base_file_name[0] == 'X':
+                indicator = 'X'
+            else:
+                err_msg = 'Error!  Could not determine platform indicator for MODIS file {0}.'.\
+                          format(self.data_files[0].name)
+                sys.exit(err_msg)
         else:
             err_msg = 'Error!  Platform indicator, {0}, for {1} is not known.'.\
                       format(self.data_files[0].sensor, self.data_files[0].name)
@@ -849,10 +861,17 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         elif self.data_files[0].sensor.find('Terra') != -1:
             indicator = 'T'
         elif self.data_files[0].sensor.find('MODIS') != -1:
-            if self.data_files[0].metadata['platform'].find('Aqua') != -1:
-                indicator = 'A'
-            elif self.data_files[0].metadata['platform'].find('Terra') != -1:
-                indicator = 'T'
+            if 'platform' in self.data_files[0].metadata:
+                if self.data_files[0].metadata['platform'].find('Aqua') != -1:
+                    indicator = 'A'
+                elif self.data_files[0].metadata['platform'].find('Terra') != -1:
+                    indicator = 'T'
+            elif 'Mission' in self.data_files[0].metadata:
+                if self.data_files[0].metadata['Mission'].find('Aqua') != -1:
+                    indicator = 'A'
+                elif self.data_files[0].metadata['Mission'].find('Terra') != -1:
+                    indicator = 'T'
+
         elif self.data_files[0].metadata is not None:
             if 'LONGNAME' in self.data_files[0].metadata.keys():
                 if self.data_files[0].metadata['LONGNAME'].find('Aqua') != -1:

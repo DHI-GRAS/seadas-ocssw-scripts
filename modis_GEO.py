@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import anc_utils
+import modules.anc_utils as anc_utils
 from modules.modis_utils import buildpcf, modis_env
 
 import modules.modis_GEO_utils as modisGEO

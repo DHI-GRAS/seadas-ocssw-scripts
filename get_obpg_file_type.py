@@ -3,7 +3,7 @@
 """
 A class for determining the OBPG type of a file.
 """
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 __author__ = 'melliott'
 
@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 import time
-import time_utils
+import modules.time_utils
 
 def convert_millisecs_to_time_str(millisecs):
     """
@@ -230,11 +230,16 @@ class ObpgFileTyper(object):
         elif 'instrument' in self.attributes:
             instrument = self.attributes['instrument']
         if not (instrument in KNOWN_SENSORS):
-            if 'Sensor Name' in self.attributes:
-                instrument = self.attributes['Sensor Name'].strip()
-            if ('Sensor' in self.attributes) and not \
-               (instrument in KNOWN_SENSORS):
-                instrument = self.attributes['Sensor'].strip()
+            if instrument != 'unknown':
+                if 'platform' in self.attributes:
+                    instrument = ' '.join([instrument,
+                                           self.attributes['platform']])
+            else:
+                if 'Sensor Name' in self.attributes:
+                    instrument = self.attributes['Sensor Name'].strip()
+                if ('Sensor' in self.attributes) and not \
+                   (instrument in KNOWN_SENSORS):
+                    instrument = self.attributes['Sensor'].strip()
         return instrument
 
     def _get_l0_constructor_data(self):
@@ -260,28 +265,37 @@ class ObpgFileTyper(object):
                 if starttime and stoptime:
                     l0cnst_results = {'starttime' : starttime,
                                       'stoptime' : stoptime}
-        except:
+        except Exception:
             l0cnst_results = None
         return l0cnst_results
 
-    def _get_landsat_times(self):
-        # The Landsat OLI metadata only contains a acquistion date and
-        # scene center time.  (For now) It is assumed that the scene center
-        # time is the start time and the end time is one second later.
-        acquisition_date = self.attributes['DATE_ACQUIRED']
-        center_time = self.attributes['SCENE_CENTER_TIME']
+    def _get_l0_times(self):
+        """
+        Returns the start and end times for L0 data files.
+        """
+        if isinstance(self.l0_data, dict):
+            start_time = self.l0_data['starttime']
+            end_time = self.l0_data['stoptime']
+        else:
+            for line in self.l0_data:
+                if line.find('starttime') != -1:
+                    time_part = line.split('=')[1]
+                    start_time = time_part[0:4] + time_part[5:7] + \
+                                 time_part[8:10] + time_part[11:13] + \
+                                 time_part[14:16] + time_part[17:19]
+                if line.find('stoptime') != -1:
+                    time_part = line.split('=')[1]
+                    end_time = time_part[0:4] + time_part[5:7] + \
+                               time_part[8:10] + time_part[11:13] +\
+                               time_part[14:16] + time_part[17:19]
+        return start_time, end_time
 
-        start_yr = int(acquisition_date[0:4])
-        start_mon = int(acquisition_date[5:7])
-        start_dom = int(acquisition_date[8:10])
-        start_doy = time_utils.convert_month_day_to_doy(start_mon, start_dom, start_yr)
-        start_date_str = '{0:04d}{1:03d}'.format(start_yr, start_doy)
-        start_hr = center_time[0:2]
-        start_min = center_time[3:5]
-        start_sec = center_time[6:8]
-        start_time =  ''.join([start_date_str, start_hr, start_min,
-                               start_sec])
-
+    def _get_landsat_end_time(self, start_yr, start_doy, start_hr, start_min,
+                              start_sec):
+        """
+        Compute and return the end time for a Landsat OLI data file, given the
+        start year, day of year, hour, mine, and second.
+        """
         end_yr = start_yr
         end_doy = start_doy
         end_hr = int(start_hr)
@@ -308,8 +322,46 @@ class ObpgFileTyper(object):
                                                                    end_hr,
                                                                    end_min,
                                                                    end_sec)
-                               # ])
+        return end_time
+
+    def _get_landsat_times(self):
+        """
+        Computes and returns the start and end times for a Landsat OLI
+        data file.
+        """
+        # The Landsat OLI metadata only contains an acquisition date and
+        # scene center time.  (For now) It is assumed that the scene center
+        # time is the start time and the end time is one second later.
+        acquisition_date = self.attributes['DATE_ACQUIRED']
+        center_time = self.attributes['SCENE_CENTER_TIME']
+
+        start_yr = int(acquisition_date[0:4])
+        start_mon = int(acquisition_date[5:7])
+        start_dom = int(acquisition_date[8:10])
+        start_doy =modules.time_utils.convert_month_day_to_doy(start_mon, start_dom,
+                                                        start_yr)
+        start_date_str = '{0:04d}{1:03d}'.format(start_yr, start_doy)
+        start_hr = center_time[0:2]
+        start_min = center_time[3:5]
+        start_sec = center_time[6:8]
+        start_time =  ''.join([start_date_str, start_hr, start_min,
+                               start_sec])
+        end_time = self._get_landsat_end_time(start_yr, start_doy,
+                                              start_hr, start_min, start_sec)
         return start_time, end_time
+
+    def _get_time_from_coverage_field(self, coverage_time):
+        """
+        Returns the stamp computed from the coverage_time
+        """
+        doy = '{0:03d}'.format(
+                        modules.time_utils.convert_month_day_to_doy(coverage_time[5:7],
+                                                            coverage_time[8:10],
+                                                            coverage_time[0:4]))
+        time_stamp = ''.join([coverage_time[0:4], str(doy),
+                               coverage_time[11:13], coverage_time[14:16],
+                               coverage_time[17:19]])
+        return time_stamp
 
 
     def get_file_attributes(self):
@@ -340,29 +392,13 @@ class ObpgFileTyper(object):
                 if 'Start Time' in self.attributes:
                     start_time = self.attributes['Start Time'][0:13]
                 elif 'time_coverage_start' in self.attributes:
-                    start_doy = '{0:03d}'.format(
-                                time_utils.convert_month_day_to_doy(
-                                self.attributes['time_coverage_start'][5:7],
-                                self.attributes['time_coverage_start'][8:10],
-                                self.attributes['time_coverage_start'][0:4]))
-                    start_time = ''.join([self.attributes['time_coverage_start'][0:4],
-                                        str(start_doy),
-                                        self.attributes['time_coverage_start'][11:13],
-                                        self.attributes['time_coverage_start'][14:16],
-                                        self.attributes['time_coverage_start'][17:19]])
+                    start_time = self._get_time_from_coverage_field(
+                                      self.attributes['time_coverage_start'])
                 if 'End Time' in self.attributes:
                     end_time = self.attributes['End Time'][0:13]
                 elif 'time_coverage_end' in self.attributes:
-                    end_doy = '{0:03d}'.format(
-                                time_utils.convert_month_day_to_doy(
-                                self.attributes['time_coverage_end'][5:7],
-                                self.attributes['time_coverage_end'][8:10],
-                                self.attributes['time_coverage_end'][0:4]))
-                    end_time =  ''.join([self.attributes['time_coverage_end'][0:4],
-                                        str(end_doy),
-                                        self.attributes['time_coverage_end'][11:13],
-                                        self.attributes['time_coverage_end'][14:16],
-                                        self.attributes['time_coverage_end'][17:19]])
+                    end_time = self._get_time_from_coverage_field(
+                                     self.attributes['time_coverage_end'])
             except KeyError:
                 if self.instrument.find('Aquarius') != -1:
                     stime_str = convert_millisecs_to_time_str(
@@ -380,22 +416,35 @@ class ObpgFileTyper(object):
                 else:
                     raise
         elif self.file_type.find('Level 0') != -1:
-            if isinstance(self.l0_data, dict):
-                start_time = self.l0_data['starttime']
-                end_time = self.l0_data['stoptime']
-            else:
-                for line in self.l0_data:
-                    if line.find('starttime') != -1:
-                        time_part = line.split('=')[1]
-                        start_time = time_part[0:4] + time_part[5:7] + \
-                                     time_part[8:10] + time_part[11:13] + \
-                                     time_part[14:16] + time_part[17:19]
-                    if line.find('stoptime') != -1:
-                        time_part = line.split('=')[1]
-                        end_time = time_part[0:4] + time_part[5:7] + \
-                                   time_part[8:10] + time_part[11:13] +\
-                                   time_part[14:16] + time_part[17:19]
+            start_time, end_time = self._get_l0_times()
         return start_time, end_time
+
+    def _get_file_type_from_attributes(self):
+        """
+        Determines the file type and instrument from the file attributes and
+        sets those values in the object.
+        """
+        if 'Title' in self.attributes or 'title' in self.attributes:
+            self._get_type_using_title()
+        elif 'ASSOCIATEDINSTRUMENTSHORTNAME' in self.attributes:
+            self._get_type_using_short_name()
+        elif 'PRODUCT' in self.attributes:
+            if self.attributes['PRODUCT'].find('MER_') != -1:
+                self.instrument = 'MERIS'
+                self.file_type = 'Level 1B'
+        elif 'Instrument_Short_Name' in self.attributes:
+            self.instrument = self.attributes['Instrument_Short_Name']
+            if self.instrument == 'VIIRS':
+                if 'N_Dataset_Type_Tag' in self.attributes:
+                    self.file_type = self.attributes['N_Dataset_Type_Tag']
+        elif 'Product Level' in self.attributes:
+            if 'Sensor name' in self.attributes:
+                self.instrument = self.attributes['Sensor name']
+                self.file_type = self.attributes['Product Level']
+                if not self.file_type.startswith('Level'):
+                    self.file_type = 'Level ' + self.file_type
+        elif 'SENSOR_ID' in self.attributes:
+            self._get_file_type_landsat()
 
     def get_file_type(self):
         """
@@ -405,35 +454,7 @@ class ObpgFileTyper(object):
         orig_path = None
         self._read_metadata()
         if self.attributes:
-            if 'Title' in self.attributes or 'title' in self.attributes:
-                self._get_type_using_title()
-            elif 'ASSOCIATEDINSTRUMENTSHORTNAME' in self.attributes:
-                self._get_type_using_short_name()
-            elif 'PRODUCT' in self.attributes:
-                if self.attributes['PRODUCT'].find('MER_') != -1:
-                    self.instrument = 'MERIS'
-                    self.file_type = 'Level 1B'
-            elif 'Instrument_Short_Name' in self.attributes:
-                self.instrument = self.attributes['Instrument_Short_Name']
-                if self.instrument == 'VIIRS':
-                    if 'N_Dataset_Type_Tag' in self.attributes:
-                        self.file_type = self.attributes['N_Dataset_Type_Tag']
-            elif 'Product Level' in self.attributes:
-                if 'Sensor name' in self.attributes:
-                    self.instrument = self.attributes['Sensor name']
-                    self.file_type = self.attributes['Product Level']
-                    if not self.file_type.startswith('Level'):
-                        self.file_type = 'Level ' + self.file_type
-            elif 'SENSOR_ID' in self.attributes:
-                # Landsat 8 OLI
-                if self.attributes['SENSOR_ID'].find('OLI_TIRS') != -1:
-                    self.instrument = 'OLI'
-                else:
-                    self.instrument = self.attributes['SENSOR_ID'].strip().strip('"')
-                if self.attributes['DATA_TYPE'].find('L1T') != -1:
-                    self.file_type = 'Level 1B'
-                else:
-                    self.file_type = 'Level ' + self.attributes['DATA_TYPE'].strip().strip('"')
+            self._get_file_type_from_attributes()
         else:
             self._get_type_using_l0_cnst()
         if self.instrument.find('MODISA') != -1:
@@ -443,6 +464,23 @@ class ObpgFileTyper(object):
         if orig_path:
             self.file_path = orig_path
         return self.file_type, self.instrument
+
+    def _get_file_type_landsat(self):
+        """
+        Sets the file type and instrument for Landsat OLI data files
+        """
+        # Landsat 8 OLI
+        if self.attributes['SENSOR_ID'].find('OLI_TIRS') != -1:
+            self.instrument = 'OLI'
+        else:
+            self.instrument = self.attributes['SENSOR_ID'].\
+                                   strip().strip('"')
+        if self.attributes['DATA_TYPE'].find('L1T') != -1:
+            self.file_type = 'Level 1B'
+        else:
+            self.file_type = 'Level ' + self.attributes['DATA_TYPE'].\
+                                              strip().strip('"')
+
 
     def _get_l0_start_stop_times(self, l0_lines):
         """
@@ -456,6 +494,131 @@ class ObpgFileTyper(object):
             if line.find('stoptime') != -1:
                 stoptime = line.strip().split('=')[1]
         return starttime, stoptime
+
+    def _get_l1_goci_times(self):
+        """
+        Finds and returns timestamps for GOCI L1 data files.
+        """
+        if 'start_time' in self.attributes and \
+           self.attributes['start_time'] != 'unknown':
+            start_time = self.attributes['start_time']
+        elif 'processing start time' in self.attributes:
+            st_yr = int(self.attributes['processing start time'][7:11])
+            mon = time.strptime(self.attributes['processing start time']\
+                                               [3:6], '%b').tm_mon
+            dom = int(self.attributes['processing start time'][0:2])
+            doy =modules.time_utils.convert_month_day_to_doy(mon, dom, st_yr)
+            start_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(st_yr, doy,
+                int(self.attributes['processing start time'][12:14]),
+                self.attributes['processing start time'][15:17],
+                self.attributes['processing start time'][18:20])
+        if 'end_time' in self.attributes and \
+           self.attributes['end_time'] != 'unknown':
+            end_time = self.attributes['end_time']
+        elif 'processing end time' in self.attributes:
+            end_yr = int(self.attributes['processing end time'][7:11])
+            mon = time.strptime(self.attributes['processing end time']\
+                                               [3:6], '%b').tm_mon
+            dom = int(self.attributes['processing end time'][0:2])
+            doy =modules.time_utils.convert_month_day_to_doy(mon, dom, end_yr)
+            end_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(end_yr, doy,
+                int(self.attributes['processing end time'][12:14]),
+                self.attributes['processing end time'][15:17],
+                self.attributes['processing end time'][18:20])
+        return start_time, end_time
+
+    def _get_l1_hico_times(self):
+        """
+        Finds and returns timestamps for HICO L1 data files.
+        """
+        start_time = get_timestamp_from_month_day(\
+                        self.attributes['Beginning_Date'],
+                        self.attributes['Beginning_Time'])
+        end_time = get_timestamp_from_month_day(
+                        self.attributes['Ending_Date'],
+                        self.attributes['Ending_Time'])
+        return start_time, end_time
+
+    def _get_l1_meris_times(self):
+        """
+        Finds and returns timestamps for MERIS L1 data files.
+        """
+        if 'FIRST_LINE_TIME' in self.attributes:
+            start_time = self._create_meris_l1b_timestamp(
+                self.attributes['FIRST_LINE_TIME'])
+            end_time = self._create_meris_l1b_timestamp(
+                self.attributes['LAST_LINE_TIME'])
+        else:
+            start_time = self._create_meris_l1b_timestamp(
+                self.attributes['start_date'].strip('"'))
+            end_time = self._create_meris_l1b_timestamp(
+                self.attributes['stop_date'].strip('"'))
+        return start_time, end_time
+
+    def _get_l1_modis_times(self):
+        """
+        Finds and returns timestamps for MODIS L1 data files.
+        """
+        start_time = self._create_modis_l1_timestamp(
+            self.attributes['RANGEBEGINNINGDATE'],
+            self.attributes['RANGEBEGINNINGTIME'])
+        end_time = self._create_modis_l1_timestamp(
+            self.attributes['RANGEENDINGDATE'],
+            self.attributes['RANGEENDINGTIME'])
+        return start_time, end_time
+
+    def _get_l1_ocm2_times(self):
+        """
+        Finds and returns timestamps for OCM2 L1 data files.
+        """
+        #yr, doy, millisecs
+        if 'Start Year' in self.attributes:
+            start_time = get_timestamp_from_year_day_mil(\
+                self.attributes['Start Year'],
+                self.attributes['Start Day'],
+                self.attributes['Start Millisec'])
+        elif 'time_coverage_start' in self.attributes:
+            start_time = self._get_time_from_coverage_field(
+                  self.attributes['time_coverage_start'])
+        if 'End Year' in self.attributes:
+            end_time = get_timestamp_from_year_day_mil(\
+                self.attributes['End Year'],
+                self.attributes['End Day'],
+                self.attributes['End Millisec'])
+        elif 'time_coverage_end' in self.attributes:
+            end_time = self._get_time_from_coverage_field(
+                  self.attributes['time_coverage_end'])
+        return start_time, end_time
+
+    def _get_l1_octs_times(self):
+        """
+        Finds and returns timestamps for OCTS L1 data files.
+        """
+        if 'Start Time' in self.attributes:
+            start_time = self._create_octs_l1_timestamp(
+                self.attributes['Start Time'])
+            end_time = self._create_octs_l1_timestamp(
+                self.attributes['End Time'])
+        else:
+            start_time = get_timestamp_from_month_day(''.join([
+                            self.attributes['time_coverage_start'][0:4],
+                            self.attributes['time_coverage_start'][5:7],
+                            self.attributes['time_coverage_start'][8:10]
+                            ]), ''.join([
+                            self.attributes['time_coverage_start'][11:13],
+                            self.attributes['time_coverage_start'][14:16],
+                            self.attributes['time_coverage_start'][17:19]
+            ]))
+            end_time = get_timestamp_from_month_day(''.join([
+                            self.attributes['time_coverage_end'][0:4],
+                            self.attributes['time_coverage_end'][5:7],
+                            self.attributes['time_coverage_end'][8:10]
+                            ]), ''.join([
+                            self.attributes['time_coverage_end'][11:13],
+                            self.attributes['time_coverage_end'][14:16],
+                            self.attributes['time_coverage_end'][17:19]
+            ]))
+        return start_time, end_time
 
     def _get_l1_times(self):
         """
@@ -493,70 +656,17 @@ class ObpgFileTyper(object):
                                 self.attributes['time_coverage_end'][17:19]
                 ]))
         elif self.instrument.find('MODIS') != -1:
-            start_time = self._create_modis_l1_timestamp(
-                self.attributes['RANGEBEGINNINGDATE'],
-                self.attributes['RANGEBEGINNINGTIME'])
-            end_time = self._create_modis_l1_timestamp(
-                self.attributes['RANGEENDINGDATE'],
-                self.attributes['RANGEENDINGTIME'])
+            start_time, end_time = self._get_l1_modis_times()
         elif self.instrument.find('OCTS') != -1:
-            start_time = self._create_octs_l1_timestamp(
-                self.attributes['Start Time'])
-            end_time = self._create_octs_l1_timestamp(
-                self.attributes['End Time'])
+            start_time, end_time = self._get_l1_octs_times()
         elif self.instrument.find('MERIS') != -1:
-            if 'FIRST_LINE_TIME' in self.attributes:
-                start_time = self._create_meris_l1b_timestamp(
-                    self.attributes['FIRST_LINE_TIME'])
-                end_time = self._create_meris_l1b_timestamp(
-                    self.attributes['LAST_LINE_TIME'])
-            else:
-                start_time = self._create_meris_l1b_timestamp(
-                    self.attributes['start_date'].strip('"'))
-                end_time = self._create_meris_l1b_timestamp(
-                    self.attributes['stop_date'].strip('"'))
+            start_time, end_time = self._get_l1_meris_times()
         elif self.instrument.find('OCM2') != -1:
-            #yr, doy, millisecs
-            start_time = get_timestamp_from_year_day_mil(\
-                self.attributes['Start Year'],
-                self.attributes['Start Day'],
-                self.attributes['Start Millisec'])
-            end_time = get_timestamp_from_year_day_mil(\
-                self.attributes['End Year'],
-                self.attributes['End Day'],
-                self.attributes['End Millisec'])
+            start_time, end_time = self._get_l1_ocm2_times()
         elif self.instrument.find('HICO') != -1:
-            start_time = get_timestamp_from_month_day(\
-                self.attributes['Beginning_Date'],
-                self.attributes['Beginning_Time'])
-            end_time = get_timestamp_from_month_day(\
-                self.attributes['Ending_Date'],
-                self.attributes['Ending_Time'])
+            start_time, end_time = self._get_l1_hico_times()
         elif self.instrument.find('GOCI') != -1:
-            if 'start_time' in self.attributes and \
-               self.attributes['start_time'] != 'unknown':
-                start_time = self.attributes['start_time']
-            elif 'processing start time' in self.attributes:
-                yr = int(self.attributes['processing start time'][7:11])
-                mon = time.strptime(self.attributes['processing start time'][3:6], '%b').tm_mon
-                dom = int(self.attributes['processing start time'][0:2])
-                doy = time_utils.convert_month_day_to_doy(mon, dom, yr)
-                start_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(yr, doy,
-                    int(self.attributes['processing start time'][12:14]),
-                    self.attributes['processing start time'][15:17],
-                    self.attributes['processing start time'][18:20])
-            if 'end_time' in self.attributes and \
-               self.attributes['end_time'] != 'unknown':
-                end_time = self.attributes['end_time']
-            elif 'processing end time' in self.attributes:
-                yr = int(self.attributes['processing end time'][7:11])
-                mon = time.strptime(self.attributes['processing end time'][3:6], '%b').tm_mon
-                dom = int(self.attributes['processing end time'][0:2])
-                doy = time_utils.convert_month_day_to_doy(mon, dom, yr)
-                end_time = '{0:04d}{1:03d}{2:02d}{3}{4}'.format(yr, doy,
-                    int(self.attributes['processing end time'][12:14]),
-                    self.attributes['processing end time'][15:17],
-                    self.attributes['processing end time'][18:20])
+            start_time, end_time = self._get_l1_goci_times()
         elif self.instrument.find('OLI') != -1:
             start_time, end_time = self._get_landsat_times()
         return start_time, end_time
