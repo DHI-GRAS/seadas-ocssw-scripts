@@ -6,6 +6,8 @@ OBPG file names, etc.
 
 __author__ = 'melliott'
 
+__version__ = '1.0.1beta'
+
 import calendar
 import datetime
 import get_obpg_file_type
@@ -31,6 +33,10 @@ def convert_str_to_int(short_str):
         err_msg = "Error! Unable to convert {0} to integer.".format(short_str)
         sys.exit(err_msg)
     return int_value
+
+def _get_days_diff(d1, d2):
+    return (d1 - d2).days
+
 
 def _get_data_files_info(flf):
     """
@@ -192,6 +198,8 @@ class NextLevelNameFinder(object):
         'l2mapgen':       'l2mapgen',
         'l3bin':          'l3bin',
         'L3b':            'l3bin',
+        'l3gen':          'l3gen',
+        'l3mapgen':       'SMI',           # Temporary(?)
         'Level 3 Binned': 'l3bin',
         'SMI':            'SMI',
         'smigen':         'SMI'
@@ -199,13 +207,13 @@ class NextLevelNameFinder(object):
 
     transitions = {
         'general' : {'L1A':'L1B', 'L1B': 'L2', 'L2': 'L3b',
-                     'L3b': ['L3b', 'SMI']},
-        'modis' : {'L0': 'L1A', 'L1A':['GEO', 'L1B'], 'L1B': 'L2', 'L2': 'L3b',
-                   'L3b': ['L3b', 'SMI']}
+                     'L3b': ['L3b', 'SMI', 'l3gen']},
+        # 'modis' : {'L0': 'L1A', 'L1A':['GEO', 'L1B'], 'L1B': 'L2', 'L2': 'L3b',
+        #            'L3b': ['L3b', 'SMI']}
     }
 
     def __init__(self, data_files_list, next_level, suite='_OC',
-                  product = None, l1brs_outmode = '8bit', l2brs_outmode = 0):
+                 l1brs_outmode = '8bit', l2brs_outmode = 0):
         if len(data_files_list) == 0:
             err_msg = "Error! No data file specified for {0}.".format(
                                                         self.__class__.__name__)
@@ -245,7 +253,6 @@ class NextLevelNameFinder(object):
             if (self.data_files[0].file_type in self.PROCESSING_LEVELS):
                 for dfile in self.data_files:
                     dfile.file_type = self.PROCESSING_LEVELS[dfile.file_type]
-        self.product = product
 
     def _do_extension_substitution(self):
         """
@@ -423,6 +430,34 @@ class NextLevelNameFinder(object):
         ext = '.L2_MAP'
         return self._get_single_file_basename() + ext
 
+    def _get_l3base_name(self):
+        basename = ''
+        """
+        An internal method to return the L3bin name from an L2 or L3bin file.
+        """
+        first_char = self.get_platform_indicator()
+        sday, syear = self._get_start_doy_year()
+        eday, eyear = self._get_end_doy_year()
+        if sday and syear and sday > 0 and syear > 0:
+            sdate = datetime.datetime.strptime(str(syear) + '-' + str(sday),
+                                               '%Y-%j')
+        else:
+            err_msg = 'Error! Cannot process start date data: year = {0}, doy = {1}'.format(syear, sday)
+            sys.exit(err_msg)
+        if eday and eyear and eday > 0 and eyear > 0:
+            edate = datetime.datetime.strptime(str(eyear) + '-' + str(eday),
+                                               '%Y-%j')
+        else:
+            err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
+            sys.exit(err_msg)
+        days_diff = _get_days_diff(edate, sdate)
+        if days_diff == 0:
+            basename = ''.join([first_char, str(syear), str(sday)])
+        else:
+            basename = ''.join([first_char, str(syear), str(sday), str(eyear),
+                                str(eday)])
+        return basename
+
     def _get_l3bin_name(self):
         """
         An internal method to return the L3bin name from an L2 or L3bin file.
@@ -442,7 +477,7 @@ class NextLevelNameFinder(object):
         else:
             err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
             sys.exit(err_msg)
-        days_diff = (edate - sdate).days
+        days_diff = _get_days_diff(edate, sdate)
 
         if days_diff == 0:
             extension = '.L3b_DAY'
@@ -455,6 +490,43 @@ class NextLevelNameFinder(object):
                 extension = '.L3b_CU'
             next_lvl_name = first_char + str(syear) + str(sday) +\
                             str(eyear) + str(eday) + extension + self.suite
+        return next_lvl_name
+
+    def _get_l3gen_name(self):
+        next_lvl_name = ''
+        basename = self._get_l3base_name()
+        sday, syear = self._get_start_doy_year()
+        eday, eyear = self._get_end_doy_year()
+        if sday and syear and sday > 0 and syear > 0:
+            sdate = datetime.datetime.strptime(str(syear) + '-' + str(sday),
+                                               '%Y-%j')
+        else:
+            err_msg = 'Error! Cannot process start date data: year = {0}, doy = {1}'.format(syear, sday)
+            sys.exit(err_msg)
+        if eday and eyear and eday > 0 and eyear > 0:
+            edate = datetime.datetime.strptime(str(eyear) + '-' + str(eday),
+                                               '%Y-%j')
+        else:
+            err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
+            sys.exit(err_msg)
+        days_diff = _get_days_diff(edate, sdate)
+        if days_diff == 0:
+            if self.suite:
+                extension = '.L3b_DAY_' + self.suite
+            else:
+                extension = '.L3b_DAY_prod'
+        elif days_diff == 7:
+            if self.suite:
+                extension = '.L3b_8D_' + self.suite
+            else:
+                extension = '.L3b_8D_prod'
+        else:
+            if self.suite:
+                extension = '.L3b_' + self.suite
+            else:
+                extension = '.L3b_prod'
+        basename = self._get_l3base_name()
+        next_lvl_name = ''.join([basename, extension])
         return next_lvl_name
 
     def get_next_level_name(self):
@@ -591,11 +663,11 @@ class NextLevelNameFinder(object):
             extension = '.L3m_CU'
             smi_name = '{0}{1:04d}{2:03d}{3:04d}{4:03d}{5}{6}'.format(
                        first_char, syear, sday, eyear, eday, extension, suite)
-        if self.product:
-            if self.product.startswith('_'):
-                smi_name += self.product
+        if self.suite:
+            if self.suite.startswith('_'):
+                smi_name += self.suite
             else:
-                smi_name += '_' + self.product
+                smi_name += '_' + self.suite
         return smi_name
 
     def _get_start_doy_year(self):
@@ -639,7 +711,8 @@ class NextLevelNameFinder(object):
                     'l2mapgen': self._get_l2mapgen_name },
                 'Level 3 Binned': {
                     'l3bin' : self._get_l3bin_name,
-                    'SMI' :   self._get_smigen_name }
+                    'SMI' :   self._get_smigen_name,
+                    'l3gen':  self._get_l3gen_name }
         }
 
     def _get_transition_sequence(self):
@@ -659,10 +732,9 @@ class MerisNextLevelNameFinder(NextLevelNameFinder):
     level of OBPG processing.
     """
 
-    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
+    def __init__(self, data_files_list, next_level, suite='_OC'):
         super(MerisNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, suite,
-                                                       product)
+                                                       next_level, suite)
 
     def _get_l2_extension(self):
         """
@@ -711,14 +783,15 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         'Level 3 Binned':    'l3bin',
         'l3bin':             'l3bin',
         'L3b':               'l3bin',
+        'l3gen':             'l3gen',
+        'l3mapgen':          'SMI',           # Temporary(?)
         'SMI':               'SMI',
         'smigen':            'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
+    def __init__(self, data_files_list, next_level, suite='_OC'):
         super(ModisNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, suite,
-                                                       product)
+                                                       next_level, suite)
 
     def _get_aqua_l0_to_l1a_name(self):
         """
@@ -936,7 +1009,9 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                               'l2brsgen': self._get_l2brsgen_name,
                               'l2mapgen': self._get_l2mapgen_name },
                  'Level 3 Binned': {'l3bin' : self._get_l3bin_name,
-                                      'SMI' : self._get_smigen_name }
+                                      'SMI' : self._get_smigen_name,
+                                     'l3gen': self._get_l3gen_name
+                                      }
         }
 
 #########################################
@@ -964,14 +1039,15 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
         'l2mapgen':     'l2mapgen',
         'l3bin':        'l3bin',
         'L3b':          'l3bin',
+        'l3gen':          'l3gen',
+        'l3mapgen':    'SMI',           # Temporary(?)
         'SMI':          'SMI',
         'smigen':       'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
+    def __init__(self, data_files_list, next_level, suite='_OC'):
         super(SeawifsNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, suite,
-                                                       product)
+                                                       next_level, suite)
 
     def get_platform_indicator(self):
         """
@@ -1001,6 +1077,8 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
                              'l2brsgen': self._get_l2brsgen_name,
                              'l2mapgen': self._get_l2mapgen_name },
                 'Level 3 Binned': {'l3bin' : self._get_l3bin_name,
-                                     'SMI' : self._get_smigen_name }
+                                     'SMI' : self._get_smigen_name,
+                                     'l3gen': self._get_l3gen_name
+                                     }
                 }
 

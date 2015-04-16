@@ -5,7 +5,7 @@ Program to return the name of the next level file that would be created from
 the input file name.
 """
 
-__version__ = '1.0.0'
+__version__ = '1.0.1beta'
 
 #import datetime
 import aquarius_next_level_name_finder
@@ -94,8 +94,8 @@ def get_command_line_data():
     cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
     cl_parser.add_option('--suite', dest='suite', action='store',
                          type='string', help='data type suite')
-    cl_parser.add_option('--product', dest='product', action='store',
-                         type='string', help='product type (for smigen)')
+    # cl_parser.add_option('--product', dest='product', action='store',
+    #                      type='string', help='product type (for smigen)')
     (clopts, clargs) = cl_parser.parse_args()
     if len(clargs) == 0:
         print "\nError! No input file or target program specified.\n"
