@@ -4,9 +4,10 @@ Utility functions for the next_name_finder program and associated moduled.
 
 __author__ = 'melliott'
 
-__version__ = '1.0.1.beta'
+__version__ = '1.0.2-2015-04-21'
 
-import modules.aquarius_next_level_name_finder as aquarius_next_level_name_finder
+import modules.aquarius_next_level_name_finder as \
+        aquarius_next_level_name_finder
 import modules.next_level_name_finder as next_level_name_finder
 import modules.viirs_next_level_name_finder as viirs_next_level_name_finder
 
@@ -15,14 +16,20 @@ def create_level_finder(finder_class, clopts, data_file_list, target_program):
     Instantiates an instance of finder_class and returns it.
     """
     level_finder = None
-    if clopts:
-        if clopts.suite:
-            level_finder = finder_class(data_file_list, target_program,
-                                        clopts.suite)
-        else:
-            level_finder = finder_class(data_file_list, target_program)
+    if clopts.resolution:
+        resolution = clopts.resolution
     else:
-        level_finder = finder_class(data_file_list, target_program)
+        resolution = None
+    if clopts.suite:
+        suite = clopts.suite
+    else:
+        suite = None
+    if clopts.oformat:
+        oformat = clopts.oformat
+    else:
+        oformat = None
+    level_finder = finder_class(data_file_list, target_program, suite,
+                                resolution, oformat)
     return level_finder
 
 def get_level_finder(data_file_list, target_program, clopts=None):

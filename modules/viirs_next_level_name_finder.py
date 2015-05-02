@@ -6,7 +6,9 @@ OBPG software.
 
 __author__ = 'melliott'
 
-import next_level_name_finder
+__version__ = '1.0.2-2015-04-24'
+
+import  modules.next_level_name_finder as next_level_name_finder
 
 class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
     """
@@ -31,16 +33,19 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         'l2mapgen':     'l2mapgen',
         'l3bin':        'l3bin',
         'L3b':          'l3bin',
+        'l3gen':          'l3gen',
+        'l3mapgen':       'SMI',           # Temporary(?)
         'SDR':          'Level 1B',
         'SMI':          'SMI',
         'smigen':       'SMI'
     }
 
 
-    def __init__(self, data_files_list, next_level, suite='_OC', product=None):
+    def __init__(self, data_files_list, next_level, suite=None,
+                 resolution=None, oformat=None):
         super(ViirsNextLevelNameFinder, self).__init__(data_files_list,
                                                        next_level, suite,
-                                                       product)
+                                                       resolution, oformat)
 
     def get_platform_indicator(self):
         """

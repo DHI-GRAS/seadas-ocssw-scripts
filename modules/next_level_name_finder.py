@@ -6,18 +6,18 @@ OBPG file names, etc.
 
 __author__ = 'melliott'
 
-__version__ = '1.0.1beta'
+__version__ = '1.0.3-2015-04-24'
 
 import calendar
 import datetime
 import get_obpg_file_type
-import obpg_data_file
+import modules.obpg_data_file as obpg_data_file
 import os
 #import namer_constants
-import ProcUtils
+import modules.ProcUtils as ProcUtils
 import re
 import sys
-import time_utils
+import modules.time_utils as time_utils
 import types
 
 DEBUG = False
@@ -34,8 +34,30 @@ def convert_str_to_int(short_str):
         sys.exit(err_msg)
     return int_value
 
-def _get_days_diff(d1, d2):
-    return (d1 - d2).days
+def find_extension(format_data_list, search_term):
+    """
+    Returns the extension from format_data_list that is indicated by
+    search_term.
+    """
+    extension = None
+    try:
+        # Are we searching for a matching index number ...
+        int(search_term)
+        tuple_index = 0
+    except ValueError:
+        # ... or a matching format name?
+        tuple_index = 1
+    # Use a generator to find the match.
+    format_index = next((i for i, t in enumerate(format_data_list) if format_data_list[i][tuple_index].lower() == search_term.lower()), None)
+    if format_index and (format_index < len(format_data_list)):
+        extension = format_data_list[format_index][2]
+    return extension
+
+def _get_days_diff(day1, day2):
+    """
+    Returns the number of days between two days, by subtracting day2 from day1.
+    """
+    return (day1 - day2).days
 
 
 def _get_data_files_info(flf):
@@ -173,6 +195,31 @@ def is_year(day1, day2):
     return day1.year == day2.year and day1.month == 1 and day1.day == 1 and\
            day2.month == 12 and day2.day == 31
 
+def read_fileformats():
+    """
+    Returns a tuple containing the file formats.
+    """
+
+    format_file_path = os.path.join(os.getenv('OCDATAROOT'), 'common',
+                                    'file_formats.txt')
+    if os.path.exists(format_file_path):
+        file_formats = []
+        format_file_hndl = open(format_file_path)
+        inp_lines = format_file_hndl.readlines()
+        format_file_hndl.close()
+        for line in inp_lines:
+            cleaned_line = line.strip()
+            if cleaned_line[0] != '#':
+                #format = get_format(cleaned_line)
+                file_format = tuple(cleaned_line.split(':'))
+
+                file_formats.append(file_format)
+
+        return file_formats
+    else:
+        err_msg = 'Error! Cannot find file {0}.'.format(format_file_path)
+        sys.exit(err_msg)
+
 class NextLevelNameFinder(object):
     """
     A class to determine what the standard OBPG filename would be when the
@@ -208,16 +255,17 @@ class NextLevelNameFinder(object):
     transitions = {
         'general' : {'L1A':'L1B', 'L1B': 'L2', 'L2': 'L3b',
                      'L3b': ['L3b', 'SMI', 'l3gen']},
-        # 'modis' : {'L0': 'L1A', 'L1A':['GEO', 'L1B'], 'L1B': 'L2', 'L2': 'L3b',
-        #            'L3b': ['L3b', 'SMI']}
+        # 'modis' : {'L0': 'L1A', 'L1A':['GEO', 'L1B'], 'L1B': 'L2',
+        #            'L2': 'L3b','L3b': ['L3b', 'SMI']}
     }
 
-    def __init__(self, data_files_list, next_level, suite='_OC',
-                 l1brs_outmode = '8bit', l2brs_outmode = 0):
+    def __init__(self, data_files_list, next_level, suite = None,
+                 resolution=None, oformat=None):
         if len(data_files_list) == 0:
             err_msg = "Error! No data file specified for {0}.".format(
                                                         self.__class__.__name__)
             sys.exit(err_msg)
+        self.user_next_level = next_level
         if next_level in self.PROCESSING_LEVELS.keys():
             self.next_level = self.PROCESSING_LEVELS[next_level]
         #elif next_level in namer_constants.PROCESSABLE_PROGRAMS:
@@ -253,6 +301,8 @@ class NextLevelNameFinder(object):
             if (self.data_files[0].file_type in self.PROCESSING_LEVELS):
                 for dfile in self.data_files:
                     dfile.file_type = self.PROCESSING_LEVELS[dfile.file_type]
+        self.resolution = resolution
+        self.oformat = oformat
 
     def _do_extension_substitution(self):
         """
@@ -325,9 +375,25 @@ class NextLevelNameFinder(object):
         if len(self.data_files) == 1:
             base_name = os.path.basename(self.data_files[0].name)
             if base_name.count('.') > 1:
-                name_parts = re.split("""\.L.*?\.""", base_name)
+                #name_parts = re.split("""\.L.*?\.""", base_name)
+                name_parts = re.split(r"\.L.*?\.", base_name)
                 if len(name_parts) > 1:
                     extra_ext = name_parts[1]
+        if self.oformat:
+            file_formats = read_fileformats()
+            if extra_ext:
+                formats_re = ''
+                for file_format in file_formats[:-1]:
+                    if file_format[2] != '':
+                        formats_re += ''.join(['(', file_format[2], '$)|'])
+                formats_re += ''.join(['(', file_formats[-1][2], '$)'])
+                extra_ext = re.sub(formats_re, '', extra_ext)
+                extra_ext = '.'.join([extra_ext, find_extension(file_formats,
+                                                               self.oformat)])
+            else:
+                format_ext = find_extension(file_formats, self.oformat)
+                if format_ext:
+                    extra_ext = '' + format_ext
         return extra_ext
 
     def _get_l1aextract_name(self):
@@ -409,7 +475,10 @@ class NextLevelNameFinder(object):
         next_lvl_name = ''
         basename = self._get_single_file_basename()
         if basename != 'indeterminate':
-            next_lvl_name = basename + self._get_l2_extension() + self.suite
+            if self.suite is None:
+                next_lvl_name = basename + self._get_l2_extension() + '_OC'
+            else:
+                next_lvl_name = basename + self._get_l2_extension() + self.suite
         else:
             err_msg = 'Error!  Could not determine L2 name for {0}'.\
                       format(self.data_files[0].name)
@@ -431,10 +500,11 @@ class NextLevelNameFinder(object):
         return self._get_single_file_basename() + ext
 
     def _get_l3base_name(self):
+        """
+        An internal method to return the L3bin name from an L2 or
+        L3bin file.
+        """
         basename = ''
-        """
-        An internal method to return the L3bin name from an L2 or L3bin file.
-        """
         first_char = self.get_platform_indicator()
         sday, syear = self._get_start_doy_year()
         eday, eyear = self._get_end_doy_year()
@@ -442,13 +512,15 @@ class NextLevelNameFinder(object):
             sdate = datetime.datetime.strptime(str(syear) + '-' + str(sday),
                                                '%Y-%j')
         else:
-            err_msg = 'Error! Cannot process start date data: year = {0}, doy = {1}'.format(syear, sday)
+            err_msg = 'Error! Cannot process start date data: year = {0}' \
+            ', doy = {1}'.format(syear, sday)
             sys.exit(err_msg)
         if eday and eyear and eday > 0 and eyear > 0:
             edate = datetime.datetime.strptime(str(eyear) + '-' + str(eday),
                                                '%Y-%j')
         else:
-            err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
+            err_msg = 'Error! Cannot process end date data: year = {0},' \
+            'doy = {1}'.format(eyear, eday)
             sys.exit(err_msg)
         days_diff = _get_days_diff(edate, sdate)
         if days_diff == 0:
@@ -469,16 +541,20 @@ class NextLevelNameFinder(object):
             sdate = datetime.datetime.strptime(str(syear) + '-' + str(sday),
                                                '%Y-%j')
         else:
-            err_msg = 'Error! Cannot process start date data: year = {0}, doy = {1}'.format(syear, sday)
+            err_msg = 'Error! Cannot process start date data: year = ' \
+            '{0}, doy = {1}'.format(syear, sday)
             sys.exit(err_msg)
         if eday and eyear and eday > 0 and eyear > 0:
             edate = datetime.datetime.strptime(str(eyear) + '-' + str(eday),
                                                '%Y-%j')
         else:
-            err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
+            err_msg = 'Error! Cannot process end date data: year = {0},' \
+            'doy = {1}'.format(eyear, eday)
             sys.exit(err_msg)
         days_diff = _get_days_diff(edate, sdate)
 
+        if self.suite is None:
+            self.suite = '_OC'
         if days_diff == 0:
             extension = '.L3b_DAY'
             next_lvl_name = first_char + str(syear) + str(sday) + extension +\
@@ -493,6 +569,10 @@ class NextLevelNameFinder(object):
         return next_lvl_name
 
     def _get_l3gen_name(self):
+        """
+        Returns a name for an L3 bin file generated from an L3 bin file run
+        through l3gen.
+        """
         next_lvl_name = ''
         basename = self._get_l3base_name()
         sday, syear = self._get_start_doy_year()
@@ -510,21 +590,14 @@ class NextLevelNameFinder(object):
             err_msg = 'Error! Cannot process end date data: year = {0}, doy = {1}'.format(eyear, eday)
             sys.exit(err_msg)
         days_diff = _get_days_diff(edate, sdate)
+        if self.suite == None:
+            self.suite = '_OC'
         if days_diff == 0:
-            if self.suite:
-                extension = '.L3b_DAY_' + self.suite
-            else:
-                extension = '.L3b_DAY_prod'
+            extension = '.L3b_DAY' + self.suite
         elif days_diff == 7:
-            if self.suite:
-                extension = '.L3b_8D_' + self.suite
-            else:
-                extension = '.L3b_8D_prod'
+            extension = '.L3b_8D' + self.suite
         else:
-            if self.suite:
-                extension = '.L3b_' + self.suite
-            else:
-                extension = '.L3b_prod'
+            extension = '.L3b' + self.suite
         basename = self._get_l3base_name()
         next_lvl_name = ''.join([basename, extension])
         return next_lvl_name
@@ -556,7 +629,11 @@ class NextLevelNameFinder(object):
                 sys.exit(err_msg)
         extra_ext = self._get_extra_extensions()
         if extra_ext:
-            next_level_name += '.' + extra_ext
+            if extra_ext[0] != '.':
+                next_level_name += '.' + extra_ext
+            else:
+                next_level_name += extra_ext
+
         return next_level_name
 
     def _get_next_suffixes(self):
@@ -628,7 +705,10 @@ class NextLevelNameFinder(object):
         Returns the output name from smigen for an L3 Binned file or group
         of files.
         """
-        l3_prod = None
+        if not self.suite:
+            err_msg = 'Error! A suite must be defined for {0}.'.\
+                      format(self.user_next_level)
+            sys.exit(err_msg)
         first_char = self.get_platform_indicator()
         if self.data_files[0].metadata:
             sday, syear = get_start_day_year(self.data_files[0].metadata)
@@ -668,6 +748,12 @@ class NextLevelNameFinder(object):
                 smi_name += self.suite
             else:
                 smi_name += '_' + self.suite
+        if self.resolution:
+            if self.resolution.startswith('_'):
+                smi_name += self.resolution
+            else:
+                smi_name += '_' + self.resolution
+
         return smi_name
 
     def _get_start_doy_year(self):
@@ -732,9 +818,11 @@ class MerisNextLevelNameFinder(NextLevelNameFinder):
     level of OBPG processing.
     """
 
-    def __init__(self, data_files_list, next_level, suite='_OC'):
+    def __init__(self, data_files_list, next_level, suite = None,
+                 resolution=None, oformat=None):
         super(MerisNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, suite)
+                                                       next_level, suite,
+                                                       resolution)
 
     def _get_l2_extension(self):
         """
@@ -742,7 +830,9 @@ class MerisNextLevelNameFinder(NextLevelNameFinder):
         """
         ext = '.BOGUS_MERIS_L2_EXTENSION'
         if 'SPH_DESCRIPTOR' in self.data_files[0].metadata:
-            ext = ''.join(['.L2_', self.data_files[0].metadata['SPH_DESCRIPTOR'].split('_')[1]])
+            ext = ''.join(['.L2_',
+                           self.data_files[0].metadata['SPH_DESCRIPTOR'].\
+                                split('_')[1]])
         #for data_file in self.data_files:
         #    if data_file.name.find('GAC') != -1:
         #        ext = '.L2_GAC'
@@ -789,9 +879,11 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         'smigen':            'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, suite='_OC'):
+    def __init__(self, data_files_list, next_level, suite=None,
+                 resolution=None, oformat=None):
         super(ModisNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, suite)
+                                                       next_level, suite,
+                                                       resolution, oformat)
 
     def _get_aqua_l0_to_l1a_name(self):
         """
@@ -882,8 +974,14 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                               self.data_files[0].metadata['RANGEBEGINNINGDATE'],
                               self.data_files[0].metadata['RANGEBEGINNINGTIME']) +\
                             self._get_l2_extension()
-        if self.suite:
+        if self.suite is None:
+            next_lvl_name += '_OC'
+        else:
             next_lvl_name += self.suite
+        if self.oformat:
+            file_formats = read_fileformats()
+            ext = find_extension(file_formats, self.oformat)
+            next_lvl_name = ''.join([next_lvl_name, '_', ext])
         return next_lvl_name
 
     def get_next_level_name(self):
@@ -915,7 +1013,10 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                                       [self.next_level]()
         extra_ext = self._get_extra_extensions()
         if extra_ext:
-            next_level_name += '.' + extra_ext
+            if extra_ext[0] != '.':
+                next_level_name += '.' + extra_ext
+            else:
+                next_level_name += extra_ext
         if next_level_name:
             return next_level_name
         else:
@@ -937,7 +1038,8 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
             if 'platform' in self.data_files[0].metadata:
                 if self.data_files[0].metadata['platform'].find('Aqua') != -1:
                     indicator = 'A'
-                elif self.data_files[0].metadata['platform'].find('Terra') != -1:
+                elif self.data_files[0].metadata['platform'].find('Terra') != \
+                        -1:
                     indicator = 'T'
             elif 'Mission' in self.data_files[0].metadata:
                 if self.data_files[0].metadata['Mission'].find('Aqua') != -1:
@@ -1045,9 +1147,11 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
         'smigen':       'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, suite='_OC'):
+    def __init__(self, data_files_list, next_level, suite=None,
+                 resolution=None, oformat=None):
         super(SeawifsNextLevelNameFinder, self).__init__(data_files_list,
-                                                       next_level, suite)
+                                                         next_level, suite,
+                                                         resolution, oformat)
 
     def get_platform_indicator(self):
         """

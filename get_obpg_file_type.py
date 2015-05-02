@@ -394,11 +394,23 @@ class ObpgFileTyper(object):
                 elif 'time_coverage_start' in self.attributes:
                     start_time = self._get_time_from_coverage_field(
                                       self.attributes['time_coverage_start'])
+                elif 'Start Day' in self.attributes:
+                    start_time = get_timestamp_from_year_day_mil(
+                        int(self.attributes['Start Year']),
+                        int(self.attributes['Start Day']),
+                        int(self.attributes['Start Millisec'])
+                    )
                 if 'End Time' in self.attributes:
                     end_time = self.attributes['End Time'][0:13]
                 elif 'time_coverage_end' in self.attributes:
                     end_time = self._get_time_from_coverage_field(
                                      self.attributes['time_coverage_end'])
+                elif 'End Day' in self.attributes:
+                    end_time = get_timestamp_from_year_day_mil(
+                        int(self.attributes['End Year']),
+                        int(self.attributes['End Day']),
+                        int(self.attributes['End Millisec'])
+                    )
             except KeyError:
                 if self.instrument.find('Aquarius') != -1:
                     stime_str = convert_millisecs_to_time_str(

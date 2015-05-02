@@ -1,7 +1,15 @@
+"""
+A module containomg the ViirsNextLevelNameFinder class for finding standard
+output file names for VIIRS files when run through OBPG software.
+"""
+
 __author__ = 'melliott'
 
-import next_level_name_finder
+__version__ = '1.0.2-2015-04-24'
+
+import modules.next_level_name_finder as next_level_name_finder
 import re
+import sys
 
 class AquariusNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
     """
@@ -25,14 +33,17 @@ class AquariusNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         'l2mapgen':       'l2mapgen',
         'l3bin':          'l3bin',
         'L3b':            'l3bin',
+        'l3gen':          'l3gen',
+        'l3mapgen':       'SMI',
         'SMI':            'SMI',
         'smigen':         'SMI'
     }
 
-    def __init__(self, data_files_list, next_level, suite='V2.0'):
+    def __init__(self, data_files_list, next_level, suite=None,
+                 resolution=None, oformat=None):
         super(AquariusNextLevelNameFinder, self).__init__(data_files_list,
-                                                           next_level, suite,
-                                                           product=None)
+                                                          next_level, suite,
+                                                          resolution, oformat)
 
     def _get_l2_extension(self):
         l1_parts = self.data_files[0].name.split('.')
@@ -49,7 +60,10 @@ class AquariusNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         """
         basename = self._get_single_file_basename()
         if basename != 'indeterminate':
-            next_lvl_name = basename + self._get_l2_extension() + self.suite
+            if self.suite:
+                next_lvl_name = basename + self._get_l2_extension() + self.suite
+            else:
+                next_lvl_name = basename + self._get_l2_extension()
         else:
             err_msg = 'Error!  Could not determine L2 name for {0}'.\
             format(self.data_files[0].name)
@@ -78,5 +92,6 @@ class AquariusNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
                     'l2mapgen': self._get_l2mapgen_name },
                 'Level 3 Binned': {
                     'l3bin' : self._get_l3bin_name,
-                    'SMI' : self._get_smigen_name}
+                    'SMI' : self._get_smigen_name,
+                    'l3gen': self._get_l3gen_name}
         }
