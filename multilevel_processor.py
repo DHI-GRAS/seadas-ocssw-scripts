@@ -903,15 +903,21 @@ def get_options(par_data):
             options += ' ' + key + '=' + par_data[key]
     return options
 
-def get_output_name(input_files, targ_prog):
+def get_output_name(inp_files, targ_prog, suite=None, oformt=None, res=None):
     """
     Determine what the output name would be if targ_prog is run on input_files.
     """
-    if not isinstance(input_files, list):
-        data_file = get_obpg_data_file_object(input_files)
-        nm_findr = name_finder_utils.get_level_finder([data_file], targ_prog)
+    cl_opts = optparse.Values()
+    cl_opts.suite = suite
+    cl_opts.oformat = oformt
+    cl_opts.resolution = res
+    if not isinstance(inp_files, list):
+        data_file = get_obpg_data_file_object(inp_files)
+        nm_findr = name_finder_utils.get_level_finder([data_file], targ_prog,
+                                                      cl_opts)
     else:
-        nm_findr = name_finder_utils.get_level_finder(input_files, targ_prog)
+        nm_findr = name_finder_utils.get_level_finder(inp_files, targ_prog,
+                                                      cl_opts)
     return nm_findr.get_next_level_name()
 
 def get_output_name2(input_name, input_files, suffix):
@@ -1316,8 +1322,23 @@ def run_batch_processor(ndx, processors, file_set):
     for fspec in file_set:
         dfile = get_obpg_data_file_object(fspec)
         data_file_list.append(dfile)
+    if 'suite' in processors[ndx].par_data:
+        suite = processors[ndx].par_data['suite']
+    elif 'prod' in processors[ndx].par_data:
+        suite = processors[ndx].par_data['prod']
+    else:
+        suite = None
+    if 'resolution' in processors[ndx].par_data:
+        resolution = processors[ndx].par_data['resolution']
+    else:
+        resolution = None
+    if 'oformat' in processors[ndx].par_data:
+        oformat = processors[ndx].par_data['oformat']
+    else:
+        oformat = None
     name_finder = next_level_name_finder.NextLevelNameFinder(data_file_list,
-                                                    processors[ndx].target_type)
+                                                    processors[ndx].target_type,
+                                                    suite, resolution, oformat)
     processors[ndx].output_file = os.path.join(processors[ndx].out_directory,
                                               name_finder.get_next_level_name())
     processors[ndx].execute()
@@ -1598,9 +1619,25 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
         input_file = file_set
         geo_file = None
     dfile = get_obpg_data_file_object(input_file)
+
+    cl_opts = optparse.Values()
+    if 'suite' in processors[ndx].par_data:
+        cl_opts.suite = processors[ndx].par_data['suite']
+    elif 'prod' in processors[ndx].par_data:
+        cl_opts.suite = processors[ndx].par_data['prod']
+    else:
+        cl_opts.suite = None
+    if 'resolution' in processors[ndx].par_data:
+        cl_opts.resolution = processors[ndx].par_data['resolution']
+    else:
+        cl_opts.resolution = None
+    if 'oformat' in processors[ndx].par_data:
+        cl_opts.oformat = processors[ndx].par_data['oformat']
+    else:
+        cl_opts.oformat = None
     name_finder = name_finder_utils.get_level_finder([dfile],
                                                     processors[ndx].target_type,
-                                                    )
+                                                    cl_opts)
     output_file = os.path.join(processors[ndx].out_directory,
                                name_finder.get_next_level_name())
     if DEBUG:

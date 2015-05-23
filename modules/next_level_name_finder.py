@@ -978,10 +978,11 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
             next_lvl_name += '_OC'
         else:
             next_lvl_name += self.suite
-        if self.oformat:
-            file_formats = read_fileformats()
-            ext = find_extension(file_formats, self.oformat)
-            next_lvl_name = ''.join([next_lvl_name, '_', ext])
+        # if self.oformat:
+        #     file_formats = read_fileformats()
+        #     ext = find_extension(file_formats, self.oformat)
+        #     if ext:
+        #         next_lvl_name = ''.join([next_lvl_name, '_', ext])
         return next_lvl_name
 
     def get_next_level_name(self):
