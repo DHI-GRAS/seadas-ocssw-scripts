@@ -11,7 +11,8 @@ verbose = False
 installDir = None
 gitBase = None
 gitBranch = None
-curlCommand = 'curl -O --retry 5 --retry-delay 5 '
+downloadCommand = ''
+downloadContinueStr = ''
 checksumFileName = 'bundles.sha256sum'
 checksumDict = {}
 downloadTries = 5
@@ -22,6 +23,22 @@ FNULL = open(os.devnull, 'w')
 # globals for progress display
 numThings = 1
 currentThing = 1
+
+def setupCurlDownload():
+    """
+    set the global variables to use curl for downloading files.
+    """
+    global downloadCommand, downloadContinueStr
+    downloadCommand = 'curl -O --retry 5 --retry-delay 5 '
+    downloadContinueStr = '-C - '
+  
+def setupWgetDownload():
+    """
+    set the global variables to use wget for downloading files.
+    """
+    global downloadCommand, downloadContinueStr
+    downloadCommand = 'wget --tries=5 --wait=5 '
+    downloadContinueStr = '--continue '
 
 def loadChecksums():
     """
@@ -42,6 +59,7 @@ def loadChecksums():
         if len(parts) == 2:
             checksumDict[parts[1]] = parts[0]
     csFile.close()
+    deleteFile(checksumFileName)
 
 def testFileChecksum(fileName):
     """
@@ -102,10 +120,11 @@ def installFile(fileName, continueFlag=True):
             print 'Installing', fileName, ' from ', local
         else:
             print 'Downloading', fileName
-
-    commandStr = 'cd ' + installDir + '; ' + curlCommand
+    if not continueFlag:
+        deleteFile(fileName)
+    commandStr = 'cd ' + installDir + '; ' + downloadCommand
     if continueFlag:
-        commandStr += '-C - '
+        commandStr += downloadContinueStr
     commandStr += gitBase + fileName
     if local:
         commandStr = "cp %s %s" % (os.path.join(local, fileName), installDir)
@@ -169,16 +188,7 @@ def installGitRepo(repoName, dirName):
             if retval:
                 print 'Error - Could not run \"' + commandStr + '\"'
                 exit(1)
-    
-            # restore local modifications using git stash pop
-            if not stashOutput.startswith('No local changes to save'):
-                cmd = ['git', 'stash', 'pop']
-                if verbose:
-                    print "Restoring local changes with \"git stash pop\""
-                    stashStatus = subprocess.Popen(cmd, cwd=fullDir).communicate()[0]
-                else:
-                    stashStatus = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=fullDir).communicate()[0]
-
+                
     else:
         # directory does not exist
         if verbose:
@@ -295,7 +305,7 @@ def printProgress(name):
 if __name__ == "__main__":
 
     # Read commandline options...
-    version = "%prog 2.0"
+    version = "%prog 2.1"
     usage = '''usage: %prog [options]'''
     parser = OptionParser(usage=usage, version=version)
 
@@ -318,6 +328,8 @@ if __name__ == "__main__":
                       default=None, help="local directory containing previously downloaded bundles")
     parser.add_option("-c", "--clean", action="store_true", dest="clean",
                       default=False, help="Do a clean install by deleting the install directory first, if it exists")
+    parser.add_option("--curl", action="store_true", dest='curl', 
+                      default=False, help="use curl for download instead of wget")
 
     # add missions
     parser.add_option("--aquarius", action="store_true", dest="aquarius",
@@ -369,6 +381,28 @@ if __name__ == "__main__":
     verbose = options.verbose
     local = options.local
 
+    # setup download command
+    if options.curl:
+        retval = os.system("which curl > /dev/null")
+        if retval == 0:
+            setupCurlDownload()
+        else:
+            print "Error: Could not find curl."
+            exit(1)
+    else:
+        retval = os.system("which wget > /dev/null")
+        if retval == 0:
+            setupWgetDownload()
+        else:
+            retval = os.system("which curl > /dev/null")
+            if retval == 0:
+                if verbose:
+                    print 'Could not find wget, defaulting to using curl.'
+                setupCurlDownload()
+            else:
+                print "Error: Could not find wget or curl in the PATH."
+                exit(1)
+
     # set installDir using param or a default
     if options.install_dir:
         installDir = os.path.abspath(options.install_dir)
@@ -415,7 +449,7 @@ if __name__ == "__main__":
     commandStr = "git --version > /dev/null"
     retval = os.system(commandStr)
     if retval:
-        print 'Error - Could not execute system command \"' + commandStr + '\"'
+        print 'Error - git is either not installed or not in the PATH.'
         exit(1)
 
     cmd = ['git', 'config', "--get", "user.name"]
