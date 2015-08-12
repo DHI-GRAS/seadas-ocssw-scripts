@@ -36,7 +36,7 @@ import traceback
 import types
 import modules.uber_par_file_reader as uber_par_file_reader
 
-class ProcessorConfig:
+class ProcessorConfig(object):
     """
     Configuration data for the program which needs to be widely available.
     """
@@ -45,7 +45,7 @@ class ProcessorConfig:
                  tar_name=None, timing=False, out_dir=None):
         self.prog_name = os.path.basename(sys.argv[0])
 
-        if not(os.path.exists(hidden_dir)):
+        if not os.path.exists(hidden_dir):
             try:
                 os.mkdir(hidden_dir)
             except OSError:
@@ -132,10 +132,11 @@ def get_obpg_data_file_object(file_specification):
     Returns an obpg_data_file object for the file named in file_specification.
     """
     ftyper = get_obpg_file_type.ObpgFileTyper(file_specification)
-    (ftype, sensor) =  ftyper.get_file_type()
+    (ftype, sensor) = ftyper.get_file_type()
     (stime, etime) = ftyper.get_file_times()
     obpg_data_file_obj = obpg_data_file.ObpgDataFile(file_specification, ftype,
-                                        sensor, stime, etime, ftyper.attributes)
+                                                     sensor, stime, etime,
+                                                     ftyper.attributes)
     return obpg_data_file_obj
 
 def build_file_list_file(filename, file_list):
@@ -162,7 +163,7 @@ def build_general_rules():
         'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
                                                  run_l2brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
-                                                 run_l1mapgen,  False),
+                                                 run_l1mapgen, False),
         'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
                                                  run_l2mapgen, False),
         #'level 1b': processing_rules.build_rule('level 1b', ['level 1a','geo'],
@@ -177,8 +178,8 @@ def build_general_rules():
                                               True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                               True),
-#        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
-#                                              False)
+       # 'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
+       #                                       False)
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
                                                False)
     }
@@ -203,7 +204,7 @@ def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
         par_file.write('ofile=' + output_file + '\n')
         for l2_opt in par_contents:
             if l2_opt != 'ifile' and l2_opt != 'geofile' \
-                                              and not(l2_opt in FILE_USE_OPTS):
+                                              and not l2_opt in FILE_USE_OPTS:
                 par_file.write(l2_opt + '=' + par_contents[l2_opt] + '\n')
     return par_path
 
@@ -211,7 +212,7 @@ def build_modis_rules():
     """
     Builds and returns the MODIS rules set.
     """
-    rules_dict =  {
+    rules_dict = {
         'level 0': processing_rules.build_rule('level 0', ['nothing lower'],
                                                 run_bottom_error,  False),
         'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
@@ -255,7 +256,7 @@ def build_seawifs_rules():
     """
     Builds and returns the SeaWiFS rules set.
     """
-    rules_dict =  {
+    rules_dict = {
         'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
                                            run_bottom_error, False),
         'l1aextract_seawifs': processing_rules.build_rule('l1aextract_seawifs',
@@ -265,7 +266,7 @@ def build_seawifs_rules():
         'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
                                            run_l1brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
-                                           run_l1mapgen,  False),
+                                           run_l1mapgen, False),
         'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
                                            run_l1b, False),
         # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
@@ -297,9 +298,8 @@ def build_rules():
     """
     Build the processing rules.
     """
-    rules = dict(general = build_general_rules(),
-                 modis = build_modis_rules(),
-                 seawifs = build_seawifs_rules())
+    rules = dict(general=build_general_rules(), modis=build_modis_rules(),
+                 seawifs=build_seawifs_rules())
     return rules
 
 def check_options(options):
@@ -475,8 +475,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                     if cfg_data.output_dir_is_settable:
                         cfg_data.output_dir = os.path.realpath(dname)
                     else:
-                        logging.info('Ignoring par file specification for output directory, {0}; using command line value, {1}.'.format(par_contnts['main']['odir'],
-                                     cfg_data.output_dir))
+                        log_msg = 'Ignoring par file specification for output directory, {0}; using command line value, {1}.'.format(par_contnts['main']['odir'], cfg_data.output_dir)
+                        logging.info(log_msg)
                 else:
                     msg = 'Error! {0} is not a directory.'.format(dname)
                     sys.exit(msg)
@@ -494,6 +494,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
         if MetaUtils.is_ascii_file(input_files_list[0]):
             input_files_list = read_file_list_file(input_files_list[0])
     input_file_data = get_input_files_type_data(input_files_list)
+    if not input_file_data:
+        log_and_exit('No valid data files were specified for processing.')
     logging.debug("input_file_data: " + str(input_file_data))
     first_file_key = input_file_data.keys()[0]
     logging.debug("first_file_key: " + first_file_key)
@@ -519,7 +521,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     try:
         for ndx, proc in enumerate(processors):
             logging.debug('')
-            logging.debug('Processing for {0}:'.format(proc.target_type))
+            log_msg = 'Processing for {0}:'.format(proc.target_type)
+            logging.debug(log_msg)
             proc.out_directory = cfg_data.output_dir
             if cfg_data.timing:
                 proc_timer = benchmark_timer.BenchmarkTimer()
@@ -561,13 +564,13 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                 src_file_sets = get_source_file_sets(proc_src_types,
                                                      src_files, src_key)
                 for file_set in src_file_sets:
-                    out_file = run_nonbatch_processor(ndx, processors,
-                                                      input_file_data, file_set)
-                    if proc.target_type in src_files:
-                        if not out_file in src_files[proc.target_type]:
-                            src_files[proc.target_type].append(out_file)
-                    else:
-                        src_files[proc.target_type] = [out_file]
+                    out_file = run_nonbatch_processor(ndx, processors, file_set)
+                    if out_file:
+                        if proc.target_type in src_files:
+                            if not out_file in src_files[proc.target_type]:
+                                src_files[proc.target_type].append(out_file)
+                        else:
+                            src_files[proc.target_type] = [out_file]
             if cfg_data.keepfiles or proc.keepfiles:
                 files_to_keep.append(out_file)
                 if cfg_data.tar_filename:
@@ -585,8 +588,7 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                                                             ndx + 1,
                                                             len(processors))
             sys.stdout.flush()
-            logging.debug('Processing complete for {0}.'.\
-                          format(proc.target_type))
+            logging.debug('Processing complete for "%s".', proc.target_type)
     except Exception:
         if DEBUG:
             err_msg = get_traceback_message()
@@ -714,7 +716,7 @@ def get_extract_params(proc):
                      proc.par_data['NElat']])
     lonlat_prog = os.path.join(proc.ocssw_bin, 'lonlat2pixline')
     lonlat_cmd = ' '.join([lonlat_prog, args])
-    logging.debug('Executing lonlat2pixline command: {0}'.format(lonlat_cmd))
+    logging.debug('Executing lonlat2pixline command: "%s"', lonlat_cmd)
     process_output = subprocess.Popen(lonlat_cmd, shell=True,
                                       stdout=subprocess.PIPE).communicate()[0]
     lonlat_output = process_output.split(chr(10))
@@ -789,7 +791,7 @@ def get_input_files(par_data):
     if len(from_ifiles) > 0 or len(from_infilelist) > 0:
         # Make sure there are no duplicates.  Tests with timeit showed that
         # list(set()) is much faster than a "uniqify" function.
-        return(list(set(from_ifiles + from_infilelist)))
+        return list(set(from_ifiles + from_infilelist))
     else:
         return None
 
@@ -810,10 +812,10 @@ def get_input_files_type_data(input_files_list):
     }
     input_file_type_data = {}
     for inp_file in input_files_list:
-        if os.path.dirname((inp_file)) == '':
-            inp_path = os.path.join(os.getcwd(), inp_file)
-        else:
-            inp_path = inp_file
+        # if os.path.dirname((inp_file)) == '':
+        #     inp_path = os.path.join(os.getcwd(), inp_file)
+        # else:
+        #     inp_path = inp_file
         file_typer = get_obpg_file_type.ObpgFileTyper(inp_file)
         file_type, file_instr = file_typer.get_file_type()
         #if file_type in converter:
@@ -822,8 +824,14 @@ def get_input_files_type_data(input_files_list):
         #    err_msg =
         # 'Error! Cannot process file type {0} of {1}'.format(file_type,
         #  inp_file)
-        file_type = converter[file_type.lower()]
-        input_file_type_data[inp_file] = (file_type, file_instr.lower())
+        if file_type.lower() in converter:
+            file_type = converter[file_type.lower()]
+            input_file_type_data[inp_file] = (file_type, file_instr.lower())
+        else:
+        #     input_file_type_data[inp_file] = ('unknown', 'unknown')
+            warn_msg = "Warning: Unable to determine a type for file {0}.  It will not be processed.".format(inp_file)
+            print warn_msg
+            logging.info(warn_msg)
     return input_file_type_data
 
 def get_intermediate_processors(existing_procs, rules, lowest_source_level):
@@ -839,8 +847,8 @@ def get_intermediate_processors(existing_procs, rules, lowest_source_level):
         # Create a processor for the product and add it to the intermediate
         # processors list
         if not prod in existing_products:
-            new_proc = processor.Processor('', rules, prod,
-                                           {}, cfg_data.hidden_dir )
+            new_proc = processor.Processor('', rules, prod, {},
+                                           cfg_data.hidden_dir)
             intermediate_processors.append(new_proc)
     return intermediate_processors
 
@@ -986,7 +994,7 @@ def get_par_file_contents(par_file, acceptable_single_keys):
         'l3bin' : 'l3bin',
         'smigen' : 'smigen',
         'main' : 'main'
-        #        'level 3' : 'level 3', 'l3' : 'level 3'
+        # 'level 3' : 'level 3', 'l3' : 'level 3'
     }
     if cfg_data.verbose:
         print "Processing %s" % par_file
@@ -1095,8 +1103,8 @@ def get_source_file_sets(proc_src_types, source_files, src_key):
                                         geo_files)
                 else:
                     err_msg = 'Error! Cannot find all {0} and' \
-                              ' {1} source files.'.format(
-                        proc_src_types[0], proc_src_types[1])
+                              ' {1} source files.'.format(proc_src_types[0],
+                                                            proc_src_types[1])
                     log_and_exit(err_msg)
             elif proc_src_types[1] in source_files:
                 if proc_src_types[0] == 'geo':
@@ -1114,8 +1122,8 @@ def get_source_file_sets(proc_src_types, source_files, src_key):
                                         geo_files)
                 else:
                     err_msg = 'Error! Cannot find all {0} and' \
-                              ' {1} source files.'.format(
-                        proc_src_types[0], proc_src_types[1])
+                              ' {1} source files.'.format(proc_src_types[0],
+                                                            proc_src_types[1])
                     log_and_exit(err_msg)
             else:
                 err_msg = 'Error! Cannot find all source files.'
@@ -1141,7 +1149,7 @@ def get_source_files(input_files):
 
 def get_source_products_types(targt_prod, ruleset):
     """
-    Return the list of source product typess needed to produce the final product.
+    Return the list of source product types needed to produce the final product.
     """
     src_prod_names = [targt_prod]
     targt_pos = ruleset.order.index(targt_prod)
@@ -1171,7 +1179,7 @@ def get_traceback_message():
 def is_option_value_true(opt_val_str):
     """
     Returns True if opt_val_str is one the various possible values that OBPG
-    programs accept as true.  
+    programs accept as true.
     """
     opt_val = False
     if opt_val_str in TRUTH_VALUES:
@@ -1181,9 +1189,10 @@ def is_option_value_true(opt_val_str):
 def log_and_exit(error_msg):
     """
     Record error_msg in the debug log, then exit with error_msg going to stderr
-    and an exit code of 1; see http://docs.python.org/library/sys.html#log_and_exit.
+    and an exit code of 1; see:
+        http://docs.python.org/library/sys.html#exit.
     """
-    logging.debug(error_msg)
+    logging.info(error_msg)
     sys.exit(error_msg)
 
 def main():
@@ -1210,7 +1219,7 @@ def main():
                                    options.verbose, options.overwrite,
                                    options.use_existing, options.tar_file,
                                    options.timing, options.odir)
-        if not(os.access(cfg_data.hidden_dir, os.R_OK) ):
+        if not os.access(cfg_data.hidden_dir, os.R_OK):
             log_and_exit("Error!  The working directory is not readable!")
         if os.path.exists(args[0]):
             log_timestamp = datetime.datetime.today().strftime('%Y%m%d%H%M%S')
@@ -1300,8 +1309,7 @@ def read_file_list_file(flf_name):
             else:
                 bad_lines.append(fname)
     if len(bad_lines) > 0:
-        err_msg = 'Error!  File {0} specified the following input files ' + \
-                  'which could not be located:\n   {1}'.\
+        err_msg = 'Error!  File {0} specified the following input files which could not be located:\n   {1}'.\
                   format(flf_name, ', '.join([bl for bl in bad_lines]))
         log_and_exit(err_msg)
     return files_list
@@ -1310,7 +1318,7 @@ def run_batch_processor(ndx, processors, file_set):
     """
     Run a processor, e.g. l2bin, which processes batches of files.
     """
-    logging.debug('in run_batch_processor, ndx = {0}'.format(ndx))
+    logging.debug('in run_batch_processor, ndx = %d', ndx)
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.gmtime(time.time()))
     file_list_name = cfg_data.hidden_dir + os.sep + 'files_' + \
                      processors[ndx].target_type + '_' + timestamp + '.lis'
@@ -1341,6 +1349,12 @@ def run_batch_processor(ndx, processors, file_set):
                                                     suite, resolution, oformat)
     processors[ndx].output_file = os.path.join(processors[ndx].out_directory,
                                               name_finder.get_next_level_name())
+    if DEBUG:
+        log_msg = "Running {0} with input file {1} to generate {2} ".\
+                  format(processors[ndx].target_type,
+                         processors[ndx].input_file,
+                         processors[ndx].output_file)
+        logging.debug
     processors[ndx].execute()
     return processors[ndx].output_file
 
@@ -1349,8 +1363,7 @@ def run_bottom_error(proc):
     Exits with an error message when there is an attempt to process a source
     file at the lowest level of a rule chain.
     """
-    err_msg = 'Error!  Attempting to create {0} product, but no ' + \
-              'creation program is known.'.format(proc.target_type)
+    err_msg = 'Error!  Attempting to create {0} product, but no creation program is known.'.format(proc.target_type)
     log_and_exit(err_msg)
 
 def run_l1aextract_modis(proc):
@@ -1369,8 +1382,8 @@ def run_l1aextract_modis(proc):
                                    str(start_pixel), str(end_pixel),
                                    str(start_line), str(end_line),
                                    proc.output_file])
-        logging.debug('Executing l1aextract_modis command: {0}'.\
-                      format(l1aextract_cmd))
+        logging.debug('Executing l1aextract_modis command: "%s"',
+                      l1aextract_cmd)
         status = execute_command(l1aextract_cmd)
         return status
 
@@ -1390,8 +1403,8 @@ def run_l1aextract_seawifs(proc):
                                   str(start_pixel), str(end_pixel),
                                   str(start_line), str(end_line), '1', '1',
                                   proc.output_file])
-        logging.debug('Executing l1aextract_seawifs command: {0}'.\
-                      format(l1aextract_cmd))
+        logging.debug('Executing l1aextract_seawifs command: "%s"',
+                      l1aextract_cmd)
         status = execute_command(l1aextract_cmd)
         return status
 
@@ -1425,7 +1438,7 @@ def run_l1brsgen(proc):
     output_name = get_output_name(proc.input_file, 'l1brsgen')
     cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
                     'ofile=' + output_name, 'outmode=' + suffix])
-    logging.debug('Executing: {0}'.format(cmd))
+    logging.debug('Executing: "%s"', cmd)
     status = execute_command(cmd)
     return status
 
@@ -1449,9 +1462,9 @@ def run_l1mapgen(proc):
         suffix = l1map_suffixes['0']
     output_name = get_output_name(proc.par_data['ifile'], suffix)
     cmd = ' '.join([prog, opts, ' ofile=' + output_name])
-    logging.debug('Executing: {0}'.format(cmd))
+    logging.debug('Executing: "%s"', cmd)
     lvl_nm = execute_command(cmd)
-    logging.debug("l1mapgen run complete!  Return value: {0}".format(lvl_nm))
+    logging.debug('l1mapgen run complete!  Return value: "%s"', lvl_nm)
     if (lvl_nm >= acceptable_min) and (lvl_nm <= acceptable_max):
         return 0
     else:
@@ -1483,7 +1496,7 @@ def run_l2brsgen(proc):
     opts = get_options(proc.par_data)
     cmd = ' '.join([prog, opts, 'ifile='+proc.input_file,
                    'ofile=' + proc.output_file])
-    logging.debug('Executing: {0}'.format(cmd))
+    logging.debug('Executing: "%s"', cmd)
     status = execute_command(cmd)
     return status
 
@@ -1496,14 +1509,14 @@ def run_l2extract(proc):
         start_line, end_line, start_pixel, end_pixel = get_extract_params(proc)
         if (start_line is None) or (end_line is None) or (start_pixel is None) \
            or (end_pixel is None):
-            err_msg = "Error! Could not compute coordinates for l2extract."
+            err_msg = 'Error! Could not compute coordinates for l2extract.'
             log_and_exit(err_msg)
         l2extract_prog = os.path.join(proc.ocssw_bin, 'l2extract')
         l2extract_cmd = ' '.join([l2extract_prog, proc.input_file,
                                   str(start_pixel), str(end_pixel),
                                   str(start_line), str(end_line), '1', '1',
                                   proc.output_file])
-        logging.debug('Executing l2extract command: {0}'.format(l2extract_cmd))
+        logging.debug('Executing l2extract command: "%s"', l2extract_cmd)
         status = execute_command(l2extract_cmd)
         return status
     else:
@@ -1529,7 +1542,7 @@ def run_l2gen(proc):
     args = 'par=' + par_name
     l2gen_cmd = ' '.join([l2gen_prog, args])
     if cfg_data.verbose or DEBUG:
-        logging.debug('l2gen cmd: ' + l2gen_cmd)
+        logging.debug('l2gen cmd: %s', l2gen_cmd)
     return execute_command(l2gen_cmd)
 
 def run_l2mapgen(proc):
@@ -1542,7 +1555,7 @@ def run_l2mapgen(proc):
         args += ' ' + key + '=' + proc.par_data[key]
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
-    logging.debug('Executing: {0}'.format(cmd))
+    logging.debug('Executing: "%s"', cmd)
     status = execute_command(cmd)
     logging.debug("l2mapgen run complete with status " + str(status))
     if status == 110:
@@ -1565,7 +1578,7 @@ def run_l3bin(proc):
     for key in proc.par_data:
         args += ' ' + key + '=' + proc.par_data[key]
     cmd = ' '.join([prog, args])
-    logging.debug('Executing l3bin command: "{0}"'.format(cmd))
+    logging.debug('Executing l3bin command: "%s"', cmd)
     return execute_command(cmd)
 
 def run_modis_geo(proc):
@@ -1585,7 +1598,7 @@ def run_modis_l1a(proc):
     """
     prog = os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_L1A.py')
     args = proc.input_file
-    args +=  ' --output=' + proc.output_file
+    args += ' --output=' + proc.output_file
     args += get_options(proc.par_data)
     cmd = ' '.join([prog, args])
     logging.debug("\nRunning: " + cmd)
@@ -1607,7 +1620,7 @@ def run_modis_l1b(proc):
     logging.debug("\nRunning: " + cmd)
     return execute_command(cmd)
 
-def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
+def run_nonbatch_processor(ndx, processors, file_set):
     """
     Run a processor which deals with single input files (or pairs of files in
     the case of MODIS L1B processing in which GEO files are also needed).
@@ -1656,10 +1669,13 @@ def run_nonbatch_processor(ndx, processors, input_file_type_data, file_set):
         proc_status = processors[ndx].execute()
 
         if proc_status:
+            output_file = None
             msg = "Error! Status {0} was returned during {1} {2} processing.".\
                   format(proc_status, processors[ndx].instrument,
                          processors[ndx].target_type)
-            log_and_exit(msg)
+            # log_and_exit(msg)
+            logging.info(msg)
+            # Todo: remove the failed file from future processing
     elif not cfg_data.use_existing:
         log_and_exit('Error! Target file {0} already exists.'.\
                      format(output_file))

@@ -2,6 +2,7 @@
 Routines to parse file metadata.
 
 """
+import tarfile
 
 import modules.DictUtils as du
 import os
@@ -64,6 +65,19 @@ def is_ascii_file(filename):
     else:
         err_msg = 'Error!  Unable to run the file command.'
         sys.exit(err_msg)
+
+def is_tar_file(file_path):
+    """
+    Returns a boolean telling if the file is a tar archive file.
+    """
+    is_tar = False
+    try:
+        test_tar_obj = tarfile.TarFile(file_path)
+        is_tar = True
+        test_tar_obj.close()
+    except:
+        pass
+    return is_tar
 
 # Todo: implement the function below.
 #def is_hdf5_file(filename):
@@ -351,4 +365,3 @@ def prune_odl(metadict):
                              'ADDITIONALATTRIBUTENAME', 'INFORMATIONCONTENT')
     du.flatten_dict(metadict)
     return
-

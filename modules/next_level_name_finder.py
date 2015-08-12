@@ -47,10 +47,20 @@ def find_extension(format_data_list, search_term):
     except ValueError:
         # ... or a matching format name?
         tuple_index = 1
+    # format_index = None
     # Use a generator to find the match.
     format_index = next((i for i, t in enumerate(format_data_list) if format_data_list[i][tuple_index].lower() == search_term.lower()), None)
-    if format_index and (format_index < len(format_data_list)):
+    # for ndx, ext_candidate in enumerate(format_data_list):
+    #     if search_term.lower() == ext_candidate[tuple_index].lower():
+    #         format_index = ndx
+    #         break
+    if (format_index != None) and (format_index < len(format_data_list)):
         extension = format_data_list[format_index][2]
+    else:
+        for ext_candidate in format_data_list:
+            if search_term.lower() == ext_candidate[2].lower():
+                extension = ext_candidate[2]
+                break
     return extension
 
 def _get_days_diff(day1, day2):
@@ -737,10 +747,11 @@ class NextLevelNameFinder(object):
             extension = '.L3m_DAY'
             smi_name = '{0}{1:04d}{2:03d}{3}{4}'.format(first_char, syear, sday,
                                                   extension, suite)
-        elif days_diff == 7:
-            extension = '.L3m_8D'
         else:
-            extension = '.L3m_CU'
+            if days_diff == 7:
+                extension = '.L3m_8D'
+            else:
+                extension = '.L3m_CU'
             smi_name = '{0}{1:04d}{2:03d}{3:04d}{4:03d}{5}{6}'.format(
                        first_char, syear, sday, eyear, eday, extension, suite)
         if self.suite:

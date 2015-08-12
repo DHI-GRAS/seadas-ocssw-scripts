@@ -3,7 +3,7 @@
 """
 A class for determining the OBPG type of a file.
 """
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 
 __author__ = 'melliott'
 
@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import tarfile
 import time
 import modules.time_utils
 
@@ -64,7 +65,14 @@ class ObpgFileTyper(object):
         values for several thing still to be found.
         """
         if os.path.exists(fpath):
-            self.file_path = fpath
+            if modules.MetaUtils.is_tar_file(fpath):
+                # self.file_path = self._extract_viirs_sdr(fpath)
+                self._extract_viirs_sdr(fpath)
+                if not self.file_path:
+                    err_msg = "Error! Cannot process file {0}.".format(fpath)
+                    sys.exit(err_msg)
+            else:
+                self.file_path = fpath
             self.file_type = 'unknown'
             self.instrument = 'unknown'
             self.start_time = 'unknown'
@@ -133,6 +141,24 @@ class ObpgFileTyper(object):
         secs = int(dt_str[15:17])
         dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
+
+    def _extract_viirs_sdr(self, tar_path):
+        self.file_path = None
+        try:
+            # orig_path = os.getcwd()
+            tar_file = tarfile.TarFile(tar_path)
+            tar_members = tar_file.getnames()
+            for mbr in tar_members:
+                if mbr.startswith('SVM01'):
+                    mbr_info = tar_file.getmember(mbr)
+                    tar_file.extractall(members=[mbr_info], path='/tmp')
+                    self.file_path = os.path.join('/tmp', mbr)
+                    break
+            tar_file.close()
+        except:
+            exc_info = sys.exc_info()
+            for item in exc_info:
+                print str(item)
 
     def _get_data_from_anc_attributes(self):
         """
@@ -771,23 +797,24 @@ def main():
 
     if len(args) > 0:
         for arg in args:
-            file_typer = ObpgFileTyper(arg)
+            fname = arg
+            file_typer = ObpgFileTyper(fname)
             (obpg_file_type, instrument) = file_typer.get_file_type()
             output = ''
             if obpg_file_type == 'unknown':
                 if instrument != 'unknown':
-                    output = '{0}: {1}: unknown'.format(os.path.basename(arg),
-                                                        instrument)
+                    output = '{0}: {1}: unknown'.format(
+                                            os.path.basename(fname), instrument)
                 else:
                     output = '{0}: unknown: unknown'.format(
-                                os.path.basename(arg))
+                                os.path.basename(fname))
             else:
                 if instrument != 'unknown':
-                    output = '{0}: {1}: {2}'.format(os.path.basename(arg), 
+                    output = '{0}: {1}: {2}'.format(os.path.basename(fname),
                                                     instrument, obpg_file_type)
                 else:
-                    output = '{0}: unknown: {1}'.format(os.path.basename(arg), 
-                                                        obpg_file_type)
+                    output = '{0}: unknown: {1}'.format(
+                                        os.path.basename(fname), obpg_file_type)
             if opts.times:
                 if obpg_file_type != 'unknown' and instrument != 'unknown':
                     start_time, end_time = file_typer.get_file_times()
