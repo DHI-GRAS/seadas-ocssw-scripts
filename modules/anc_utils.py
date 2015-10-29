@@ -423,6 +423,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         import ProcUtils
         import sys
         import httplib
+        from urlparse import urlparse
 
         FILES = []
         for f in (self.files.keys()):
@@ -436,7 +437,15 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         dl_msg = 1
 
-        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        proxy=None
+        proxy_set = os.environ.get('http_proxy')
+        if proxy_set:
+            proxy = urlparse(proxy_set)
+
+        if proxy is None:
+            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         for FILE in FILES:
             year = FILE[1:5]

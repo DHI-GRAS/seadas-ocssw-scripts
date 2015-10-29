@@ -41,6 +41,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
     import re
     import shutil
     import socket
+    from urlparse import urlparse
 
     from time import sleep
 
@@ -50,10 +51,24 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
         os.umask(002)
         os.makedirs(localpath, mode=02775)
 
-    if urlConn is None:
-        urlConn = httplib.HTTPConnection(url,timeout=timeout)
+    proxy = None
+    proxy_set = os.environ.get('http_proxy')
+    if proxy_set:
+        proxy = urlparse(proxy_set)
 
-    req = urlConn.request('GET',request, headers=reqHeaders)
+    if urlConn is None:
+        if proxy is None:
+            urlConn = httplib.HTTPConnection(url,timeout=timeout)
+        else:
+	    urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=timeout)
+
+    if proxy is None:
+        full_request = request
+    else:
+        full_request = ''.join(['http://',url,request])
+
+    req = urlConn.request('GET',full_request, headers=reqHeaders)
+
     status = 0
     response = None
     try:
@@ -67,7 +82,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
                 if verbose:
                     print "Connection interrupted, retrying up to %d more time(s)" % ntries
                 sleep(sleepytime)
-                status = httpdl(url,request, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
+                status = httpdl(url,request, localpath=localpath, outputfilename=outputfilename, ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
             else:
                 print 'We failed to reach a server.'
                 print 'Please retry this request at a later time.'
@@ -83,7 +98,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
             if verbose:
                 print "Connection error, retrying up to %d more time(s)" % ntries
             sleep(sleepytime)
-            status = httpdl(url, request, localpath=localpath, ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
+            status = httpdl(url, request, localpath=localpath, outputfilename=outputfilename,  ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
         else:
             print 'URL attempted: %s' % url
             print 'Well, this is embarrassing...an error occurred that we just cannot get past...'
@@ -127,8 +142,9 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
                     print bytestr, sleepytime
                     urlConn.close()
                     sleep(sleepytime)
-                    status = httpdl(url, request, localpath=localpath, timeout=timeout, uncompress=uncompress,
-                        reqHeaders=reqHeader, reuseConn=reuseConn, urlConn=None, verbose=verbose)
+                    status = httpdl(url, request, localpath=localpath, outputfilename=outputfilename,
+                        timeout=timeout, uncompress=uncompress, reqHeaders=reqHeader,
+                        reuseConn=reuseConn, urlConn=None, verbose=verbose)
             
             if not reuseConn:
                 urlConn.close()

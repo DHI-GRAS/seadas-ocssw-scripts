@@ -3,6 +3,7 @@ import re
 from shutil import copyfile
 import ProcUtils as ProcUtils
 import httplib
+from urlparse import urlparse
 
 class lut_utils:
     def __init__(self, mission=None, verbose=False, curdir=False, ancdir=None, timeout=10):
@@ -28,7 +29,16 @@ class lut_utils:
         """
         update the aquarius luts
         """
-        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        proxy = None
+        proxy_set = os.environ.get('http_proxy')
+        if proxy_set:
+            proxy = urlparse(proxy_set)
+
+        if proxy is None:
+            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+
         if self.verbose: print "[ Aquarius ]"
         # Get most recent version from local disk
         outputdir = os.path.join(self.dirs['var'], 'aquarius')
@@ -70,8 +80,15 @@ class lut_utils:
         """
         update the SeaWiFS elements.dat and time_anomaly files
         """
-        
-        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        proxy = None
+        proxy_set = os.environ.get('http_proxy')
+        if proxy_set:
+            proxy = urlparse(proxy_set)
+
+        if proxy is None:
+            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         if self.verbose: print "[ SeaWiFS ]"
 
@@ -107,7 +124,15 @@ class lut_utils:
         """
         update the calibration LUTs, utcpole.dat and leapsec.dat files
         """
-        urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        proxy = None
+        proxy_set = os.environ.get('http_proxy')
+        if proxy_set:
+            proxy = urlparse(proxy_set)
+
+        if proxy is None:
+            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         msn = {'aqua': 'modisa', 'terra': 'modist', 'viirsn': 'viirsn'}
 
