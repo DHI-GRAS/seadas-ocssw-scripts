@@ -22,6 +22,7 @@ if __name__ == "__main__":
     download = True
     ancdir = None
     ancdb = 'ancillary_data.db'
+    curdir = False
     geothresh = 95
     log = False
     verbose = False
@@ -59,6 +60,8 @@ if __name__ == "__main__":
                       "ANCDB is assumed (or will be created) under the " \
                       "current working directory"
     parser.add_option("--ancdb", dest='ancdb', help=ancdb_help_text, metavar="ANCDB")
+    parser.add_option("-c", "--curdir", action="store_true", dest='curdir',
+        default=False, help="Download ancillary files directly into current working directory")
     parser.add_option("--threshold", dest='geothresh',
         help="% of geo-populated pixels required to pass geocheck validation test", metavar="THRESHOLD")
     parser.add_option("-r", "--refreshDB", action="store_true", dest='refreshDB',
@@ -102,6 +105,8 @@ if __name__ == "__main__":
         ancdir = options.ancdir
     if options.ancdb:
         ancdb = options.ancdb
+    if options.curdir:
+        curdir = options.curdir
     if options.refreshDB:
         refreshDB = options.refreshDB
     if options.download is False:
@@ -130,6 +135,7 @@ if __name__ == "__main__":
         terrain=dem,
         geothresh=geothresh,
         ancdir=ancdir,
+        curdir=curdir,
         ancdb=ancdb,
         refreshDB=refreshDB,
         download=download,

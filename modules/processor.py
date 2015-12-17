@@ -18,6 +18,8 @@ class Processor(object):
     #def __init__(self, instr, src, ruleset, target_type, targt=''):
     def __init__(self, instr, ruleset, program, par_data, out_dir):
 
+        self.input_file = None
+        self.geo_file = None
         self.par_data = par_data
         self.instrument = instr
         self.target_type = program

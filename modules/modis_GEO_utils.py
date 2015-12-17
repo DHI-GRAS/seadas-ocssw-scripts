@@ -17,6 +17,7 @@ class modis_geo:
                  sensor=None,
                  anc_file=None,
                  ancdir=None,
+                 curdir=False,
                  ancdb='ancillary_data.db',
                  refreshDB=False,
                  lutver=None,
@@ -44,7 +45,7 @@ class modis_geo:
         self.lutdir = lutdir
         self.log = log
         self.proctype = 'modisGEO'
-        self.curdir = False
+        self.curdir = curdir
         self.pcf_file = None
         self.verbose = verbose
         self.dirs = {}
@@ -200,6 +201,7 @@ class modis_geo:
                 atteph=True,
                 ancdb=self.ancdb,
                 ancdir=self.ancdir,
+                curdir=self.curdir,
                 refreshDB=self.refreshDB,
                 sensor=self.sensor,
                 start=self.start,

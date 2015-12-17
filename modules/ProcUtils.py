@@ -50,7 +50,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
     if not os.path.exists(localpath):
         os.umask(002)
         os.makedirs(localpath, mode=02775)
-
+    
     proxy = None
     proxy_set = os.environ.get('http_proxy')
     if proxy_set:
@@ -66,7 +66,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
         full_request = request
     else:
         full_request = ''.join(['http://',url,request])
-
+   
     req = urlConn.request('GET',full_request, headers=reqHeaders)
 
     status = 0
@@ -142,8 +142,8 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
                     print bytestr, sleepytime
                     urlConn.close()
                     sleep(sleepytime)
-                    status = httpdl(url, request, localpath=localpath, outputfilename=outputfilename,
-                        timeout=timeout, uncompress=uncompress, reqHeaders=reqHeader,
+                    status = httpdl(url, request, localpath=localpath, outputfilename=outputfilename, 
+                        timeout=timeout, uncompress=uncompress, reqHeaders=reqHeader, 
                         reuseConn=reuseConn, urlConn=None, verbose=verbose)
             
             if not reuseConn:

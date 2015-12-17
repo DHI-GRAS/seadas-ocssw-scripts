@@ -65,7 +65,7 @@ class ObpgFileTyper(object):
         values for several thing still to be found.
         """
         if os.path.exists(fpath):
-            if modules.MetaUtils.is_tar_file(fpath):
+            if tarfile.is_tarfile(fpath):
                 # self.file_path = self._extract_viirs_sdr(fpath)
                 self._extract_viirs_sdr(fpath)
                 if not self.file_path:
@@ -513,7 +513,10 @@ class ObpgFileTyper(object):
         else:
             self.instrument = self.attributes['SENSOR_ID'].\
                                    strip().strip('"')
-        if self.attributes['DATA_TYPE'].find('L1T') != -1:
+        if self.attributes['DATA_TYPE'].find('L1G') != -1 or \
+           self.attributes['DATA_TYPE'].find('L1GT') != -1 or \
+           self.attributes['DATA_TYPE'].find('L1P') != -1 or \
+           self.attributes['DATA_TYPE'].find('L1T') != -1:
             self.file_type = 'Level 1B'
         else:
             self.file_type = 'Level ' + self.attributes['DATA_TYPE'].\
@@ -664,11 +667,12 @@ class ObpgFileTyper(object):
         """
         start_time = None
         end_time = None
-        if self.instrument.find('SeaWiFS')!= -1 or\
-           self.instrument.find('Aquarius') != -1 or\
-           self.instrument.find('CZCS') != -1 or\
-           self.instrument.find('MOS') != -1 or\
-           self.instrument.find('OSMI') != -1:
+        if self.instrument.find('SeaWiFS')!= -1 or \
+           self.instrument.find('Aquarius') != -1 or \
+           self.instrument.find('CZCS') != -1 or \
+           self.instrument.find('MOS') != -1 or \
+           self.instrument.find('OSMI') != -1 or \
+           self.instrument.find('VIIRS') != -1:
             if 'Start Time' in self.attributes:
                 start_time = self.attributes['Start Time'][0:13]
             elif 'time_coverage_start' in self.attributes:
@@ -843,7 +847,7 @@ KNOWN_SENSORS = ['Aquarius', 'CZCS', 'HICO',
                  'HMODISA', 'HMODIST', 'MERIS', 'MODISA',
                  'MODIS Aqua', 'MODIST', 'MODIS Terra',
                  'MOS', 'OCM2', 'OCTS',
-                 'OSMI','SeaWiFS']
+                 'OSMI','SeaWiFS', 'VIIRS']
 
 if __name__ == '__main__':
     sys.exit(main())

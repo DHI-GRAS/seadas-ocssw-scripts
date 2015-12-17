@@ -441,7 +441,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         proxy_set = os.environ.get('http_proxy')
         if proxy_set:
             proxy = urlparse(proxy_set)
-
+    
         if proxy is None:
             urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
         else:

@@ -89,7 +89,7 @@ class lut_utils:
             urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
         else:
             urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
-
+        
         if self.verbose: print "[ SeaWiFS ]"
 
         # elements.dat

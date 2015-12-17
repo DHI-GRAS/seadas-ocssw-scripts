@@ -6,14 +6,13 @@ OBPG file names, etc.
 
 __author__ = 'melliott'
 
-__version__ = '1.0.3-2015-04-24'
+__version__ = '1.0.4-2015-08-13'
 
 import calendar
 import datetime
 import get_obpg_file_type
 import modules.obpg_data_file as obpg_data_file
 import os
-#import namer_constants
 import modules.ProcUtils as ProcUtils
 import re
 import sys
@@ -47,13 +46,8 @@ def find_extension(format_data_list, search_term):
     except ValueError:
         # ... or a matching format name?
         tuple_index = 1
-    # format_index = None
     # Use a generator to find the match.
     format_index = next((i for i, t in enumerate(format_data_list) if format_data_list[i][tuple_index].lower() == search_term.lower()), None)
-    # for ndx, ext_candidate in enumerate(format_data_list):
-    #     if search_term.lower() == ext_candidate[tuple_index].lower():
-    #         format_index = ndx
-    #         break
     if (format_index != None) and (format_index < len(format_data_list)):
         extension = format_data_list[format_index][2]
     else:
@@ -666,7 +660,8 @@ class NextLevelNameFinder(object):
                           'MODIS Aqua':  'A', 'MODIS Terra': 'T',
                           'MOS': 'M', 'OCM2': 'O2_', 'OCTS': 'O',
                           'OLI': 'L', 'OSMI': 'K',
-                          'SeaWiFS': 'S'}
+                          'SeaWiFS': 'S',
+                          'VIIRS': 'V', 'VIIRSN': 'V'}
 
         if self.data_files[0].sensor in indicator_dict.keys():
             indicator = indicator_dict[self.data_files[0].sensor]

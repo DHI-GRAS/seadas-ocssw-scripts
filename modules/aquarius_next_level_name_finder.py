@@ -5,9 +5,10 @@ output file names for VIIRS files when run through OBPG software.
 
 __author__ = 'melliott'
 
-__version__ = '1.0.2-2015-04-24'
+__version__ = '1.0.3-2015-08-10'
 
-import modules.next_level_name_finder as next_level_name_finder
+# import modules.next_level_name_finder as next_level_name_finder
+import next_level_name_finder
 import re
 import sys
 

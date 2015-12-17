@@ -12,20 +12,22 @@ __author__ = 'melliott'
 #import modis_processor
 
 # import modules.aquarius_next_level_name_finder as aquarius_next_level_name_finder
-import modules.benchmark_timer as benchmark_timer
 import ConfigParser
 import datetime
-import get_obpg_file_type
 import logging
 import optparse
 import os
+import modules.mlp_utils as mlp_utils
+import modules.benchmark_timer as benchmark_timer
+import get_obpg_file_type
 import modules.MetaUtils as MetaUtils
-import modules.next_level_name_finder as next_level_name_finder
 import modules.name_finder_utils as name_finder_utils
+import modules.next_level_name_finder as next_level_name_finder
 import modules.obpg_data_file as obpg_data_file
 import modules.ProcUtils as ProcUtils
 import modules.processor as processor
 import modules.processing_rules as processing_rules
+
 #import product
 import re
 import subprocess
@@ -157,31 +159,33 @@ def build_general_rules():
     """
     rules_dict = {
         'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
-                                                 run_bottom_error, False),
+                                                run_bottom_error, False),
         'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
-                                                 run_l1brsgen, False),
+                                                run_l1brsgen, False),
         'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
-                                                 run_l2brsgen, False),
+                                                run_l2brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
-                                                 run_l1mapgen, False),
+                                                run_l1mapgen, False),
         'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
-                                                 run_l2mapgen, False),
+                                                run_l2mapgen, False),
         #'level 1b': processing_rules.build_rule('level 1b', ['level 1a','geo'],
         #                                    run_l1b, False),
         'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
-                                                 run_l1b, False),
-        'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
-                                              False),
+                                                run_l1b, False),
+        # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
+        #                                      False),
+        'l2gen': processing_rules.build_rule('l2gen', ['level 1a'], run_l2gen,
+                                             False),
         'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
-                                                  run_l2extract, False),
+                                                 run_l2extract, False),
         'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
-                                              True),
+                                             True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
-                                              True),
+                                             True),
        # 'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
        #                                       False)
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
-                                               False)
+                                              False)
     }
     rules_order = ['level 1a', 'l1brsgen', 'l1mapgen', 'level 1b', 'l2gen',
                    'l2extract', 'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
@@ -197,14 +201,14 @@ def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
     par_name = ''.join(['L2_', dt_stamp.strftime('%Y%m%d%H%M%S'), '.par'])
     par_path = os.path.join(cfg_data.hidden_dir, par_name)
     with open(par_path, 'wt') as par_file:
-        par_file.write('# Automatically generated par file\n')
+        par_file.write('# Automatically generated par file for l2gen\n')
         par_file.write('ifile=' + input_file + '\n')
         if not geo_file is None:
             par_file.write('geofile=' + geo_file + '\n')
         par_file.write('ofile=' + output_file + '\n')
         for l2_opt in par_contents:
             if l2_opt != 'ifile' and l2_opt != 'geofile' \
-                                              and not l2_opt in FILE_USE_OPTS:
+                    and not l2_opt in FILE_USE_OPTS:
                 par_file.write(l2_opt + '=' + par_contents[l2_opt] + '\n')
     return par_path
 
@@ -214,37 +218,38 @@ def build_modis_rules():
     """
     rules_dict = {
         'level 0': processing_rules.build_rule('level 0', ['nothing lower'],
-                                                run_bottom_error,  False),
+                                               run_bottom_error, False),
         'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
-                                                 run_modis_l1a, False),
+                                                run_modis_l1a, False),
         'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
-                                                 run_l1brsgen, False),
+                                                run_l1brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
-                                                 run_l1mapgen, False),
+                                                run_l1mapgen, False),
         'geo': processing_rules.build_rule('geo', ['level 1a'], run_modis_geo,
-                                            False),
+                                           False),
         'l1aextract_modis': processing_rules.build_rule('l1aextract_modis',
-                                                    ['level 1a', 'geo'],
-                                                    run_l1aextract_modis,
-                                                    False),
-        'level 1b': processing_rules.build_rule('level 1b', ['level 1a',
-                                                 'geo'], run_modis_l1b, False),
-        'l2gen': processing_rules.build_rule('l2gen', ['level 1b','geo'],
-                                              run_l2gen, False),
+                                                        ['level 1a', 'geo'],
+                                                        run_l1aextract_modis,
+                                                        False),
+        'level 1b': processing_rules.build_rule('level 1b',
+                                                ['level 1a', 'geo'],
+                                                run_modis_l1b, False),
+        'l2gen': processing_rules.build_rule('l2gen', ['level 1b', 'geo'],
+                                             run_l2gen, False),
         'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
-                                                  run_l2extract, False),
+                                                 run_l2extract, False),
         'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
-                                                 run_l2brsgen, False),
+                                                run_l2brsgen, False),
         'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
-                                                 run_l2mapgen, False),
+                                                run_l2mapgen, False),
         'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
-                                              True),
+                                             True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
-                                              True),
-#        'smigen': processing_rules.build_rule('smigen', ['l3bin'], False,
-#                                              run_smigen)
+                                             True),
+       # 'smigen': processing_rules.build_rule('smigen', ['l3bin'], False,
+       #                                       run_smigen)
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
-                                               False)
+                                              False)
     }
     rules_order = ['level 0', 'level 1a', 'l1brsgen', 'l1mapgen', 'geo',
                    'l1aextract_modis', 'level 1b', 'l2gen', 'l2extract',
@@ -258,35 +263,35 @@ def build_seawifs_rules():
     """
     rules_dict = {
         'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
-                                           run_bottom_error, False),
+                                                run_bottom_error, False),
         'l1aextract_seawifs': processing_rules.build_rule('l1aextract_seawifs',
-                                                      ['level 1a'],
-                                                      run_l1aextract_seawifs,
-                                                      False),
+                                                           ['level 1a'],
+                                                           run_l1aextract_seawifs,
+                                                           False),
         'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
-                                           run_l1brsgen, False),
+                                                run_l1brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
-                                           run_l1mapgen, False),
+                                                run_l1mapgen, False),
         'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
-                                           run_l1b, False),
+                                                run_l1b, False),
         # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
         #                                       False),
         'l2gen': processing_rules.build_rule('l2gen', ['level 1a'], run_l2gen,
-                                              False),
+                                             False),
         'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
-                                                  run_l2extract, False),
+                                                 run_l2extract, False),
         'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
-                                                 run_l2brsgen, False),
+                                                run_l2brsgen, False),
         'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
-                                                 run_l2mapgen, False),
+                                                run_l2mapgen, False),
         'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
-                                              True),
+                                             True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
-                                              True),
+                                             True),
 #        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
 #                                              False)
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
-                                               False)
+                                              False)
     }
     rules_order = ['level 1a', 'l1aextract_seawifs', 'l1brsgen',
                    'l1mapgen', 'level 1b', 'l2gen', 'l2extract',
@@ -294,12 +299,41 @@ def build_seawifs_rules():
     rules = processing_rules.RuleSet("SeaWiFS Rules", rules_dict, rules_order)
     return rules
 
+def build_viirs_rules():
+    """
+    Builds and returns the VIIRS rules set. (incomplete)
+    """
+    # todo: finish this
+    rules_dict = {
+        'level 1b': processing_rules.build_rule('level 1b',
+                                                ['nothing lower'],
+                                                run_bottom_error, False),
+        'l2gen': processing_rules.build_rule('l2gen', ['level 1b'],
+                                             run_l2gen_viirs, True),
+        'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
+                                                 run_l2extract, False),
+        'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
+                                                run_l2brsgen, False),
+        'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
+                                                run_l2mapgen, False),
+        'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
+                                             True),
+        'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
+                                             True),
+        'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
+                                              False)
+    }
+    rules_order = ['level 1b', 'l2gen', 'l2extract', 'l2brsgen',
+                   'l2mapgen', 'l2bin', 'l3bin', 'smigen']
+    rules = processing_rules.RuleSet('VIIRS Rules', rules_dict, rules_order)
+    return rules
+
 def build_rules():
     """
     Build the processing rules.
     """
     rules = dict(general=build_general_rules(), modis=build_modis_rules(),
-                 seawifs=build_seawifs_rules())
+                 seawifs=build_seawifs_rules(), viirs=build_viirs_rules())
     return rules
 
 def check_options(options):
@@ -362,7 +396,7 @@ def create_levels_list(rules_sets):
     Returns a list containing all the levels from all the rules sets.
     """
     set_key = rules_sets.keys()[0]
-
+    logging.debug('set_key = %s' % (set_key))
     lvls_lst = [(lvl, [set_key]) for lvl in rules_sets[set_key].order[1:]]
     for rules_set_name in rules_sets.keys()[1:]:
         for lvl_name in rules_sets[rules_set_name].order[1:]:
@@ -371,7 +405,10 @@ def create_levels_list(rules_sets):
                 lvls_lst[names_list.index(lvl_name)][1].append(rules_set_name)
             else:
                 prev_ndx = rules_sets[rules_set_name].order.index(lvl_name) - 1
-                ins_ndx = names_list.index(rules_sets[rules_set_name].order[prev_ndx]) + 1
+                if rules_sets[rules_set_name].order[prev_ndx] in names_list:
+                    ins_ndx = names_list.index(rules_sets[rules_set_name].order[prev_ndx]) + 1
+                else:
+                    ins_ndx = 0
                 lvls_lst.insert(ins_ndx, (lvl_name, [rules_set_name]))
     return lvls_lst
 
@@ -515,8 +552,11 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
         tar_file = tarfile.open(cfg_data.tar_filename, 'w')
     proc_name_list = ', '.join([p.target_type for p in processors])
     print '{0}: {1} processors to run: {2}'.format(cfg_data.prog_name,
-                                                       len(processors),
-                                                       proc_name_list)
+                                                   len(processors),
+                                                   proc_name_list)
+    if 'geofile' in par_contnts['main']:
+        for proc in processors:
+            proc.geo_file = par_contnts['main']['geofile']
     sys.stdout.flush()
     try:
         for ndx, proc in enumerate(processors):
@@ -580,13 +620,11 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
             if cfg_data.timing:
                 proc_timer.end()
                 timing_msg = 'Time for {0} process: {1}'.format(
-                             proc.target_type, proc_timer.get_total_time_str())
+                    proc.target_type, proc_timer.get_total_time_str())
                 print timing_msg
                 logging.info(timing_msg)
             print '{0}: processor {1} of {2} complete.'.format(
-                                                            cfg_data.prog_name,
-                                                            ndx + 1,
-                                                            len(processors))
+                cfg_data.prog_name, ndx + 1, len(processors))
             sys.stdout.flush()
             logging.debug('Processing complete for "%s".', proc.target_type)
     except Exception:
@@ -618,7 +656,8 @@ def execute_command(command):
     if DEBUG:
         print "Entering execute_command, cfg_data.verbose =", \
                cfg_data.verbose
-
+        log_msg = 'Executing command:\n  {0}'.format(command)
+        logging.debug(log_msg)
     subproc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     std_out, err_out = subproc.communicate()
@@ -649,6 +688,17 @@ def find_geo_file(inp_file):
     geo_file = os.path.join(src_dir, geo_base + '.GEO')
     if os.path.exists((geo_file)):
         return geo_file
+    else:
+        return None
+
+def find_viirs_geo_file(proc, first_svm_file):
+    """
+    Searches for a GEO file corresponding to first_svm_file.  If that GEO file
+    exists, returns that file name; otherwise, returns None.
+    """
+    fname = first_svm_file.replace('SVM01', 'GMTCO').rstrip()
+    if os.path.exists(fname):
+        return fname
     else:
         return None
 
@@ -698,7 +748,7 @@ def get_data_file_option(par_contents, opt_text):
     opt_found = False
     if opt_text in par_contents['main']:
         opt_str = par_contents['main'][opt_text].upper()
-        opt_found = is_option_value_true(opt_str)
+        opt_found = mlp_utils.is_option_value_true(opt_str)
     return opt_found
 
 def get_extract_params(proc):
@@ -806,6 +856,7 @@ def get_input_files_type_data(input_files_list):
         'level 1 browse data': 'l1brsgen',
         'level 1a': 'level 1a',
         'level 1b': 'level 1b',
+        'sdr': 'level 1b',
         'level 2': 'l2gen',
         'level 3 binned': 'l3bin',
         'level 3 smi': 'smigen'
@@ -828,6 +879,7 @@ def get_input_files_type_data(input_files_list):
             file_type = converter[file_type.lower()]
             input_file_type_data[inp_file] = (file_type, file_instr.lower())
         else:
+
         #     input_file_type_data[inp_file] = ('unknown', 'unknown')
             warn_msg = "Warning: Unable to determine a type for file {0}.  It will not be processed.".format(inp_file)
             print warn_msg
@@ -1104,7 +1156,7 @@ def get_source_file_sets(proc_src_types, source_files, src_key):
                 else:
                     err_msg = 'Error! Cannot find all {0} and' \
                               ' {1} source files.'.format(proc_src_types[0],
-                                                            proc_src_types[1])
+                                                          proc_src_types[1])
                     log_and_exit(err_msg)
             elif proc_src_types[1] in source_files:
                 if proc_src_types[0] == 'geo':
@@ -1123,7 +1175,7 @@ def get_source_file_sets(proc_src_types, source_files, src_key):
                 else:
                     err_msg = 'Error! Cannot find all {0} and' \
                               ' {1} source files.'.format(proc_src_types[0],
-                                                            proc_src_types[1])
+                                                          proc_src_types[1])
                     log_and_exit(err_msg)
             else:
                 err_msg = 'Error! Cannot find all source files.'
@@ -1176,15 +1228,7 @@ def get_traceback_message():
                                 err_type, exc_parts[1], line_num.strip())
     return msg
 
-def is_option_value_true(opt_val_str):
-    """
-    Returns True if opt_val_str is one the various possible values that OBPG
-    programs accept as true.
-    """
-    opt_val = False
-    if opt_val_str in TRUTH_VALUES:
-        opt_val = True
-    return opt_val
+
 
 def log_and_exit(error_msg):
     """
@@ -1231,7 +1275,7 @@ def main():
                     do_processing(rules_sets, args[0])
                     main_timer.end()
                     timing_msg = 'Total processing time: {0}'.format(
-                                    str(main_timer.get_total_time_str()))
+                        str(main_timer.get_total_time_str()))
                     print timing_msg
                     logging.info(timing_msg)
                 else:
@@ -1276,7 +1320,8 @@ def process_command_line(cl_parser):
     cl_parser.add_option('-t', '--tar', type=str, dest='tar_file',
                          help=optparse.SUPPRESS_HELP)
     cl_parser.add_option('--timing', dest='timing', action='store_true',
-                         default=False, help='report time required to run each program and total')
+                         default=False,
+                         help='report time required to run each program and total')
     cl_parser.add_option('--use_existing', action='store_true',
                          dest='use_existing', default=False,
                          help='use files which already exist (default = stop processing if file already exists)')
@@ -1319,34 +1364,32 @@ def run_batch_processor(ndx, processors, file_set):
     Run a processor, e.g. l2bin, which processes batches of files.
     """
     logging.debug('in run_batch_processor, ndx = %d', ndx)
-    timestamp = time.strftime('%Y%m%d_%H%M%S', time.gmtime(time.time()))
-    file_list_name = cfg_data.hidden_dir + os.sep + 'files_' + \
-                     processors[ndx].target_type + '_' + timestamp + '.lis'
-    with open(file_list_name, 'wt') as file_list:
-        for fname in file_set:
-            file_list.write(fname + '\n')
-    processors[ndx].input_file = file_list_name
+    if tarfile.is_tarfile(file_set[0]):
+        processors[ndx].input_file = file_set[0]
+    else:
+        timestamp = time.strftime('%Y%m%d_%H%M%S', time.gmtime(time.time()))
+        file_list_name = cfg_data.hidden_dir + os.sep + 'files_' + \
+                         processors[ndx].target_type + '_' + timestamp + '.lis'
+        with open(file_list_name, 'wt') as file_list:
+            for fname in file_set:
+                file_list.write(fname + '\n')
+        processors[ndx].input_file = file_list_name
     data_file_list = []
+    finder_opts = {}
     for fspec in file_set:
         dfile = get_obpg_data_file_object(fspec)
         data_file_list.append(dfile)
     if 'suite' in processors[ndx].par_data:
-        suite = processors[ndx].par_data['suite']
+        finder_opts['suite'] = processors[ndx].par_data['suite']
     elif 'prod' in processors[ndx].par_data:
-        suite = processors[ndx].par_data['prod']
-    else:
-        suite = None
+        finder_opts['suite'] = processors[ndx].par_data['prod']
     if 'resolution' in processors[ndx].par_data:
-        resolution = processors[ndx].par_data['resolution']
-    else:
-        resolution = None
+        finder_opts['resolution'] = processors[ndx].par_data['resolution']
     if 'oformat' in processors[ndx].par_data:
-        oformat = processors[ndx].par_data['oformat']
-    else:
-        oformat = None
-    name_finder = next_level_name_finder.NextLevelNameFinder(data_file_list,
+        finder_opts['oformat'] = processors[ndx].par_data['oformat']
+    name_finder = name_finder_utils.get_level_finder(data_file_list,
                                                     processors[ndx].target_type,
-                                                    suite, resolution, oformat)
+                                                    finder_opts)
     processors[ndx].output_file = os.path.join(processors[ndx].out_directory,
                                               name_finder.get_next_level_name())
     if DEBUG:
@@ -1354,7 +1397,7 @@ def run_batch_processor(ndx, processors, file_set):
                   format(processors[ndx].target_type,
                          processors[ndx].input_file,
                          processors[ndx].output_file)
-        logging.debug
+        logging.debug(log_msg)
     processors[ndx].execute()
     return processors[ndx].output_file
 
@@ -1400,9 +1443,9 @@ def run_l1aextract_seawifs(proc):
             log_and_exit(err_msg)
         l1aextract_prog = os.path.join(proc.ocssw_bin, 'l1aextract_seawifs')
         l1aextract_cmd = ' '.join([l1aextract_prog, proc.input_file,
-                                  str(start_pixel), str(end_pixel),
-                                  str(start_line), str(end_line), '1', '1',
-                                  proc.output_file])
+                                   str(start_pixel), str(end_pixel),
+                                   str(start_line), str(end_line), '1', '1',
+                                   proc.output_file])
         logging.debug('Executing l1aextract_seawifs command: "%s"',
                       l1aextract_cmd)
         status = execute_command(l1aextract_cmd)
@@ -1495,7 +1538,7 @@ def run_l2brsgen(proc):
     prog = os.path.join(proc.ocssw_bin, 'l2brsgen')
     opts = get_options(proc.par_data)
     cmd = ' '.join([prog, opts, 'ifile='+proc.input_file,
-                   'ofile=' + proc.output_file])
+                    'ofile=' + proc.output_file])
     logging.debug('Executing: "%s"', cmd)
     status = execute_command(cmd)
     return status
@@ -1529,7 +1572,7 @@ def run_l2gen(proc):
     """
     if cfg_data.get_anc:
         getanc_prog = os.path.join(proc.ocssw_root, 'run/scripts',
-                                    'getanc.py')
+                                   'getanc.py')
         getanc_cmd = ' '.join([getanc_prog, proc.input_file])
         logging.debug('running getanc command: ' + getanc_cmd)
         execute_command(getanc_cmd)
@@ -1539,11 +1582,53 @@ def run_l2gen(proc):
               format(proc.rule_set.rules[proc.target_type].action)
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
+    print("L2GEN_FILE=" + proc.output_file)
+    with open('_mp_l2gen_file.out', 'wt') as tmp_file:
+        tmp_file.write(proc.output_file)
+
     args = 'par=' + par_name
     l2gen_cmd = ' '.join([l2gen_prog, args])
     if cfg_data.verbose or DEBUG:
         logging.debug('l2gen cmd: %s', l2gen_cmd)
     return execute_command(l2gen_cmd)
+
+def run_l2gen_viirs(proc):
+    """
+    Set up VIIRS' l2gen processing.
+    """
+    file_names = []
+    if tarfile.is_tarfile(proc.input_file):
+        tar_obj = tarfile.TarFile(proc.input_file)
+        file_names = tar_obj.getnames()
+        tar_obj.extractall()
+    elif MetaUtils.is_ascii_file(proc.input_file):
+        with open (proc.input_file, 'rt') as in_file:
+            file_names = in_file.readlines()
+    elif re.match('^SVM\d\d_npp_d\d\d\d\d\d\d\d\_.*\.h5', proc.input_file):
+        file_names = [proc.input_file]
+    if len(file_names) > 0:
+        for fname in file_names:
+            if not re.match('^GMTCO_npp_d.*\.h5', fname) and \
+                not re.match('^SVM\d\d_npp_d\d\d\d\d\d\d\d.*\.h5', fname):
+                file_names.remove(fname)
+        file_names.sort()
+        if re.match('^GMTCO_npp_d.*\.h5', file_names[0]):
+            geo_file = file_names[0]
+            first_svm_file = file_names[1]
+        elif proc.geo_file:
+            first_svm_file = file_names[0]
+            geo_file = proc.geo_file
+        else:
+            first_svm_file = file_names[0]
+            geo_file = find_viirs_geo_file(proc, first_svm_file)
+            if not geo_file:
+                err_msg = 'Error! Unable to find geofile for {0}.'.\
+                          format(first_svm_file)
+                sys.exit(err_msg)
+        new_proc = proc
+        new_proc.input_file = first_svm_file
+        new_proc.geo_file = geo_file
+        run_l2gen(new_proc)
 
 def run_l2mapgen(proc):
     """
@@ -1649,8 +1734,8 @@ def run_nonbatch_processor(ndx, processors, file_set):
     else:
         cl_opts.oformat = None
     name_finder = name_finder_utils.get_level_finder([dfile],
-                                                    processors[ndx].target_type,
-                                                    cl_opts)
+                                                     processors[ndx].target_type,
+                                                     cl_opts)
     output_file = os.path.join(processors[ndx].out_directory,
                                name_finder.get_next_level_name())
     if DEBUG:
@@ -1697,6 +1782,7 @@ def run_smigen(proc):
     """
     Set up for and perform SMI (Standard Mapped Image) generation.
     """
+    status = None
     prog = os.path.join(proc.ocssw_bin, 'smigen')
     if not os.path.exists(prog):
         print "Error!  Cannot find executable needed for {0}".\
@@ -1724,20 +1810,19 @@ def start_logging(time_stamp):
                               '.log'])
     info_log_path = os.path.join(cfg_data.output_dir, info_log_name)
     debug_log_path = os.path.join(cfg_data.output_dir, debug_log_name)
-    seadas_logger = logging.getLogger()
-    seadas_logger.setLevel(logging.DEBUG)
+    mlp_logger = logging.getLogger()
+    mlp_logger.setLevel(logging.DEBUG)
 
     info_hndl = logging.FileHandler(info_log_path)
     info_hndl.setLevel(logging.INFO)
-    seadas_logger.addHandler(info_hndl)
+    mlp_logger.addHandler(info_hndl)
 
     if DEBUG:
         debug_hndl = logging.FileHandler(debug_log_path)
         debug_hndl.setLevel(logging.DEBUG)
-        seadas_logger.addHandler(debug_hndl)
+        mlp_logger.addHandler(debug_hndl)
     logging.debug('Starting ' + os.path.basename(sys.argv[0]) + ' at ' +
                   datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
 
 def uniqify_list(orig_list):
     """
@@ -1776,8 +1861,8 @@ SUFFIXES = {
     'smigen': 'SMI'
 }
 input_file_data = {}
-TRUTH_VALUES = ['1', 'ON', 'on', 'TRUE', 'true', 'YES', 'yes']
 #verbose = False
+
 
 if __name__ == "__main__":
     sys.exit(main())
