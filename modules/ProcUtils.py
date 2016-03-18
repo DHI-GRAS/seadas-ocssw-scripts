@@ -35,7 +35,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
         urlConn - existing httplib.connection (needed if reuseConn set, default None)
         verbose - get chatty about connection issues (boolean, default False) 
     """
-    global file
+    global ofile
     import httplib
     import os
     import re
@@ -112,20 +112,21 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
     else:
         if response.status == 200  or response.status == 206:
             if outputfilename:
-                file = os.path.join(localpath, outputfilename)
+                ofile = os.path.join(localpath, outputfilename)
             else:
-                file = os.path.join(localpath, getUrlFileName(response,request))
+                ofile = os.path.join(localpath, getUrlFileName(response,request))
 
-            filename = file
+            filename = ofile
             data = response.read()
+
             if response.status == 200:
-                with open(file, 'wb') as file:
-                    file.write(data)
-                file.close()
+                with open(ofile, 'wb') as f:
+                    f.write(data)
+                f.close()
             else:
-                with open(file, 'ab') as file:
-                    file.write(data)
-                file.close()
+                with open(ofile, 'ab') as f:
+                    f.write(data)
+                f.close()
 
             headers = dict(response.getheaders())
             if headers.has_key('content-length'):
@@ -197,7 +198,7 @@ def cleanList(file,parse=None):
     oldfile = os.path.abspath(file)
     newlist = []
     if parse is None:
-        parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5|dat|txt))")
+        parse = re.compile(r"(?<=(\"|\')>)\S+(\.(hdf|h5|dat|txt))")
     if not os.path.exists(oldfile):
         print 'Error: ' + oldfile + ' does not exist'
         sys.exit(1)

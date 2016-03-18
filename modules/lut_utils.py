@@ -53,8 +53,8 @@ class lut_utils:
         # Get remote list of files and download if necessary
         # OPER
         status = ProcUtils.httpdl(
-            self.data_site, "/Ancillary/LUTs/aquarius/index.html",
-            localpath=outputdir, timeout=self.timeout,reuseConn=True, urlConn=urlConn, verbose=self.verbose)
+            self.data_site, "/Ancillary/LUTs/aquarius",
+            localpath=outputdir, outputfilename="index.html", timeout=self.timeout,reuseConn=True, urlConn=urlConn, verbose=self.verbose)
         if status:
             print "Error downloading %s" % '/'.join(
                 [self.data_site, "Ancillary/LUTs/aquarius/"])
@@ -180,14 +180,14 @@ class lut_utils:
             # Get remote list of files and download if necessary
             # OPER
             status = ProcUtils.httpdl(
-                self.data_site , "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER/index.html",
-                localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
+                self.data_site , "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER",
+                localpath=outputdir,outputfilename="index.html", timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "Error downloading %s" % '/'.join(
                     [self.data_site, "Ancillary/LUTs", msn[self.mission], cal, "OPER/"])
                 self.status = 1
 
-            parse = re.compile(r"(?<=\">)\S+(\.(hdf|h5))")
+            parse = re.compile(r"(?<=(\'|\")>)\S+(\.(hdf|h5))")
             operlist = ProcUtils.cleanList(listFile,parse=parse)
             ProcUtils.remove(listFile)
 
@@ -286,8 +286,8 @@ class lut_utils:
             listFile = os.path.join(outputdir, "index.html")
 
             status = ProcUtils.httpdl(
-                self.data_site, "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/EVAL/index.html",
-                localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
+                self.data_site, "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/EVAL",
+                localpath=outputdir, outputfilename="index.html", timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "Error downloading %s" % '/'.join(
                     [self.data_site, "Ancillary/LUTs", msn[self.mission], cal, "EVAL/"])
