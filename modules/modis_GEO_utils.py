@@ -1,15 +1,15 @@
-#! /usr/bin/env python
+ #! /usr/bin/env python
 
 import ProcUtils
 from modules.ParamUtils import ParamProcessing
 
 class modis_geo:
-    
-    def __init__(self,file=file,
+
+    def __init__(self, file=file,
                  parfile=None,
                  geofile=None,
-                 a1=None,a2=None,
-                 e1=None,e2=None,
+                 a1=None, a2=None,
+                 e1=None, e2=None,
                  download=True,
                  entrained=False,
                  terrain=False,
@@ -23,7 +23,8 @@ class modis_geo:
                  lutver=None,
                  lutdir=None,
                  log=False,
-                 verbose=False):
+                 verbose=False,
+                 timeout=10.0):
 
 
         # defaults
@@ -54,6 +55,7 @@ class modis_geo:
         self.start = None
         self.stop = None
         self.anc_file = anc_file
+        self.timeout = timeout
 
         # version-specific variables
         self.collection_id = '006'
@@ -62,7 +64,7 @@ class modis_geo:
 
         if self.parfile:
             print self.parfile
-            p=ParamProcessing(parfile=self.parfile)
+            p = ParamProcessing(parfile=self.parfile)
             p.parseParFile(prog='geogen')
             print p.params
             phash = p.params['geogen']
@@ -74,7 +76,7 @@ class modis_geo:
     def __setitem__(self, index, item):
         self.__dict__[index] = item
 
-    def __getitem__(self,index):
+    def __getitem__(self, index):
         return self.__dict__[index]
 
     def chk(self):
@@ -83,7 +85,7 @@ class modis_geo:
         """
         import os
         import sys
-        
+
         if self.file is None:
             print "ERROR: No MODIS_L1A_file was specified in either the parameter file or in the argument list. Exiting"
             sys.exit(1)
@@ -115,39 +117,41 @@ class modis_geo:
 
     def utcleap(self):
         """
-        Check date of utcpole.dat and leapsec.dat. Download if older than 14 days.
+        Check date of utcpole.dat and leapsec.dat. Download if older than
+        14 days.
         """
         import os
         from ProcUtils import ctime
         import lut_utils as lu
         from setupenv import env
-        l=lu.lut_utils(verbose=self.verbose,mission=self.sat_name)
+        l = lu.lut_utils(verbose=self.verbose, mission=self.sat_name)
         #quiet down a bit...
-        resetVerbose=0
+        resetVerbose = 0
         if l.verbose:
-            resetVerbose=1
-            l.verbose=False
+            resetVerbose = 1
+            l.verbose = False
 
         env(l)
         if resetVerbose:
-            l.verbose=True
-        
-        if not os.path.exists(os.path.join(self.dirs['var'],"modis", "utcpole.dat")) \
-            or not os.path.exists(os.path.join(self.dirs['var'],"modis", "leapsec.dat")):
+            l.verbose = True
+
+        if not os.path.exists(os.path.join(self.dirs['var'], "modis", "utcpole.dat")) \
+            or not os.path.exists(os.path.join(self.dirs['var'], "modis", "leapsec.dat")):
                 if self.verbose:
                     print "** Files utcpole.dat/leapsec.dat are not present on hard disk."
                     print "** Running update_luts.py to download the missing files..."
                 l.update_modis_viirsn()
         else:
-            utc_age = ctime(os.path.join(self.dirs['var'],"modis", "utcpole.dat"))
-            leap_age = ctime(os.path.join(self.dirs['var'],"modis", "leapsec.dat"))
+            utc_age = ctime(os.path.join(self.dirs['var'], "modis",
+                                         "utcpole.dat"))
+            leap_age = ctime(os.path.join(self.dirs['var'], "modis",
+                                          "leapsec.dat"))
             if leap_age > 14 or utc_age > 14:
                 if self.verbose:
                     print "** Files utcpole.dat/leapsec.dat are more than 2w old"
                     print "** Running update_luts to update files..."
                 l.update_modis_viirsn()
-            
-    
+
     def atteph(self):
         """
         Determine and retrieve required ATTEPH files
@@ -157,7 +161,6 @@ class modis_geo:
         import anc_utils as ga
         from setupenv import env
 
-        
         # Check for user specified atteph files
         if self.a1 is not None:
             self.atteph_type = "user_provided"
@@ -166,21 +169,21 @@ class modis_geo:
             self.attdir1 = os.path.abspath(os.path.dirname(self.a1))
             self.ephfile1 = os.path.basename(self.e1)
             self.ephdir1 = os.path.abspath(os.path.dirname(self.e1))
-            
+
             if self.a2 is not None:
                 self.attfile2 = os.path.basename(self.a2)
                 self.attdir2 = os.path.abspath(os.path.dirname(self.a2))
             else:
                 self.attfile2 = "NULL"
                 self.attdir2 = "NULL"
-            
+
             if self.e2 is not None:
                 self.ephfile2 = os.path.basename(self.e2)
                 self.ephdir2 = os.path.abspath(os.path.dirname(self.e2))
             else:
                 self.ephfile2 = "NULL"
                 self.ephdir2 = "NULL"
-            
+
             if self.verbose:
                 print "Using specified attitude and ephemeris files."
                 print ""
@@ -198,26 +201,27 @@ class modis_geo:
             if self.verbose:
                 print "Determining required attitude and ephemeris files..."
             get = ga.getanc(file=self.file,
-                atteph=True,
-                ancdb=self.ancdb,
-                ancdir=self.ancdir,
-                curdir=self.curdir,
-                refreshDB=self.refreshDB,
-                sensor=self.sensor,
-                start=self.start,
-                stop=self.stop,
-                download=self.download,
-                verbose=self.verbose)
+                            atteph=True,
+                            ancdb=self.ancdb,
+                            ancdir=self.ancdir,
+                            curdir=self.curdir,
+                            refreshDB=self.refreshDB,
+                            sensor=self.sensor,
+                            start=self.start,
+                            stop=self.stop,
+                            download=self.download,
+                            verbose=self.verbose,
+                            timeout=self.timeout)
 
             #quiet down a bit...
-            resetVerbose=0
+            resetVerbose = 0
             if get.verbose:
-                resetVerbose=1
-                get.verbose=False
+                resetVerbose = 1
+                get.verbose = False
 
             env(get)
             if resetVerbose:
-                get.verbose=True
+                get.verbose = True
             get.chk()
             if file and get.finddb():
                 get.setup()
@@ -228,7 +232,7 @@ class modis_geo:
             get.locate()
             get.cleanup()
 
-            
+
             self.db_status = get.db_status
             # DB return status bitwise values:
             # 0 - all is well in the world
@@ -257,13 +261,13 @@ class modis_geo:
                 self.kinematic_state = "SDP Toolkit"
                 if get.files.has_key('att1'):
                     self.attfile1 = os.path.basename(get.files['att1'])
-                    self.attdir1  = os.path.dirname(get.files['att1'])
+                    self.attdir1 = os.path.dirname(get.files['att1'])
                 else:
                     print "Missing attitude files!"
                     sys.exit(31)
                 if get.files.has_key('eph1'):
                     self.ephfile1 = os.path.basename(get.files['eph1'])
-                    self.ephdir1  = os.path.dirname(get.files['eph1'])
+                    self.ephdir1 = os.path.dirname(get.files['eph1'])
                 else:
                     print "Missing ephemeris files!"
                     sys.exit(31)
@@ -301,7 +305,7 @@ class modis_geo:
                 if pctmissing is not None:
                     pctvalid = 100 - pctmissing
                     if pctvalid < thresh:
-                        print "Percent valid data (%.2f) is less than threshold (%.2f)" % (pctvalid,thresh)
+                        print "Percent valid data (%.2f) is less than threshold (%.2f)" % (pctvalid, thresh)
                         sys.exit(1)
                     else:
                         if self.verbose:
@@ -324,7 +328,7 @@ class modis_geo:
         if self.verbose:
             print ""
             print "Creating MODIS geolocation file..."
-        geogen = os.path.join(self.dirs['bin'],'geogen_modis')
+        geogen = os.path.join(self.dirs['bin'], 'geogen_modis')
         status = subprocess.call(geogen, shell=True)
         if self.verbose:
             print "geogen_modis returned with exit status: " + str(status)
@@ -353,6 +357,6 @@ class modis_geo:
             if self.log is False:
                 ProcUtils.remove(self.pcf_file)
                 base = os.path.basename(self.geofile)
-                ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogReport', base]))))
-                ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogStatus', base]))))
-                ProcUtils.remove(os.path.join(self.dirs['run'],('.'.join(['LogUser', base]))))
+                ProcUtils.remove(os.path.join(self.dirs['run'], ('.'.join(['LogReport', base]))))
+                ProcUtils.remove(os.path.join(self.dirs['run'], ('.'.join(['LogStatus', base]))))
+                ProcUtils.remove(os.path.join(self.dirs['run'], ('.'.join(['LogUser', base]))))

@@ -200,6 +200,13 @@ class ObpgFileTyper(object):
         for part in title_parts:
             if part in KNOWN_SENSORS:
                 instrument = part
+            else:
+                # found = False
+                for ks in KNOWN_SENSORS:
+                    if part.find(ks) != -1:
+                        instrument = ks
+                        # found = True
+                        break
             if part in possible_levels:
                 file_type = possible_levels[part]
         if title.find('Browse Data') != -1:
@@ -358,8 +365,8 @@ class ObpgFileTyper(object):
         # The Landsat OLI metadata only contains an acquisition date and
         # scene center time.  (For now) It is assumed that the scene center
         # time is the start time and the end time is one second later.
-        acquisition_date = self.attributes['DATE_ACQUIRED']
-        center_time = self.attributes['SCENE_CENTER_TIME']
+        acquisition_date = self.attributes['DATE_ACQUIRED'].strip('"')
+        center_time = self.attributes['SCENE_CENTER_TIME'].strip('"')
 
         start_yr = int(acquisition_date[0:4])
         start_mon = int(acquisition_date[5:7])
@@ -769,6 +776,17 @@ class ObpgFileTyper(object):
         elif title.find('Ancillary') != -1:
             self.file_type, self.instrument = \
             self._get_data_from_anc_attributes()
+        elif title.find('VIIRS') != 1:
+            self.instrument = 'VIIRS'
+            if 'processing_level' in self.attributes:
+                if self.attributes['processing_level'].upper().find('L1A') != -1:
+                    self.file_type = 'Level 1A'
+                elif self.attributes['processing_level'].upper().find('L1B') != -1:
+                    self.file_type = 'Level 1B'
+            elif title.find('L1A') != -1:
+                self.file_type = 'Level 1A'
+            elif title.find('L1B') != -1:
+                self.file_type = 'Level 1B'
 
     def _read_metadata(self):
         """

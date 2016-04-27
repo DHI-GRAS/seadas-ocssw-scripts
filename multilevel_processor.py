@@ -5,13 +5,12 @@ Program to perform multilevel processing (previously known as the
 seadas_processor and sometimes referred to as the 'uber' processor).
 """
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 __author__ = 'melliott'
 
 #import modis_processor
 
-# import modules.aquarius_next_level_name_finder as aquarius_next_level_name_finder
 import ConfigParser
 import datetime
 import logging
@@ -182,8 +181,6 @@ def build_general_rules():
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                              True),
-       # 'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
-       #                                       False)
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
                                               False)
     }
@@ -246,14 +243,15 @@ def build_modis_rules():
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                              True),
-       # 'smigen': processing_rules.build_rule('smigen', ['l3bin'], False,
-       #                                       run_smigen)
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l2bin'],
+                                                run_l3mapgen, False),
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
                                               False)
     }
     rules_order = ['level 0', 'level 1a', 'l1brsgen', 'l1mapgen', 'geo',
                    'l1aextract_modis', 'level 1b', 'l2gen', 'l2extract',
-                   'l2bin', 'l2brsgen', 'l2mapgen', 'l3bin', 'smigen']
+                   'l2bin', 'l2brsgen', 'l2mapgen', 'l3mapgen', 'l3bin',
+                   'smigen']
     rules = processing_rules.RuleSet("MODIS Rules", rules_dict, rules_order)
     return rules
 
@@ -265,9 +263,9 @@ def build_seawifs_rules():
         'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
                                                 run_bottom_error, False),
         'l1aextract_seawifs': processing_rules.build_rule('l1aextract_seawifs',
-                                                           ['level 1a'],
-                                                           run_l1aextract_seawifs,
-                                                           False),
+                                                          ['level 1a'],
+                                                          run_l1aextract_seawifs,
+                                                          False),
         'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
                                                 run_l1brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
@@ -288,8 +286,6 @@ def build_seawifs_rules():
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                              True),
-#        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
-#                                              False)
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
                                               False)
     }
@@ -305,9 +301,11 @@ def build_viirs_rules():
     """
     # todo: finish this
     rules_dict = {
-        'level 1b': processing_rules.build_rule('level 1b',
+        'level 1a': processing_rules.build_rule('level 1a',
                                                 ['nothing lower'],
                                                 run_bottom_error, False),
+        'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
+                                                run_l1b, False),
         'l2gen': processing_rules.build_rule('l2gen', ['level 1b'],
                                              run_l2gen_viirs, True),
         'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
@@ -323,8 +321,8 @@ def build_viirs_rules():
         'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
                                               False)
     }
-    rules_order = ['level 1b', 'l2gen', 'l2extract', 'l2brsgen',
-                   'l2mapgen', 'l2bin', 'l3bin', 'smigen']
+    rules_order = ['level 1a', 'level 1b', 'l2gen', 'l2extract',
+                   'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin', 'smigen']
     rules = processing_rules.RuleSet('VIIRS Rules', rules_dict, rules_order)
     return rules
 
@@ -539,7 +537,14 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     instrument = input_file_data[first_file_key][1].split()[0]
     logging.debug("instrument: " + instrument)
     if instrument in rules_sets:
-        rules = rules_sets[instrument]
+        if instrument == 'viirs':
+            mime_data = MetaUtils.get_mime_data(input_files_list[0])
+            if mime_data.strip() == 'data':
+                rules = rules_sets['viirs']
+            else:
+                rules = rules_sets['general']
+        else:
+            rules = rules_sets[instrument]
     else:
         rules = rules_sets['general']
 
@@ -1044,9 +1049,9 @@ def get_par_file_contents(par_file, acceptable_single_keys):
         'l2extract' : 'l2extract',
         'l2mapgen' : 'l2mapgen',
         'l3bin' : 'l3bin',
+        'l3mapgen' : 'l3mapgen',
         'smigen' : 'smigen',
         'main' : 'main'
-        # 'level 3' : 'level 3', 'l3' : 'level 3'
     }
     if cfg_data.verbose:
         print "Processing %s" % par_file
@@ -1224,8 +1229,9 @@ def get_traceback_message():
     tb_data = traceback.format_exc()
     tb_line = tb_data.splitlines()[-3]
     line_num = tb_line.split(',')[1]
-    msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.format(cfg_data.prog_name,
-                                err_type, exc_parts[1], line_num.strip())
+    msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.\
+        format(cfg_data.prog_name,
+               err_type, exc_parts[1], line_num.strip())
     return msg
 
 
@@ -1388,10 +1394,10 @@ def run_batch_processor(ndx, processors, file_set):
     if 'oformat' in processors[ndx].par_data:
         finder_opts['oformat'] = processors[ndx].par_data['oformat']
     name_finder = name_finder_utils.get_level_finder(data_file_list,
-                                                    processors[ndx].target_type,
-                                                    finder_opts)
+                                                     processors[ndx].target_type,
+                                                     finder_opts)
     processors[ndx].output_file = os.path.join(processors[ndx].out_directory,
-                                              name_finder.get_next_level_name())
+                                               name_finder.get_next_level_name())
     if DEBUG:
         log_msg = "Running {0} with input file {1} to generate {2} ".\
                   format(processors[ndx].target_type,
@@ -1582,7 +1588,7 @@ def run_l2gen(proc):
               format(proc.rule_set.rules[proc.target_type].action)
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
-    print("L2GEN_FILE=" + proc.output_file)
+    print 'L2GEN_FILE=' + proc.output_file
     with open('_mp_l2gen_file.out', 'wt') as tmp_file:
         tmp_file.write(proc.output_file)
 
@@ -1602,7 +1608,7 @@ def run_l2gen_viirs(proc):
         file_names = tar_obj.getnames()
         tar_obj.extractall()
     elif MetaUtils.is_ascii_file(proc.input_file):
-        with open (proc.input_file, 'rt') as in_file:
+        with open(proc.input_file, 'rt') as in_file:
             file_names = in_file.readlines()
     elif re.match('^SVM\d\d_npp_d\d\d\d\d\d\d\d\_.*\.h5', proc.input_file):
         file_names = [proc.input_file]
@@ -1658,12 +1664,31 @@ def run_l3bin(proc):
     if not os.path.exists(prog):
         print "Error!  Cannot find executable needed for {0}".\
               format(proc.rule_set.rules[proc.target_type].action)
+    args = 'ifile=' + proc.input_file
+    for key in proc.par_data:
+        args += ' ' + key + '=' + proc.par_data[key]
     args = 'in=' + proc.input_file
     args += ' ' + "out=" + proc.output_file
     for key in proc.par_data:
         args += ' ' + key + '=' + proc.par_data[key]
     cmd = ' '.join([prog, args])
     logging.debug('Executing l3bin command: "%s"', cmd)
+    return execute_command(cmd)
+
+def run_l3mapgen(proc):
+    """
+    Set up and run the l3mapgen program.
+    """
+    prog = os.path.join(proc.ocssw_bin, 'l3mapgen')
+    if not os.path.exists(prog):
+        print "Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action)
+    args = 'ifile=' + proc.input_file
+    for key in proc.par_data:
+        args += ' ' + key + '=' + proc.par_data[key]
+    args += ' ofile=' + proc.output_file
+    cmd = ' '.join([prog, args])
+    logging.debug('Executing l3mapgen command: "%s"', cmd)
     return execute_command(cmd)
 
 def run_modis_geo(proc):

@@ -51,7 +51,7 @@ def main():
     HD = 0.5 degree
     1D = 1 degree
     ''')
-    parser.add_argument('-oformat', nargs=1, choices=['netcdf','hdf4','png','ppm','tiff'],type=str, default=(["png"]), help=('''\
+    parser.add_argument('-oformat', nargs=1, choices=['netcdf4','hdf4','png','ppm','tiff'],type=str, default=(["png"]), help=('''\
      output file format
      --------------------------------------------------------
      netcdf4: netCDF4 file, can contain more than one product
@@ -60,7 +60,7 @@ def main():
      ppm:     PPM image file 
      tiff:    TIFF file with georeference tags
      '''))
-    parser.add_argument('-oformat2', nargs=1, choices=['netcdf','hdf4','png','ppm','tiff'],type=str, default=(["png"]), help=('''\
+    parser.add_argument('-oformat2', nargs=1, choices=['netcdf4','hdf4','png','ppm','tiff'],type=str, default=(["png"]), help=('''\
      second output file format
      --------------------------------------------------------
      netcdf4: netCDF4 file, can contain more than one product

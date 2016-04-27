@@ -8,7 +8,7 @@ import os
 from modules.ProcUtils import check_sensor
 
 if __name__ == "__main__":
-    file = None
+    filename = None
     mission = None
     start = None
     stop = None
@@ -20,7 +20,8 @@ if __name__ == "__main__":
     force = False
     refreshDB = False
     version = "%prog 2.1"
-
+    timeout = 10.0
+    
     # Read commandline options...
     usage = '''
     %prog L1A_file
@@ -30,13 +31,17 @@ if __name__ == "__main__":
     parser = OptionParser(usage=usage, version=version)
 
     parser.add_option("-m", "--mission", dest='mission',
-        help="MODIS mission - A(qua) or T(erra)", metavar="MISSION")
+                      help="MODIS mission - A(qua) or T(erra)",
+                      metavar="MISSION")
     parser.add_option("-s", "--start", dest='start',
-        help="Granule start time (YYYYDDDHHMMSS)", metavar="START")
+                      help="Granule start time (YYYYDDDHHMMSS)",
+                      metavar="START")
     parser.add_option("-e", "--stop", dest='stop',
-        help="Granule stop time (YYYYDDDHHMMSS)", metavar="STOP")
+                      help="Granule stop time (YYYYDDDHHMMSS)",
+                      metavar="STOP")
     parser.add_option("--ancdir", dest='ancdir',
-        help="Use a custom directory tree for ancillary files", metavar="ANCDIR")
+                      help="Use a custom directory tree for ancillary files",
+                      metavar="ANCDIR")
     ancdb_help_text = "Use a custom file for ancillary database. If " \
                       "full path not given, ANCDB is assumed to exist "\
                       "(or will be created) under " + \
@@ -46,21 +51,27 @@ if __name__ == "__main__":
                       "current working directory"
     parser.add_option("--ancdb", dest='ancdb',
                       help=ancdb_help_text, metavar="ANCDB")
-    parser.add_option("-c", "--curdir", action="store_true",dest='curdir',
-        default=False, help="Download ancillary files directly into current working directory")
-    parser.add_option("-d", "--disable-download", action="store_false", dest='download',
-        default=True, help="Disable download of ancillary files not found on hard disk")
-    parser.add_option("-f", "--force-download", action="store_true", dest='force',
-                      default=False, help="Force download of ancillary files, even if found on hard disk")
-    parser.add_option("-r", "--refreshDB", action="store_true", dest='refreshDB',
-        default=False, help="Remove existing database records and re-query for ancillary files")
+    parser.add_option("-c", "--curdir", action="store_true", dest='curdir',
+                      default=False,
+                      help="Download ancillary files directly into current working directory")
+    parser.add_option("-d", "--disable-download", action="store_false",
+                      dest='download', default=True,
+                      help="Disable download of ancillary files not found on hard disk")
+    parser.add_option("-f", "--force-download", action="store_true",
+                      dest='force', default=False,
+                      help="Force download of ancillary files, even if found on hard disk")
+    parser.add_option("-r", "--refreshDB", action="store_true",
+                      dest='refreshDB', default=False,
+                      help="Remove existing database records and re-query for ancillary files")
     parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
-        default=False, help="print status messages")
+                      default=False, help="print status messages")
+    parser.add_option("--timeout", dest='timeout', metavar="TIMEOUT",
+                      help="set the network timeout in seconds")
 
     (options, args) = parser.parse_args()
 
     if args:
-        file = args[0]
+        filename = args[0]
     if options.mission:
         mission = options.mission
     if options.verbose:
@@ -81,28 +92,31 @@ if __name__ == "__main__":
         force = options.force
     if options.refreshDB:
         refreshDB = options.refreshDB
+    if options.timeout:
+        timeout = options.timeout
 
-    if (file is None) and (mission is None and start is None):
+    if (filename is None) and (mission is None and start is None):
         parser.print_help()
         exit()
-   
-    m = ga.getanc(file=file,
-                start=start,
-                stop=stop,
-                ancdir=ancdir,
-                curdir=curdir,
-                ancdb=ancdb,
-                sensor=mission,
-                download=download,
-                refreshDB=refreshDB,
-                atteph=True,
-                verbose=verbose)
+
+    m = ga.getanc(file=filename,
+                  start=start,
+                  stop=stop,
+                  ancdir=ancdir,
+                  curdir=curdir,
+                  ancdb=ancdb,
+                  sensor=mission,
+                  download=download,
+                  refreshDB=refreshDB,
+                  atteph=True,
+                  verbose=verbose,
+                  timeout=timeout)
 
     env(m)
     m.chk()
-    if m.sensor is None and os.path.exists(file):
-        m.sensor = check_sensor(file)
-    if file and m.finddb():
+    if m.sensor is None and os.path.exists(filename):
+        m.sensor = check_sensor(filename)
+    if filename and m.finddb():
         m.setup()
     else:
         m.setup()

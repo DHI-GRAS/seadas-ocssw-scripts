@@ -21,7 +21,7 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
     PROCESSING_LEVELS = {
         'l1agen':       'Level 1A',
         'Level 1A':     'Level 1A',
-        'l1aextract_seawifs' : 'l1aextract_seawifs',
+        'l1a_extract_viirs' : 'l1a_extract_viirs',
         'l1bgen':       'Level 1B',
         'Level 1B':     'Level 1B',
         'level 1b':       'Level 1B',
@@ -81,7 +81,7 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         called for each level of processing.
         """
         return {'Level 1A': {'Level 1B': self._get_l1b_name,
-                               'l1aextract_seawifs' : self._get_l1aextract_name,
+                               'l1a_extract_viirs' : self._get_l1aextract_name,
                                'l1bgen' : self._get_l1b_name,
                                'l1brsgen': self._get_l1brsgen_name,
                                'l1mapgen': self._get_l1mapgen_name,

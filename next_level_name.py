@@ -5,7 +5,7 @@ Program to return the name of the next level file that would be created from
 the input file name.
 """
 
-__version__ = '1.0.2-2015-04-22'
+__version__ = '1.0.3-2016-04-22'
 
 #import datetime
 import aquarius_next_level_name_finder
@@ -19,6 +19,7 @@ import optparse
 import os
 import sys
 import traceback
+import viirs_next_level_name_finder
 
 __author__ = 'melliott'
 
@@ -218,7 +219,8 @@ PROCESSABLE_PROGRAMS = \
     set(next_level_name_finder.NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
         next_level_name_finder.ModisNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
         next_level_name_finder.SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-        aquarius_next_level_name_finder.AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys())
+        aquarius_next_level_name_finder.AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
+        viirs_next_level_name_finder.ViirsNextLevelNameFinder.PROCESSING_LEVELS.keys())
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -403,7 +403,7 @@ class NextLevelNameFinder(object):
     def _get_l1aextract_name(self):
         """
         Returns the output name from running one of the l1aextract_INST programs
-        (where INST = "modis" or "seawifs").
+        (where INST = "modis" or "seawifs" or "viirs").
         """
         # Note: This method was placed in the NextLevelNameFinder class, since
         # the functionality is common to both the MODIS and SeaWiFS instruments.
@@ -633,10 +633,12 @@ class NextLevelNameFinder(object):
                 sys.exit(err_msg)
         extra_ext = self._get_extra_extensions()
         if extra_ext:
-            if extra_ext[0] != '.':
-                next_level_name += '.' + extra_ext
-            else:
-                next_level_name += extra_ext
+            if next_level_name.find(extra_ext) == -1:
+                # extra_ext in not in the name yet, add it.
+                if extra_ext[0] != '.':
+                    next_level_name += '.' + extra_ext
+                else:
+                    next_level_name += extra_ext
 
         return next_level_name
 

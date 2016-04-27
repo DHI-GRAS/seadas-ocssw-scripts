@@ -4,7 +4,9 @@ SeaDAS library for commonly used functions within other python scripts
 
 """
 
-def getUrlFileName(openUrl,request):
+import sys
+
+def get_url_file_name(openUrl, request):
     """
     get filename from URL - use content-disposition if provided
     """
@@ -12,15 +14,16 @@ def getUrlFileName(openUrl,request):
 
     # If the response has Content-Disposition, try to get filename from it
     filename = openUrl.getheader('content-disposition')
-    if filename: 
+    if filename:
         return filename.split('filename=')[1]
     else:
         # if no filename was found above, parse it out of the final URL.
         return os.path.basename(request)
 
 
-def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompress=False,
-           timeout=10., reqHeaders={},verbose=False, reuseConn=False, urlConn=None):
+def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
+           uncompress=False, timeout=10., reqHeaders={}, verbose=False,
+           reuseConn=False, urlConn=None):
     """
     Copy the contents of a file from a given URL to a local file
     Inputs:
@@ -28,18 +31,17 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
         localpath - path to place downloaded file
         outputfilename - name to give retreived file (default: URL basename)
         ntries - number to retry attempts
-        uncompress - uncompress the downloaded file, if necessary (boolean, default False) 
+        uncompress - uncompress the downloaded file, if necessary (boolean, default False)
         timeout - sets the connection timeout (seconds)
         reqHeaders - hash containing URL headers
-        reuseConn - reuse existing connection (boolean, default False) 
+        reuseConn - reuse existing connection (boolean, default False)
         urlConn - existing httplib.connection (needed if reuseConn set, default None)
-        verbose - get chatty about connection issues (boolean, default False) 
+        verbose - get chatty about connection issues (boolean, default False)
     """
     global ofile
     import httplib
     import os
     import re
-    import shutil
     import socket
     from urlparse import urlparse
 
@@ -50,7 +52,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
     if not os.path.exists(localpath):
         os.umask(002)
         os.makedirs(localpath, mode=02775)
-    
+
     proxy = None
     proxy_set = os.environ.get('http_proxy')
     if proxy_set:
@@ -58,37 +60,46 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
 
     if urlConn is None:
         if proxy is None:
-            urlConn = httplib.HTTPConnection(url,timeout=timeout)
+            urlConn = httplib.HTTPConnection(url, timeout=timeout)
         else:
-	    urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=timeout)
+            urlConn = httplib.HTTPConnection(proxy.hostname, proxy.port,
+                                             timeout=timeout)
 
     if proxy is None:
         full_request = request
     else:
-        full_request = ''.join(['http://',url,request])
-   
-    req = urlConn.request('GET',full_request, headers=reqHeaders)
+        full_request = ''.join(['http://', url, request])
+
+    try:
+        req = urlConn.request('GET', full_request, headers=reqHeaders)
+    except:
+        err_msg = '\n'.join(['Error! could not establish a network connection. Check your network connection.',
+                             'If you do not find a problem, please try again later.'])
+        sys.exit(err_msg)
 
     status = 0
     response = None
     try:
         response = urlConn.getresponse()
 
-        if response.status in (400,401,403,404,416):
-            status = reponse.status
+        if response.status in (400, 401, 403, 404, 416):
+            status = response.status
         elif response.status not in (200, 206):
             if ntries > 0:
                 urlConn.close()
                 if verbose:
                     print "Connection interrupted, retrying up to %d more time(s)" % ntries
                 sleep(sleepytime)
-                status = httpdl(url,request, localpath=localpath, outputfilename=outputfilename, ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
+                status = httpdl(url, request, localpath=localpath,
+                                outputfilename=outputfilename,
+                                ntries=ntries - 1, timeout=timeout,
+                                uncompress=uncompress, reuseConn=reuseConn,
+                                urlConn=None, verbose=verbose)
             else:
                 print 'We failed to reach a server.'
                 print 'Please retry this request at a later time.'
-    
                 print 'URL attempted: %s' % url
-                print 'HTTP Error: %d - %s' ( response.status, reponse.reason)
+                print 'HTTP Error: %d - %s' (response.status, response.reason)
                 status = response.status
 
     except socket.error as socmsg:
@@ -98,7 +109,10 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
             if verbose:
                 print "Connection error, retrying up to %d more time(s)" % ntries
             sleep(sleepytime)
-            status = httpdl(url, request, localpath=localpath, outputfilename=outputfilename,  ntries=ntries - 1, timeout=timeout, uncompress=uncompress, reuseConn=reuseConn, urlConn=None, verbose=verbose)
+            status = httpdl(url, request, localpath=localpath,
+                            outputfilename=outputfilename, ntries=ntries - 1,
+                            timeout=timeout, uncompress=uncompress,
+                            reuseConn=reuseConn, urlConn=None, verbose=verbose)
         else:
             print 'URL attempted: %s' % url
             print 'Well, this is embarrassing...an error occurred that we just cannot get past...'
@@ -106,34 +120,36 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
             print 'Please retry this request at a later time.'
             status = 500
     except:
-        print 'Well, the server did not like this...reports: %s' % response.reason
-        status = response.status
-
+        if response:
+            print 'Well, the server did not like this...reports: %s' % response.reason
+            status = response.status
+        else:
+            err_msg = '\n'.join(['Could not communicate with the server.',
+                                 'Please check your network connections and try again later.'])
+            sys.exit(err_msg)
     else:
         if response.status == 200  or response.status == 206:
             if outputfilename:
                 ofile = os.path.join(localpath, outputfilename)
             else:
-                ofile = os.path.join(localpath, getUrlFileName(response,request))
-
+                ofile = os.path.join(localpath, get_url_file_name(response,
+                                                                  request))
             filename = ofile
             data = response.read()
 
             if response.status == 200:
                 with open(ofile, 'wb') as f:
                     f.write(data)
-                f.close()
             else:
                 with open(ofile, 'ab') as f:
                     f.write(data)
-                f.close()
 
             headers = dict(response.getheaders())
             if headers.has_key('content-length'):
                 expectedLength = int(headers.get('content-length'))
                 if headers.has_key('content-range'):
                     expectedLength = int(headers.get('content-range').split('/')[1])
-                                         
+
                 actualLength = os.stat(filename).st_size
 
                 if expectedLength != actualLength:
@@ -143,10 +159,12 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
                     print bytestr, sleepytime
                     urlConn.close()
                     sleep(sleepytime)
-                    status = httpdl(url, request, localpath=localpath, outputfilename=outputfilename, 
-                        timeout=timeout, uncompress=uncompress, reqHeaders=reqHeader, 
-                        reuseConn=reuseConn, urlConn=None, verbose=verbose)
-            
+                    status = httpdl(url, request, localpath=localpath,
+                                    outputfilename=outputfilename,
+                                    timeout=timeout, uncompress=uncompress,
+                                    reqHeaders=reqHeader, reuseConn=reuseConn,
+                                    urlConn=None, verbose=verbose)
+
             if not reuseConn:
                 urlConn.close()
 
@@ -163,7 +181,7 @@ def httpdl (url, request, localpath='.', outputfilename=None, ntries=5, uncompre
 
     return status
 
-def uncompressFile(file):
+def uncompressFile(compressed_file):
     """
     uncompress file
     compression methods:
@@ -175,27 +193,26 @@ def uncompressFile(file):
     import subprocess
 
     compProg = {"gz": "gunzip -f ", "Z": "gunzip -f ", "bz2": "bunzip2 -f "}
-    exten = os.path.basename(file).split('.')[-1]
+    exten = os.path.basename(compressed_file).split('.')[-1]
     unzip = compProg[exten]
-    p = subprocess.Popen(unzip + file, shell=True)
+    p = subprocess.Popen(unzip + compressed_file, shell=True)
     status = os.waitpid(p.pid, 0)[1]
     if status:
-        print "Warning! Unable to decompress %s" % file
+        print "Warning! Unable to decompress %s" % compressed_file
         return status
     else:
         return 0
 
 
-def cleanList(file,parse=None):
+def cleanList(filename, parse=None):
     """
     Parses file list from oceandata.sci.gsfc.nasa.gov through html source
     intended for update_luts.py, by may have other uses
     """
     import os
     import re
-    import sys
 
-    oldfile = os.path.abspath(file)
+    oldfile = os.path.abspath(filename)
     newlist = []
     if parse is None:
         parse = re.compile(r"(?<=(\"|\')>)\S+(\.(hdf|h5|dat|txt))")
@@ -234,7 +251,7 @@ def date_convert(datetime_i, in_datetype=None, out_datetype=None):
     import datetime
 
     # define commonly used date formats
-    format = {
+    date_time_format = {
         'd': "%Y%m%d", # YYYYMMDD
         'j': "%Y%j%H%M%S", # Julian    YYYYDDDHHMMSS
         'g': "%Y%m%d%H%M%S", # Gregorian YYYYMMDDHHMMSS
@@ -244,12 +261,13 @@ def date_convert(datetime_i, in_datetype=None, out_datetype=None):
     if in_datetype is None:
         dateobj = datetime_i
     else:
-        dateobj = datetime.datetime.strptime(datetime_i, format[in_datetype])
+        dateobj = datetime.datetime.strptime(datetime_i,
+                                             date_time_format[in_datetype])
 
     if out_datetype is None:
         return dateobj
     else:
-        return dateobj.strftime(format[out_datetype])
+        return dateobj.strftime(date_time_format[out_datetype])
 
 
 def addsecs(datetime_i, dsec, datetype):
@@ -263,39 +281,39 @@ def addsecs(datetime_i, dsec, datetype):
     return date_convert(dateobj + delta, out_datetype=datetype)
 
 
-def remove(file):
+def remove(file_to_delete):
     """
     Delete a file from the system
     A simple wrapper for os.remove
     """
     import os
 
-    if os.path.exists(file):
-        os.remove(file)
+    if os.path.exists(file_to_delete):
+        os.remove(file_to_delete)
         return 0
 
     return 1
 
 
-def ctime(file):
+def ctime(the_file):
     """
-    retuns creation time of file
+    returns creation time of file
     """
     import datetime
     import os
     import time
 
     today = datetime.date.today().toordinal()
-    utc_create = time.localtime(os.path.getctime(file))
+    utc_create = time.localtime(os.path.getctime(the_file))
 
     return today - datetime.date(utc_create.tm_year, utc_create.tm_mon, utc_create.tm_mday).toordinal()
 
 
-def cat(file):
+def cat(file_to_print):
     """
     Print a file to the standard output.
     """
-    f = open(file, 'r')
+    f = open(file_to_print, 'r')
     while True:
         line = f.readline()
         if not len(line):
@@ -304,22 +322,24 @@ def cat(file):
     f.close()
 
 
-def check_sensor(file):
+def check_sensor(inp_file):
     """
     Determine the satellite sensor from the file metadata
     if unable to determine the sensor, return 'X'
     """
 
-    senlst = {'Sea-viewing Wide Field-of-view Sensor (SeaWiFS)': 'seawifs', 'Coastal Zone Color Scanner (CZCS)': 'czcs',
+    senlst = {'Sea-viewing Wide Field-of-view Sensor (SeaWiFS)': 'seawifs',
+              'Coastal Zone Color Scanner (CZCS)': 'czcs',
               'Ocean Color and Temperature Scanner (OCTS)': 'octs',
               'Ocean Scanning Multi-Spectral Imager (OSMI)': 'osmi',
               'Ocean   Color   Monitor   OCM-2': 'ocm2',
-              'MOS': 'mos', 'VIIRS': 'viirs', 'Aquarius': 'aquarius','hico':'hico'}
+              'MOS': 'mos', 'VIIRS': 'viirs', 'Aquarius': 'aquarius',
+              'hico':'hico'}
 
-    from MetaUtils import readMetadata
+    from modules.MetaUtils import readMetadata
     import re
 
-    fileattr = readMetadata(file)
+    fileattr = readMetadata(inp_file)
     if fileattr.has_key('ASSOCIATEDPLATFORMSHORTNAME'):
         print fileattr['ASSOCIATEDPLATFORMSHORTNAME']
         return fileattr['ASSOCIATEDPLATFORMSHORTNAME']
@@ -332,5 +352,3 @@ def check_sensor(file):
         return 'meris'
     else:
         return 'X'
-
-     

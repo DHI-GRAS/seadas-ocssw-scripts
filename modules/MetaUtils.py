@@ -39,7 +39,7 @@ def get_hdf5_content(filename):
         return None
 
     # dump file header
-    cmd = [h5dump,  '-Au', filename]
+    cmd = [h5dump, '-Au', filename]
     h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE).stdout
     content = h5dump_output.read()
@@ -48,9 +48,19 @@ def get_hdf5_content(filename):
     else:
         return None
 
+def get_mime_data(filename):
+    """
+    Returns the mime data for the file named in filename as found by running
+    the file command
+    """
+    mimecmd = ['file', '--brief', filename]
+    mime_data = subprocess.Popen(mimecmd,
+                                 stdout=subprocess.PIPE).communicate()[0]
+    return mime_data
+
 def is_ascii_file(filename):
     """
-    Returns True if the given file is an ASCII text file, False otherwise.
+    Returns True if the given file is an ASCII file, False otherwise.
     """
     file_cmd_path = os.path.join(os.sep, 'usr', 'bin', 'file')
     if os.path.exists(file_cmd_path) and os.access(file_cmd_path, os.X_OK):
@@ -58,13 +68,25 @@ def is_ascii_file(filename):
         file_output = subprocess.Popen(file_cmd, shell=True,
                                        stdout=subprocess.PIPE).stdout
         file_type = file_output.read().strip()
-        if file_type.startswith('ASCII text'):
+        if file_type.find('ASCII') != -1:
             return True
         else:
             return False
     else:
         err_msg = 'Error!  Unable to run the file command.'
         sys.exit(err_msg)
+
+def is_hdf4(mime_data):
+    """
+    Return True when the mime data is from netCDF4/HDF 5 file.
+    """
+    return re.search('Hierarchical.*version.4', mime_data)
+
+def is_netcdf4(mime_data):
+    """
+    Return True when the mime data is from netCDF4/HDF 5 file.
+    """
+    return re.search('Hierarchical.*version.5', mime_data)
 
 def is_tar_file(file_path):
     """
@@ -82,14 +104,6 @@ def is_tar_file(file_path):
     #     pass
     return tarfile.is_tarfile(file_path)
 
-# Todo: implement the function below.
-#def is_hdf5_file(filename):
-#    """
-#    (Still in development) Will return True when the file specified by filename
-#    is an HDF 5 file.
-#    """
-#    pass
-
 def dump_metadata(filename):
     """Dump file metadata:
         Call functions to get HDF 4 and HDF 5 header data
@@ -104,8 +118,9 @@ def dump_metadata(filename):
     ncdump = os.path.join(os.getenv('LIB3_BIN'), 'ncdump')
     ncdump_hdf = os.path.join(os.getenv('LIB3_BIN'), 'ncdump_hdf')
 
-    mimecmd = ['file', '--brief', filename]
-    mime = subprocess.Popen(mimecmd, stdout=subprocess.PIPE).communicate()[0]
+    # mimecmd = ['file', '--brief', filename]
+    # mime = subprocess.Popen(mimecmd, stdout=subprocess.PIPE).communicate()[0]
+    mime = get_mime_data(filename)
 
     if mime.strip() == 'data':
         content = get_hdf5_content(filename)
@@ -124,14 +139,14 @@ def dump_metadata(filename):
             return None
         cmd = ' '.join([ncdump_hdf, '-h', filename])
         hdr_content = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE).communicate()
+                                       stdout=subprocess.PIPE).communicate()
         return hdr_content[0].split('\n')
     else:
-        fb = open(filename, 'r', 1)
-        line1 = fb.readline()
-        fb.close()
+        fbuffer = open(filename, 'r', 1)
+        line1 = fbuffer.readline()
+        fbuffer.close()
 
-        if (re.search("HDF_UserBlock", line1)):
+        if re.search("HDF_UserBlock", line1):
             content = get_hdf5_content(filename)
             return content
         elif line1[0:3] == 'CDF':
@@ -141,15 +156,15 @@ def dump_metadata(filename):
             return hdr_content.read()
         else:
             header = []
-            fb = open(filename, 'r', 100)
-            for line in fb.readlines(100):
+            fbuffer = open(filename, 'r', 100)
+            for line in fbuffer.readlines(100):
                 line = line.strip()
                 if not len(line):
                     continue
                 header.append(line)
                 if re.search('LAST_LAST_LONG', line):
                     break
-            fb.close()
+            fbuffer.close()
             return header
 
 def readMetadata(filename):
@@ -196,7 +211,7 @@ def readMetadata(filename):
                     if line.find('Daily-OI') != -1:
                         # NOAA supplied SST Ancillary files
                         return {'Title': 'Ancillary', 'Data Type': 'SST'}
-    elif type(text) is types.StringType and text[0:6] == 'netcdf':
+    elif isinstance(text, types.StringType) and text[0:6] == 'netcdf':
         attrs = {}
         lines = text.split('\n')
         for line in lines:
@@ -214,7 +229,8 @@ def readMetadata(filename):
         attrs = get_xml_attr(text)
     else:
         #if hdf4 file
-        file_attr_re = re.compile('File attributes:(.+?)\n', re.MULTILINE | re.DOTALL)
+        file_attr_re = re.compile('File attributes:(.+?)\n',
+                                  re.MULTILINE | re.DOTALL)
         file_attr_results = file_attr_re.search(text)
         if file_attr_results != None:
             file_attr_var_re = re.compile('File attributes:(.+?)\nVariable',
@@ -249,7 +265,7 @@ def get_attr(text):
                     params = val.split('|')
                     for param in params:
                         parts = param.split('=')
-                        if len(parts) ==2:
+                        if len(parts) == 2:
                             attrs[attr_name][parts[0].strip()] = parts[1].strip()
                 else:
                     attrs[attr_name] = val
@@ -295,21 +311,21 @@ def get_xml_attr(metaxml):
     parse xml formatted metadata
     """
     # from BeautifulSoup import BeautifulStoneSoup
-    import BeautifulSoup
+    import modules.BeautifulSoup as BeautifulSoup
 
-    attrSoup = BeautifulSoup.BeautifulStoneSoup(metaxml)
-    raw_attrs = attrSoup.findAll('attribute')
+    soup_attr = BeautifulSoup.BeautifulStoneSoup(metaxml)
+    raw_attrs = soup_attr.findAll('attribute')
 
     attr = {}
 
     try:
         for ndx, cur_attr in enumerate(raw_attrs):
             if (cur_attr != '\n') and \
-               (type(cur_attr) is types.ListType or
-                type(cur_attr) is BeautifulSoup.Tag):
+               (isinstance(cur_attr, types.ListType) or
+                isinstance(cur_attr, BeautifulSoup.Tag)):
                 if cur_attr.contents and \
-                   (type(cur_attr.contents[5]) is types.ListType or
-                    type(cur_attr.contents[5]) is BeautifulSoup.Tag):
+                   (isinstance(cur_attr.contents[5], types.ListType) or
+                    isinstance(cur_attr.contents[5], BeautifulSoup.Tag)):
                     if cur_attr.contents[5].contents[1]:
                         if cur_attr.contents[5].contents[1].contents[0]: #).strip()).strip('"'):
                             attr[str(cur_attr.attrs[0][1]).strip()] = (str(cur_attr.contents[5].contents[1].contents[0]).strip()).strip('"')
@@ -338,7 +354,6 @@ def parse_odl(text):
             get_value(line, items)
 
     return items
-
 
 def get_value(text, items=None):
     """Interpret text as key/value pairs, if possible."""
