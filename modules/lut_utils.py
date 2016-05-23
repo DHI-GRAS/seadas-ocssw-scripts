@@ -71,7 +71,7 @@ class lut_utils:
                 self.status = 1
             else:
                 if self.verbose: print "+ " + f
-                
+
         urlConn.close()
         if self.verbose: print "[ Done ]\n"
 
@@ -89,7 +89,7 @@ class lut_utils:
             urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
         else:
             urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
-        
+
         if self.verbose: print "[ SeaWiFS ]"
 
         # elements.dat
@@ -115,7 +115,7 @@ class lut_utils:
             self.status = 1
         else:
             if self.verbose: print "+ time_anomaly.txt"
-            
+
         urlConn.close()
         if self.verbose: print "[ Done ]\n"
 
@@ -163,8 +163,34 @@ class lut_utils:
             else:
                 if self.verbose: print "+ utcpole.dat"
 
+        if self.mission == 'viirsn':
+            if self.verbose:
+                print "[ VIIRS ]"
+
+            url =  "/Ancillary/LUTs/viirsn/IETTime.dat"
+            outputdir = os.path.join(self.dirs['var'], 'viirsn')
+            status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
+            if status:
+                print "* ERROR: The download failed with status code: " + str(status)
+                print "* Please check your network connection and for the existence of the remote file:"
+                print "* " + self.data_site + url
+                self.status = 1
+            else:
+                if self.verbose: print "+ IETTime.dat"
+
+                url = "/Ancillary/LUTs/viirsn/polar_wander.h5"
+            outputdir = os.path.join(self.dirs['var'], 'viirsn')
+            status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn,verbose=self.verbose)
+            if status:
+                print "* ERROR: The download failed with status code: " + str(status)
+                print "* Please check your network connection and for the existence of the remote file:"
+                print "* " + self.data_site + url
+                self.status = 1
+            else:
+                if self.verbose: print "+ polar_wander.h5"
+
         if self.verbose:
-            print "[ MODIS: %s ]" % self.mission.upper()
+            print "[ Sensor: %s ]" % self.mission.upper()
 
         for cal in ('cal', 'xcal'):
             # Get most recent version from local disk
@@ -187,29 +213,46 @@ class lut_utils:
                     [self.data_site, "Ancillary/LUTs", msn[self.mission], cal, "OPER/"])
                 self.status = 1
 
-            parse = re.compile(r"(?<=(\'|\")>)\S+(\.(hdf|h5))")
+            parse = re.compile(r"(?<=(\'|\")>)\S+(\.(hdf|h5|nc))")
             operlist = ProcUtils.cleanList(listFile,parse=parse)
             ProcUtils.remove(listFile)
 
             listsplitstr = 'LUTs.'
             listelem = 1
+            listelem2 = 1
+            operversion = ''
+            operversion2 = ''
             if cal == 'xcal':
                 listsplitstr = '_'
                 listelem = 2
             if self.mission == 'viirsn' and cal != 'xcal':
                 listsplitstr = "SDR-F-LUT_npp_"
+                listsplitstr2 = "LUT_v"
                 listelem = 1
-            operversion = operlist[0].split(listsplitstr)[listelem]
+
+            for f in operlist:
+                if self.mission == 'viirsn' and cal != 'xcal':
+                    if f.startswith('VIIRS-SDR-F-LUT_npp_'):
+                        operversion = f.split(listsplitstr)[listelem]
+                    else:
+                        operversion2 = (f.split(listsplitstr2)[listelem2]).split('_')[0]
+                else:
+                        operversion = f.split(listsplitstr)[listelem]
 
             #check for version - if different, remove existing files
             for f in luts:
                 if f == '.svn':
                     continue
-                if f.find(operversion) < 0:
+
+                if f.startswith('SDR-F-LUT_npp_') and f.find(operversion) < 0:
                     # remove files
                     os.remove(os.path.join(self.dirs['var'], msn[self.mission], cal, 'OPER', f))
                     if self.verbose: print "- OPER:" + f
 
+                if f.startswith('VIIRS_NPP_') and f.find(operversion2) < 0:
+                    # remove files
+                    os.remove(os.path.join(self.dirs['var'], msn[self.mission], cal, 'OPER', f))
+                    if self.verbose: print "- OPER:" + f
 
                 # modify xcalfile value in msl12_defaults.par
                 if cal == 'xcal':

@@ -3,7 +3,7 @@
 """
 A class for determining the OBPG type of a file.
 """
-__version__ = '1.1.0'
+__version__ = '1.2.1-2016-04-28'
 
 __author__ = 'melliott'
 
@@ -422,7 +422,12 @@ class ObpgFileTyper(object):
         elif self.file_type.find('Level 2') != -1 or \
            self.file_type.find('Level 3') != -1:
             try:
-                if 'Start Time' in self.attributes:
+                if 'time_coverage_start' in self.attributes:
+                    start_time = self._get_time_from_coverage_field(self.attributes['time_coverage_start'])
+                    end_time = self._get_time_from_coverage_field(self.attributes['time_coverage_end'])
+                elif 'RANGEBEGINNINGDATE' in self.attributes:
+                    start_time, end_time = self._get_l1_modis_times()
+                elif 'Start Time' in self.attributes:
                     start_time = self.attributes['Start Time'][0:13]
                 elif 'time_coverage_start' in self.attributes:
                     start_time = self._get_time_from_coverage_field(
@@ -704,8 +709,8 @@ class ObpgFileTyper(object):
                                 self.attributes['time_coverage_end'][14:16],
                                 self.attributes['time_coverage_end'][17:19]
                 ]))
-        elif self.instrument.find('MODIS') != -1:
-            start_time, end_time = self._get_l1_modis_times()
+        # elif self.instrument.find('MODIS') != -1:
+        #     start_time, end_time = self._get_l1_modis_times()
         elif self.instrument.find('OCTS') != -1:
             start_time, end_time = self._get_l1_octs_times()
         elif self.instrument.find('MERIS') != -1:
@@ -783,6 +788,8 @@ class ObpgFileTyper(object):
                     self.file_type = 'Level 1A'
                 elif self.attributes['processing_level'].upper().find('L1B') != -1:
                     self.file_type = 'Level 1B'
+                elif self.attributes['processing_level'].upper().find('GEO') != -1:
+                    self.file_type = 'GEO'
             elif title.find('L1A') != -1:
                 self.file_type = 'Level 1A'
             elif title.find('L1B') != -1:

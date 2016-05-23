@@ -6,7 +6,7 @@ OBPG file names, etc.
 
 __author__ = 'melliott'
 
-__version__ = '1.0.4-2015-08-13'
+__version__ = '1.0.5-2016-04-29'
 
 import calendar
 import datetime
@@ -228,7 +228,7 @@ class NextLevelNameFinder(object):
     """
     A class to determine what the standard OBPG filename would be when the
     given input name is run through the next level of OBPG processing.
-    Note that MODIS and SeaWiFS files are handled in subclasses.
+    Note that some instruments are handled in subclasses.
     """
     PROCESSING_LEVELS = {
         'l1agen':         'Level 1A',

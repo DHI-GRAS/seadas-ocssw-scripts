@@ -5,7 +5,7 @@ Program to return the name of the next level file that would be created from
 the input file name.
 """
 
-__version__ = '1.0.3-2016-04-22'
+__version__ = '1.0.4-2016-04-28'
 
 #import datetime
 import aquarius_next_level_name_finder

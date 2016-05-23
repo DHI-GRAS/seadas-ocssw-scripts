@@ -6,7 +6,7 @@ OBPG software.
 
 __author__ = 'melliott'
 
-__version__ = '1.0.3-2015-08-11'
+__version__ = '1.0.4-2016-04-29'
 
 import modules.next_level_name_finder as next_level_name_finder
 import os
@@ -19,22 +19,23 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
     """
 
     PROCESSING_LEVELS = {
-        'l1agen':       'Level 1A',
-        'Level 1A':     'Level 1A',
-        'l1a_extract_viirs' : 'l1a_extract_viirs',
-        'l1bgen':       'Level 1B',
-        'Level 1B':     'Level 1B',
+        'l1agen':         'Level 1A',
+        'Level 1A':             'Level 1A',
+        'l1aextract_viirs' :  'l1aextract_viirs',
+        'geolocate_viirs' :    'geo',
+        'calibrate_viirs':     'Level 1B',
+        'Level 1B':       'Level 1B',
         'level 1b':       'Level 1B',
-        'l1brsgen':     'l1brsgen',
-        'l1mapgen':     'l1mapgen',
-        'l2gen':        'Level 2',
-        'Level 2':      'Level 2',
-        'l2bin':        'l2bin',
-        'l2brsgen':     'l2brsgen',
-        'l2extract':    'l2extract',
-        'l2mapgen':     'l2mapgen',
-        'l3bin':        'l3bin',
-        'L3b':          'l3bin',
+        'l1brsgen':       'l1brsgen',
+        'l1mapgen':       'l1mapgen',
+        'l2gen':          'Level 2',
+        'Level 2':        'Level 2',
+        'l2bin':          'l2bin',
+        'l2brsgen':       'l2brsgen',
+        'l2extract':      'l2extract',
+        'l2mapgen':       'l2mapgen',
+        'l3bin':          'l3bin',
+        'L3b':            'l3bin',
         'l3gen':          'l3gen',
         'l3mapgen':       'SMI',           # Temporary(?)
         'SDR':          'Level 1B',
@@ -48,6 +49,27 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         super(ViirsNextLevelNameFinder, self).__init__(data_files_list,
                                                        next_level, suite,
                                                        resolution, oformat)
+
+    def _get_geo_extension(self):
+        """
+        Returns the file extension for GEO files.
+        """
+        return '.GEO'
+
+    def _get_geo_name(self):
+        """
+        Returns the name of the GEO file.
+        """
+        if self.data_files[0].start_time:
+            time_stamp = self.data_files[0].start_time
+        elif self.data_files[0].metadata:
+            time_stamp = self._extract_l1_time(
+                            self.data_files[0].metadata['RANGEBEGINNINGDATE'],
+                            self.data_files[0].metadata['RANGEBEGINNINGTIME'])
+        geo_name = self.get_platform_indicator() + time_stamp +\
+                   self._get_geo_extension()
+        return geo_name
+
 
     def get_platform_indicator(self):
         """
@@ -73,7 +95,7 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         """
         Return the appropriate extension for an L2 file.
         """
-        return '.L2_NPP'
+        return '.L2_SNPP'
 
     def _get_transition_functions(self):
         """
@@ -81,7 +103,8 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         called for each level of processing.
         """
         return {'Level 1A': {'Level 1B': self._get_l1b_name,
-                               'l1a_extract_viirs' : self._get_l1aextract_name,
+                               'geo': self._get_geo_name,
+                               'l1aextract_viirs' : self._get_l1aextract_name,
                                'l1bgen' : self._get_l1b_name,
                                'l1brsgen': self._get_l1brsgen_name,
                                'l1mapgen': self._get_l1mapgen_name,
