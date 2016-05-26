@@ -99,7 +99,8 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                 print 'We failed to reach a server.'
                 print 'Please retry this request at a later time.'
                 print 'URL attempted: %s' % url
-                print 'HTTP Error: %d - %s' (response.status, response.reason)
+                print 'HTTP Error: {0} - {1}'.format(response.status,
+                                                     response.reason)
                 status = response.status
 
     except socket.error as socmsg:
@@ -107,7 +108,8 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             if response:
                 urlConn.close()
             if verbose:
-                print "Connection error, retrying up to %d more time(s)" % ntries
+                print 'Connection error, retrying up to {0} more time(s)'.\
+                      format(ntries)
             sleep(sleepytime)
             status = httpdl(url, request, localpath=localpath,
                             outputfilename=outputfilename, ntries=ntries - 1,
@@ -121,7 +123,8 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             status = 500
     except:
         if response:
-            print 'Well, the server did not like this...reports: %s' % response.reason
+            print 'Well, the server did not like this...reports: {0}'.\
+                format(response.reason)
             status = response.status
         else:
             err_msg = '\n'.join(['Could not communicate with the server.',
@@ -329,6 +332,7 @@ def check_sensor(inp_file):
     """
 
     senlst = {'Sea-viewing Wide Field-of-view Sensor (SeaWiFS)': 'seawifs',
+              'SeaWiFS': 'seawifs',
               'Coastal Zone Color Scanner (CZCS)': 'czcs',
               'Ocean Color and Temperature Scanner (OCTS)': 'octs',
               'Ocean Scanning Multi-Spectral Imager (OSMI)': 'osmi',
@@ -340,6 +344,9 @@ def check_sensor(inp_file):
     import re
 
     fileattr = readMetadata(inp_file)
+    if not fileattr:
+        # sys.stderr.write('empty fileattr found in ' + inp_file + '\n')
+        return 'X'
     if fileattr.has_key('ASSOCIATEDPLATFORMSHORTNAME'):
         print fileattr['ASSOCIATEDPLATFORMSHORTNAME']
         return fileattr['ASSOCIATEDPLATFORMSHORTNAME']
@@ -350,5 +357,8 @@ def check_sensor(inp_file):
     elif fileattr.has_key('PRODUCT') and re.search('MER', fileattr['PRODUCT']):
         print fileattr['PRODUCT']
         return 'meris'
+    elif fileattr.has_key('instrument'):
+        print fileattr['instrument']
+        return senlst[(fileattr['instrument'])].strip()
     else:
         return 'X'

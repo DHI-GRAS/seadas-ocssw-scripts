@@ -1,8 +1,10 @@
 #! /usr/bin/env python
-
-
 from operator import sub
 import gc
+import modules.MetaUtils as MetaUtils
+import modules.ProcUtils as ProcUtils
+import xml.dom.minidom as minidom
+import xml.etree.ElementTree as ElementTree
 
 DEFAULT_ANC_DIR_TEXT = "$OCVARROOT"
 
@@ -40,7 +42,7 @@ class getanc:
         self.files = {}
         self.printlist = printlist
         self.verbose = verbose
-        self.timeout=timeout
+        self.timeout = timeout
         self.server_status = None
         self.db_status = None
         self.proctype = None
@@ -85,17 +87,62 @@ class getanc:
                 print "ERROR: End time must be in YYYYDDDHHMMSS format and YYYY is between 1978 and 2030."
                 sys.exit(1)
 
+    def get_start_end_info(self, info):
+        """
+        Extracts and returns the start time, start date, end time, and end date
+        from info. Returns a None value for any item not found.
+        """
+        starttime = None
+        stoptime = None
+        startdate = None
+        stopdate = None
+        for line in info[0].splitlines():
+            if line.find("Start_Time") != -1:
+                starttime = line.split('=')[1]
+            if line.find("End_Time") != -1:
+                stoptime = line.split('=')[1]
+            if line.find("Start_Date") != -1:
+                startdate = line.split('=')[1]
+            if line.find("End_Date") != -1:
+                stopdate = line.split('=')[1]
+        return starttime, startdate, stoptime, stopdate
+
+    def get_time_coverage_xml(self, elem):
+        data_elem = elem.find('Data')
+        value_elem = data_elem.find('DataFromFile')
+        return value_elem.text.strip()
+
+    def get_start_end_info_from_xml(self, raw_xml):
+        """
+        Extracts and returns the start time, start date, end time, and end date
+        from the XML tree in raw_xml. Returns a None value for any item not
+        found.
+        """
+        start = None
+        stop = None
+        xml_root = ElementTree.fromstring(raw_xml)
+        # xml_root = minidom.parseString(raw_xml)
+
+        time_start_list = xml_root.findall('./RootGroup/Attribute[@Name="time_coverage_start"]')
+        if len(time_start_list) > 1:
+            print "Encountered more than 1 time_coverage_start tag. Using 1st value."
+        start = self.get_time_coverage_xml(time_start_list[0])
+
+        time_end_list = xml_root.findall('./RootGroup/Attribute[@Name="time_coverage_end"]')
+        if len(time_end_list) > 1:
+            print "Encountered more than 1 time_coverage_end tag. Using 1st value."
+        stop = self.get_time_coverage_xml(time_end_list[0])
+        return start, stop
 
     def setup(self):
         """
         Set up the basics
         """
-        global stopdate, stoptime, startdate, starttime
+        # global stopdate, stoptime, startdate, starttime
         import os
         import sys
         import re
         import subprocess
-        import ProcUtils
         from modis_utils import modis_timestamp
         from viirs_utils import viirs_timestamp
         from aquarius_utils import aquarius_timestamp
@@ -127,7 +174,7 @@ class getanc:
             if self.start is None:
                 # Check for existence of ifile, and if it doesn't exist assume the
                 # user wants to use this script without an actual input file, but
-                # instead an OBPG formatted filenmae that indicates the start time.
+                # instead an OBPG formatted filename that indicates the start time.
                 if not os.path.exists(self.file):
                     if self.sensor:
                         print "*** WARNING: Input file doesn't exist! Parsing filename for start time and setting"
@@ -145,9 +192,10 @@ class getanc:
                 else:
                     # Determine start/end times from HDF file
                     # for l1info subsample every 250 lines
-                    if self.verbose: print "Determining pass start and end times..."
+                    if self.verbose:
+                        print "Determining pass start and end times..."
                     senchk = ProcUtils.check_sensor(self.file)
-                  
+
                     if (re.search('(Aqua|Terra)', senchk)):
                     #   if self.mission == "A" or self.mission == "T":
                         self.start, self.stop, self.sensor = modis_timestamp(self.file)
@@ -158,21 +206,50 @@ class getanc:
                     else:
                         if self.sensor is None:
                             self.sensor = senchk
-                        infocmd = [os.path.join(self.dirs['bin'], 'l1info'), '-s', '-i 250', self.file]
-                        l1info = subprocess.Popen(infocmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        info = l1info.communicate()
-                        if info[1]:
-                            print info[1]
-                            print "ERROR: Could not determine start time for " + self.base + ". Exiting."
-                            sys.exit(1)
+                        mime_data = MetaUtils.get_mime_data(self.file)
+                        if MetaUtils.is_netcdf4(mime_data):
+                            metadata = MetaUtils.dump_metadata(self.file)
+                            starttime, stoptime = self.get_start_end_info_from_xml(metadata)
+                            starttime = starttime.strip('"')
+                            stoptime = stoptime.strip('"')
+                            starttime = starttime.strip("'")
+                            stoptime = stoptime.strip("'")
+                            self.start = ProcUtils.date_convert(starttime, 't', 'j')
+                            self.stop = ProcUtils.date_convert(stoptime, 't', 'j')
+                            pass
                         else:
-                            for line in info[0].splitlines():
-                                if "Start_Time" in line:    starttime = line.split('=')[1]
-                                if "End_Time" in line:      stoptime = line.split('=')[1]
-                                if "Start_Date" in line:    startdate = line.split('=')[1]
-                                if "End_Date" in line:      stopdate = line.split('=')[1]
-                            self.start = ProcUtils.date_convert(startdate + ' ' + starttime, 'h', 'j')
-                            self.stop = ProcUtils.date_convert(stopdate + ' ' + stoptime, 'h', 'j')
+                            infocmd = [os.path.join(self.dirs['bin'], 'l1info'), '-s', '-i 250', self.file]
+                            l1info = subprocess.Popen(infocmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            info = l1info.communicate()
+                            (starttime, startdate, stoptime, stopdate) = self.get_start_end_info(info)
+                            if not starttime or not startdate or not stoptime or not stopdate:
+                                err_msg = 'ERROR: For ' + self.base + ' could not determine: '
+                                if not starttime:
+                                    err_msg = err_msg + ' start time'
+                                if not startdate:
+                                    if not starttime:
+                                        err_msg = err_msg + ', start date'
+                                    else:
+                                        err_msg = err_msg + ' start date'
+                                if not stoptime:
+                                    if not starttime or not startdate:
+                                        err_msg = err_msg + ', stoptime'
+                                    else:
+                                        err_msg = err_msg + ' stop time'
+                                if not stopdate:
+                                    if not starttime or not startdate or not stoptime:
+                                        err_msg = err_msg + ', stop date'
+                                    else:
+                                        err_msg = err_msg + ' stop date'
+                                err_msg = err_msg + '. Exiting.'
+                                print err_msg
+                                if info[1]:
+                                    print "l1info reported the following error:"
+                                    print '    {0}'.format(info[1])
+                                sys.exit(1)
+                            else:
+                                self.start = ProcUtils.date_convert(startdate + ' ' + starttime, 'h', 'j')
+                                self.stop = ProcUtils.date_convert(stopdate + ' ' + stoptime, 'h', 'j')
 
         if self.verbose:
             print ""
@@ -265,7 +342,6 @@ Using current working directory for storing the ancillary database file: %s''' %
         """
         import os
         import re
-        import ProcUtils
         import sys
         import httplib
         import modules.ancDB as db
@@ -420,7 +496,6 @@ Using current working directory for storing the ancillary database file: %s''' %
         """
         import os
         import re
-        import ProcUtils
         import sys
         import httplib
         from urlparse import urlparse
@@ -522,8 +597,6 @@ Using current working directory for storing the ancillary database file: %s''' %
         """
         create the .anc parameter file
         """
-        import ProcUtils
-
         ProcUtils.remove(self.anc_file)
 
         NONOPT = ""
@@ -537,7 +610,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                             continue
                         else:
                             NONOPT = " ".join([NONOPT, 'MET'])
-                            print "*** WARNING: No optimal %s files found." % key
+                            print '*** WARNING: No optimal {0} files found.'.\
+                                format(key)
                             break
 
                 for key in (['sstfile1', 'sstfile2']):
@@ -607,8 +681,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                     print "*** WARNING: No optimal NO2 files found."
 
                 if self.opt_flag & 4 and (not self.files.has_key('icefile') or (self.db_status & 16)):
-                        NONOPT = " ".join([NONOPT, 'Sea Ice'])
-                        print "*** WARNING: No optimal ICE files found."
+                    NONOPT = " ".join([NONOPT, 'Sea Ice'])
+                    print "*** WARNING: No optimal ICE files found."
 
         ancpar = open(self.anc_file, 'w')
 
@@ -658,7 +732,6 @@ Using current working directory for storing the ancillary database file: %s''' %
         """
         remove the temporary 'server' file and adjust return status - if necessary
         """
-        import ProcUtils
 
         ProcUtils.remove(self.server_file)
 

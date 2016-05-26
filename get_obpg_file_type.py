@@ -160,6 +160,9 @@ class ObpgFileTyper(object):
             for item in exc_info:
                 print str(item)
 
+    def get_attributes(self):
+        return self.attributes
+
     def _get_data_from_anc_attributes(self):
         """
         Processes Ancillary data files.
@@ -709,8 +712,8 @@ class ObpgFileTyper(object):
                                 self.attributes['time_coverage_end'][14:16],
                                 self.attributes['time_coverage_end'][17:19]
                 ]))
-        # elif self.instrument.find('MODIS') != -1:
-        #     start_time, end_time = self._get_l1_modis_times()
+        elif self.instrument.find('MODIS') != -1:
+            start_time, end_time = self._get_l1_modis_times()
         elif self.instrument.find('OCTS') != -1:
             start_time, end_time = self._get_l1_octs_times()
         elif self.instrument.find('MERIS') != -1:

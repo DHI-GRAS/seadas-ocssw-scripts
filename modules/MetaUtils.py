@@ -28,9 +28,27 @@ def get_hdf4_content(filename):
     contents = hdp_data.read()
     return contents
 
-def get_hdf5_content(filename):
+def get_hdf5_header_plaintext(filename):
     """
-    Returns the header content from an HDF 5 file which is obtained via
+    Returns the header content plain text from an HDF 5 file which is obtained via
+    'h5dump -H'.
+    """
+    h5dump = os.path.join(os.getenv('LIB3_BIN'), 'h5dump')
+    if not (os.path.isfile(h5dump) and os.access(h5dump, os.X_OK)):
+        print h5dump, "is not executable."
+        return None
+    cmd = [h5dump, '-H', filename]
+    h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE).stdout
+    content = h5dump_output.read()
+    if content.find('HDF') != -1:
+        return content
+    else:
+        return None
+
+def get_hdf5_header_xml(filename):
+    """
+    Returns the header content as XML from an HDF 5 file which is obtained via
     'h5dump -Au'.
     """
     h5dump = os.path.join(os.getenv('LIB3_BIN'), 'h5dump')
@@ -123,7 +141,7 @@ def dump_metadata(filename):
     mime = get_mime_data(filename)
 
     if mime.strip() == 'data':
-        content = get_hdf5_content(filename)
+        content = get_hdf5_header_xml(filename)
         if content:
             return content
 
@@ -131,7 +149,7 @@ def dump_metadata(filename):
         contents = get_hdf4_content(filename)
         return contents
     elif re.search('Hierarchical.*version.5', mime):
-        content = get_hdf5_content(filename)
+        content = get_hdf5_header_xml(filename)
         return content
     elif re.search('NetCDF Data Format', mime):
         if not (os.path.isfile(ncdump_hdf) and os.access(ncdump_hdf, os.X_OK)):
@@ -147,7 +165,7 @@ def dump_metadata(filename):
         fbuffer.close()
 
         if re.search("HDF_UserBlock", line1):
-            content = get_hdf5_content(filename)
+            content = get_hdf5_header_xml(filename)
             return content
         elif line1[0:3] == 'CDF':
             # For NetCDF files, such as some from MERIS
