@@ -46,10 +46,11 @@ class RuleSet():
     """
     Ruleset contains all the rules for a given instrument.
     """
-    def __init__(self, rs_name, ruls, ordr):
+    def __init__(self, rs_name, ruls, ordr, needs_geo=False):
         self.name = rs_name
         self.rules = ruls
         self.order = ordr
+        self.requires_geo = needs_geo
 
     #def _list_members_in(l1, l2):
     #    members_in = []

@@ -107,6 +107,17 @@ class getanc:
                 stopdate = line.split('=')[1]
         return starttime, startdate, stoptime, stopdate
 
+    def get_goci_time(self, goci_time_str):
+        month_dict = {'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+                      'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+                      'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'}
+        time_str = goci_time_str[8:12] + '-' + \
+                   month_dict[goci_time_str[4:7]] + '-' + \
+                   goci_time_str[1:3] + 'T' + goci_time_str[13:15] + ':' + \
+                   goci_time_str[16:18] + ':' + goci_time_str[19:21]  + '.' \
+                   + goci_time_str[22:25] + 'Z'
+        return time_str
+
     def get_time_coverage_xml(self, elem):
         data_elem = elem.find('Data')
         value_elem = data_elem.find('DataFromFile')
@@ -118,20 +129,35 @@ class getanc:
         from the XML tree in raw_xml. Returns a None value for any item not
         found.
         """
+
         start = None
         stop = None
         xml_root = ElementTree.fromstring(raw_xml)
         # xml_root = minidom.parseString(raw_xml)
 
-        time_start_list = xml_root.findall('./RootGroup/Attribute[@Name="time_coverage_start"]')
-        if len(time_start_list) > 1:
-            print "Encountered more than 1 time_coverage_start tag. Using 1st value."
-        start = self.get_time_coverage_xml(time_start_list[0])
+        time_start_list = xml_root.findall('.//Attribute[@Name="time_coverage_start"]')
+        if len(time_start_list) > 0:
+            if len(time_start_list) > 1:
+                print "Encountered more than 1 time_coverage_start tag. Using 1st value."
+            start = self.get_time_coverage_xml(time_start_list[0])
+        else:
+            time_start_list = xml_root.findall('.//Attribute[@Name="Scene Start time"]')
+            if len(time_start_list) > 1:
+                print "Encountered more than 1 Scene Start time tag. Using 1st value."
+            start_str = self.get_time_coverage_xml(time_start_list[0])
+            start = self.get_goci_time(start_str)
 
-        time_end_list = xml_root.findall('./RootGroup/Attribute[@Name="time_coverage_end"]')
-        if len(time_end_list) > 1:
-            print "Encountered more than 1 time_coverage_end tag. Using 1st value."
-        stop = self.get_time_coverage_xml(time_end_list[0])
+        time_end_list = xml_root.findall('.//Attribute[@Name="time_coverage_end"]')
+        if len(time_end_list) > 0:
+            if len(time_end_list) > 1:
+                print "Encountered more than 1 time_coverage_end tag. Using 1st value."
+            stop = self.get_time_coverage_xml(time_end_list[0])
+        else:
+            time_end_list = xml_root.findall('.//Attribute[@Name="Scene end time"]')
+            if len(time_end_list) > 1:
+                print "Encountered more than 1 Scene end time tag. Using 1st value."
+            stop_str = self.get_time_coverage_xml(time_end_list[0])
+            stop = self.get_goci_time(stop_str)
         return start, stop
 
     def setup(self):
@@ -214,8 +240,14 @@ class getanc:
                             stoptime = stoptime.strip('"')
                             starttime = starttime.strip("'")
                             stoptime = stoptime.strip("'")
-                            self.start = ProcUtils.date_convert(starttime, 't', 'j')
-                            self.stop = ProcUtils.date_convert(stoptime, 't', 'j')
+                            if starttime.find('T') != -1:
+                                self.start = ProcUtils.date_convert(starttime, 't', 'j')
+                            else:
+                                self.start = ProcUtils.date_convert(starttime, 'h', 'j')
+                            if stoptime.find('T') != -1:
+                                self.stop = ProcUtils.date_convert(stoptime, 't', 'j')
+                            else:
+                                self.stop = ProcUtils.date_convert(stoptime, 'h', 'j')
                             pass
                         else:
                             infocmd = [os.path.join(self.dirs['bin'], 'l1info'), '-s', '-i 250', self.file]

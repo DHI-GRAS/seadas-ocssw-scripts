@@ -92,9 +92,9 @@ def main():
                       help="Enable MODIS terrain elevation correction")
     parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
                       default=False, help="print status messages")
-    parser.add_option("-n", "--entrained", action="store_true",
-                      dest='entrained', default=False,
-                      help="Use entrained attitude for Terra")
+#    parser.add_option("-n", "--entrained", action="store_true",
+#                      dest='entrained', default=False,
+#                      help="Use entrained attitude for Terra")
     parser.add_option("--log", action="store_true", dest='log',
                       default=False, help="Save processing log file(s)")
     parser.add_option("--timeout", dest='timeout', metavar="TIMEOUT",
@@ -134,8 +134,8 @@ def main():
         refresh_db = options.refreshDB
     if options.download is False:
         download = options.download
-    if options.entrained:
-        entrained = options.entrained
+#    if options.entrained:
+#        entrained = options.entrained
     if options.timeout:
         timeout = float(options.timeout)
 
