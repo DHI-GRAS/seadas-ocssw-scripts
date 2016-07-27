@@ -239,8 +239,6 @@ class lut_utils:
                 else:
                         operversion = f.split(listsplitstr)[listelem]
 
-            leapsec
-            
             #check for version - if different, remove existing files
             for f in luts:
                 if f == '.svn':
