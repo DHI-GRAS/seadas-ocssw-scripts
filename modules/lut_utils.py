@@ -178,7 +178,7 @@ class lut_utils:
             else:
                 if self.verbose: print "+ IETTime.dat"
 
-                url = "/Ancillary/LUTs/viirsn/polar_wander.h5"
+                url = "/Ancillary/LUTs/viirsn/polar_wander.ascii"
             outputdir = os.path.join(self.dirs['var'], 'viirsn')
             status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn,verbose=self.verbose)
             if status:
@@ -239,6 +239,8 @@ class lut_utils:
                 else:
                         operversion = f.split(listsplitstr)[listelem]
 
+            leapsec
+            
             #check for version - if different, remove existing files
             for f in luts:
                 if f == '.svn':
