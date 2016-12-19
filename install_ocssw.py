@@ -315,7 +315,7 @@ if __name__ == "__main__":
                       dest="install_dir",
                       help="destination directory for install. Defaults to $OCSSWROOT or \"$HOME/ocssw\" if neither are given.")
     parser.add_option("-g", "--git-base", action="store", dest="git_base",
-                      default="http://oceandata.sci.gsfc.nasa.gov/ocssw/",
+                      default="https://oceandata.sci.gsfc.nasa.gov/ocssw/",
                       help="web location for the git repositories")
     parser.add_option("-b", "--git-branch", action="store", dest="git_branch",
                       default="master",
