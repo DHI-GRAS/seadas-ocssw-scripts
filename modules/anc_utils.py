@@ -550,9 +550,9 @@ Using current working directory for storing the ancillary database file: %s''' %
             proxy = urlparse(proxy_set)
     
         if proxy is None:
-            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
         else:
-            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         for FILE in FILES:
             year = FILE[1:5]

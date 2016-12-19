@@ -60,9 +60,9 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
 
     if urlConn is None:
         if proxy is None:
-            urlConn = httplib.HTTPConnection(url, timeout=timeout)
+            urlConn = httplib.HTTPSConnection(url, timeout=timeout)
         else:
-            urlConn = httplib.HTTPConnection(proxy.hostname, proxy.port,
+            urlConn = httplib.HTTPSConnection(proxy.hostname, proxy.port,
                                              timeout=timeout)
 
     if proxy is None:

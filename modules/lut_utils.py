@@ -21,7 +21,7 @@ class lut_utils:
         self.status = 0
         self.timeout = timeout
 
-        self.query_site = "http://oceancolor.gsfc.nasa.gov"
+        self.query_site = "https://oceancolor.gsfc.nasa.gov"
         self.data_site = "oceandata.sci.gsfc.nasa.gov"
 
 
@@ -35,9 +35,9 @@ class lut_utils:
             proxy = urlparse(proxy_set)
 
         if proxy is None:
-            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
         else:
-            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         if self.verbose: print "[ Aquarius ]"
         # Get most recent version from local disk
@@ -86,9 +86,9 @@ class lut_utils:
             proxy = urlparse(proxy_set)
 
         if proxy is None:
-            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
         else:
-            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         if self.verbose: print "[ SeaWiFS ]"
 
@@ -130,9 +130,9 @@ class lut_utils:
             proxy = urlparse(proxy_set)
 
         if proxy is None:
-            urlConn = httplib.HTTPConnection(self.data_site,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
         else:
-            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+            urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         msn = {'aqua': 'modisa', 'terra': 'modist', 'viirsn': 'viirsn'}
 
