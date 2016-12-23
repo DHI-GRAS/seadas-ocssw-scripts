@@ -156,6 +156,11 @@ def installGitRepo(repoName, dirName):
                 if verbose:
                     print "Saved local changes with \"git stash\""
 
+            # set remote repo to http location
+            commandStr = 'cd ' + fullDir + '; '
+            commandStr += 'git remote set-url origin ' + gitBase + repoName + '.git'
+            retval = os.system(commandStr)
+
             # directory exists try a git fetch.
             commandStr = 'cd ' + fullDir + '; git fetch'
             if verbose:
