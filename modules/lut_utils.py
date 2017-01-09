@@ -30,14 +30,19 @@ class lut_utils:
         update the aquarius luts
         """
         proxy = None
-        proxy_set = os.environ.get('http_proxy')
+        proxy_set = os.environ.get('https_proxy')
+        if proxy_set is None:
+            proxy_set = os.environ.get('http_proxy')
+
         if proxy_set:
             proxy = urlparse(proxy_set)
 
         if proxy is None:
             urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
-        else:
+        elif proxy.scheme == 'https':
             urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         if self.verbose: print "[ Aquarius ]"
         # Get most recent version from local disk
@@ -81,14 +86,19 @@ class lut_utils:
         update the SeaWiFS elements.dat and time_anomaly files
         """
         proxy = None
-        proxy_set = os.environ.get('http_proxy')
+        proxy_set = os.environ.get('https_proxy')
+        if proxy_set is None:
+            proxy_set = os.environ.get('http_proxy')
+
         if proxy_set:
             proxy = urlparse(proxy_set)
 
         if proxy is None:
             urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
-        else:
+        elif proxy.scheme == 'https':
             urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         if self.verbose: print "[ SeaWiFS ]"
 
@@ -125,14 +135,19 @@ class lut_utils:
         update the calibration LUTs, utcpole.dat and leapsec.dat files
         """
         proxy = None
-        proxy_set = os.environ.get('http_proxy')
+        proxy_set = os.environ.get('https_proxy')
+        if proxy_set is None:
+            proxy_set = os.environ.get('http_proxy')
+
         if proxy_set:
             proxy = urlparse(proxy_set)
 
         if proxy is None:
             urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
-        else:
+        elif proxy.scheme == 'https':
             urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,proxy.port,timeout=self.timeout)
 
         msn = {'aqua': 'modisa', 'terra': 'modist', 'viirsn': 'viirsn'}
 

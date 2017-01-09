@@ -54,21 +54,27 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
         os.makedirs(localpath, mode=02775)
 
     proxy = None
-    proxy_set = os.environ.get('http_proxy')
+    proxy_set = os.environ.get('https_proxy')
+    if proxy_set is None:
+        proxy_set = os.environ.get('http_proxy')
+
     if proxy_set:
         proxy = urlparse(proxy_set)
 
     if urlConn is None:
         if proxy is None:
             urlConn = httplib.HTTPSConnection(url, timeout=timeout)
-        else:
+        elif proxy.scheme == 'https':
             urlConn = httplib.HTTPSConnection(proxy.hostname, proxy.port,
+                                             timeout=timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname, proxy.port,
                                              timeout=timeout)
 
     if proxy is None:
         full_request = request
     else:
-        full_request = ''.join(['http://', url, request])
+        full_request = ''.join(['https://', url, request])
 
     try:
         req = urlConn.request('GET', full_request, headers=reqHeaders)
