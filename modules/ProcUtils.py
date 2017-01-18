@@ -56,7 +56,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
     proxy = None
     proxy_set = os.environ.get('https_proxy')
     if proxy_set is None:
-        proxy_set = os.environ.get('http_proxy')
+        proxy_set = os.environ.get('http_proxy')
 
     if proxy_set:
         proxy = urlparse(proxy_set)
