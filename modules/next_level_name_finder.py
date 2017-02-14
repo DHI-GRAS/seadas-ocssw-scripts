@@ -707,15 +707,15 @@ class NextLevelNameFinder(object):
                             self.data_files[0].metadata['RANGEBEGINNINGTIME'])
         return basename
 
-    def _get_smigen_name(self):
+    def _get_l3mapgen_name(self):
         """
         Returns the output name from smigen for an L3 Binned file or group
         of files.
         """
-        if not self.suite:
-            err_msg = 'Error! A suite must be defined for {0}.'.\
-                      format(self.user_next_level)
-            sys.exit(err_msg)
+        # if not self.suite:
+        #     err_msg = 'Error! A suite must be defined for {0}.'.\
+        #               format(self.user_next_level)
+        #     sys.exit(err_msg)
         first_char = self.get_platform_indicator()
         if self.data_files[0].metadata:
             sday, syear = get_start_day_year(self.data_files[0].metadata)
@@ -805,7 +805,7 @@ class NextLevelNameFinder(object):
                     'l2mapgen': self._get_l2mapgen_name },
                 'Level 3 Binned': {
                     'l3bin' : self._get_l3bin_name,
-                    'SMI' :   self._get_smigen_name,
+                    'SMI' :   self._get_l3mapgen_name,
                     'l3gen':  self._get_l3gen_name }
         }
 
@@ -1120,7 +1120,7 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                               'l2brsgen': self._get_l2brsgen_name,
                               'l2mapgen': self._get_l2mapgen_name },
                  'Level 3 Binned': {'l3bin' : self._get_l3bin_name,
-                                      'SMI' : self._get_smigen_name,
+                                      'SMI' : self._get_l3mapgen_name,
                                      'l3gen': self._get_l3gen_name
                                       }
         }
@@ -1151,7 +1151,7 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
         'l3bin':        'l3bin',
         'L3b':          'l3bin',
         'l3gen':          'l3gen',
-        'l3mapgen':    'SMI',           # Temporary(?)
+        'l3mapgen':     'SMI',           # Temporary(?)
         'SMI':          'SMI',
         'smigen':       'SMI'
     }
@@ -1190,8 +1190,9 @@ class SeawifsNextLevelNameFinder(NextLevelNameFinder):
                              'l2brsgen': self._get_l2brsgen_name,
                              'l2mapgen': self._get_l2mapgen_name },
                 'Level 3 Binned': {'l3bin' : self._get_l3bin_name,
-                                     'SMI' : self._get_smigen_name,
-                                     'l3gen': self._get_l3gen_name
-                                     }
+                                   'l3gen': self._get_l3gen_name,
+                                   'l3mapgen' : self._get_l3mapgen_name,
+                                   'SMI' : self._get_l3mapgen_name
+                                  }
                 }
 

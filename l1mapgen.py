@@ -28,7 +28,7 @@ def main():
     parser.add_argument('-ofile', nargs=1, type=str, default=(["l1mapgen_output.png"]),help=' output file name ')
     parser.add_argument('-ofile2', nargs=1, type=str, default=(["DEFAULT"]),help=' output file name ')
     parser.add_argument('-pversion', nargs=1, type=str, default=(["DEFAULT"]),help=" processing version string")
-    parser.add_argument('-product_rgb', nargs=1, type=str, default=(["DEFAULT"]),help=" 3 products to use for RGB.  Default is sensor specific")
+    parser.add_argument('-product_rgb', nargs=1, type=str, default=(["DEFAULT"]),help=" 3 products (e.g.,product_rgb=rhos_645,rhos_555,rhos_469) to use for RGB.  Default is sensor specific")
     parser.add_argument('-prodtype', nargs=1, choices=['regional'],default=(['regional']), help=' product type (Set to "day" to bin day scans.)')
     parser.add_argument('-flaguse', nargs=1, type=str, default=(["'BOWTIEDEL'"]), help=' flags masked [see /SENSOR/l2bin_defaults.par')
     parser.add_argument('-bin_res', nargs=1, type=str, choices=['H', '1', '2', '4', '9','18','QD','36','HD','1D'],default=(['2']), help='''\

@@ -3,16 +3,17 @@ Utility functions for MODIS processing programs.
 """
 
 from exceptions import ValueError
+from MetaUtils import readMetadata
 import get_obpg_file_type
+import lut_utils
+import next_level_name_finder
 import obpg_data_file
 import os
-import next_level_name_finder
-import sys
+import ProcUtils
 import re
 import shutil
 import subprocess
-from MetaUtils import readMetadata
-import ProcUtils
+import sys
 
 def buildpcf(self):
     """
@@ -153,10 +154,9 @@ def modis_timestamp(arg):
     # at this point datetimes are formatted as YYYY-MM-DD HH:MM:SS.uuuuuu
 
     # return values formatted as YYYYDDDHHMMSS
-    return ( ProcUtils.date_convert(start_time, 'h', 'j'),
-             ProcUtils.date_convert(end_time, 'h', 'j'),
-             sat_name )
-
+    return(ProcUtils.date_convert(start_time, 'h', 'j'),
+           ProcUtils.date_convert(end_time, 'h', 'j'),
+           sat_name)
 
 def getversion(file_name):
     """
@@ -356,8 +356,8 @@ def modis_env(self):
             ftype, sensor = file_typer.get_file_type()
             stime, etime = file_typer.get_file_times()
             data_files_list = list([obpg_data_file.ObpgDataFile(self.file,
-                                                               ftype, sensor,
-                                                               stime, etime)])
+                                                                ftype, sensor,
+                                                                stime, etime)])
             name_finder = next_level_name_finder.ModisNextLevelNameFinder(
                             data_files_list, 'geo')
             self.geofile = name_finder.get_next_level_name()
@@ -383,10 +383,14 @@ def modis_env(self):
             if self.lutversion:
                 print "Missing LUTDIR. LUTDIR needs to be defined if LUTVER is set"
                 sys.exit(1)
-            self.lutdir = os.path.join(os.getenv('OCSSWROOT'), 'run',
-                                       'var', self.sensor, 'cal', 'OPER')
-            lutlist = os.listdir(self.lutdir)
-            for lut in lutlist:
+            self.lutdir = os.path.join(self.dirs['var'], self.sensor, 'cal', 'OPER')
+            lut_dir_contents = os.listdir(self.lutdir)
+            lutlist = [f for f in lut_dir_contents if f.endswith('.hdf')]
+            # Testing found that using just the compare_lut_names sort didn't
+            # get the LUT's into verion # order if the LUT names were grouped
+            # by the type of LUT. Grouping is handled by sorted(lutlist).
+            sorted_lut_list = sorted(sorted(lutlist), lut_utils.compare_lut_names)
+            for lut in sorted_lut_list:
                 if lut.find('Refl') > 0:
                     self.refl_lut = lut
                 if lut.find('Emis') > 0:
@@ -422,10 +426,10 @@ def modis_env(self):
         ftype, sensor = file_typer.get_file_type()
         stime, etime = file_typer.get_file_times()
         data_files_list = list([obpg_data_file.ObpgDataFile(self.file,
-                                                           ftype, sensor,
-                                                           stime, etime)])
+                                                            ftype, sensor,
+                                                            stime, etime)])
         name_finder = next_level_name_finder.ModisNextLevelNameFinder(
-                        data_files_list, 'l1bgen')
+            data_files_list, 'l1bgen')
         l1b_name = name_finder.get_next_level_name()
         self.base = os.path.join(self.dirs['run'],
                                  os.path.basename(l1b_name).split('.')[0])

@@ -31,7 +31,7 @@ def setupCurlDownload():
     global downloadCommand, downloadContinueStr
     downloadCommand = 'curl -O --retry 5 --retry-delay 5 '
     downloadContinueStr = '-C - '
-
+  
 def setupWgetDownload():
     """
     set the global variables to use wget for downloading files.
@@ -155,12 +155,11 @@ def installGitRepo(repoName, dirName):
             if not stashOutput.startswith('No local changes to save'):
                 if verbose:
                     print "Saved local changes with \"git stash\""
-
+    
             # set remote repo to http location
             commandStr = 'cd ' + fullDir + '; '
             commandStr += 'git remote set-url origin ' + gitBase + repoName + '.git'
             retval = os.system(commandStr)
-
             # directory exists try a git fetch.
             commandStr = 'cd ' + fullDir + '; git fetch'
             if verbose:
@@ -182,7 +181,7 @@ def installGitRepo(repoName, dirName):
             if retval:
                 print 'Error - Could not run \"' + commandStr + '\"'
                 exit(1)
-
+            
             # try a git pull.
             commandStr = 'cd ' + fullDir + '; git pull --progress'
             if verbose:
@@ -193,7 +192,7 @@ def installGitRepo(repoName, dirName):
             if retval:
                 print 'Error - Could not run \"' + commandStr + '\"'
                 exit(1)
-
+                
     else:
         # directory does not exist
         if verbose:
@@ -263,7 +262,7 @@ def installGitRepo(repoName, dirName):
             if retval:
                 print 'Error - Could not run \"' + commandStr + '\"'
                 exit(1)
-
+            
             # try a git pull.
             commandStr = 'cd ' + fullDir + '; git pull --progress > /dev/null'
             if verbose:
@@ -333,7 +332,7 @@ if __name__ == "__main__":
                       default=None, help="local directory containing previously downloaded bundles")
     parser.add_option("-c", "--clean", action="store_true", dest="clean",
                       default=False, help="Do a clean install by deleting the install directory first, if it exists")
-    parser.add_option("--curl", action="store_true", dest='curl',
+    parser.add_option("--curl", action="store_true", dest='curl', 
                       default=False, help="use curl for download instead of wget")
 
     # add missions
@@ -643,7 +642,6 @@ if __name__ == "__main__":
     if options.oli:
         printProgress('oli')
         installGitRepo('oli', 'run/data/oli')
-
     # install run/data/olci
     if options.olci:
         printProgress('olci')
@@ -714,28 +712,28 @@ if __name__ == "__main__":
             if retval:
                 print 'Error - Could not install luts for seawifs'
                 exit(1)
-
+    
         if options.aqua:
             printProgress('aqua-luts')
             retval = os.system(commandStr + 'aqua')
             if retval:
                 print 'Error - Could not install luts for aqua'
                 exit(1)
-
+    
         if options.terra:
             printProgress('terra-luts')
             retval = os.system(commandStr + 'terra')
             if retval:
                 print 'Error - Could not install luts for terra'
                 exit(1)
-
+    
         if options.viirsn:
             printProgress('viirsn-luts')
             retval = os.system(commandStr + 'viirsn')
             if retval:
                 print 'Error - Could not install luts for viirsn'
                 exit(1)
-
+    
         if options.aquarius:
             printProgress('aquarius-luts')
             retval = os.system(commandStr + 'aquarius')
@@ -744,3 +742,4 @@ if __name__ == "__main__":
                 exit(1)
 
     exit(0)
+

@@ -140,6 +140,20 @@ def get_obpg_data_file_object(file_specification):
                                                      ftyper.attributes)
     return obpg_data_file_obj
 
+def build_executable_path(prog_name):
+    """
+    Returns the directory in which the program named in prog_name is found.
+    None is returned if the program is not found.
+    """
+    exe_path = None
+    candidate_subdirs = ['run', 'scripts', '/run/scripts']
+    for subdir in candidate_subdirs:
+        cand_path = os.path.join(OCSSWROOT_DIR, subdir, prog_name)
+        if os.path.exists(cand_path):
+            exe_path = cand_path
+            break
+    return exe_path
+
 def build_file_list_file(filename, file_list):
     """
     Create a file listing the names of the files to be processed.
@@ -1577,8 +1591,7 @@ def run_l2gen(proc):
     Set up for and perform L2 processing.
     """
     if cfg_data.get_anc:
-        getanc_prog = os.path.join(proc.ocssw_root, 'run/scripts',
-                                   'getanc.py')
+        getanc_prog = build_executable_path('getanc.py')
         getanc_cmd = ' '.join([getanc_prog, proc.input_file])
         logging.debug('running getanc command: ' + getanc_cmd)
         execute_command(getanc_cmd)
@@ -1695,7 +1708,8 @@ def run_modis_geo(proc):
     """
     Sets up and runs the MODIS GEO script.
     """
-    prog = os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_GEO.py')
+    prog = build_executable_path('modis_GEO.py')
+    # os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_GEO.py')
     args = proc.input_file +  ' --output=' + proc.output_file
     args += get_options(proc.par_data)
     cmd = ' '.join([prog, args])
@@ -1706,7 +1720,7 @@ def run_modis_l1a(proc):
     """
     Sets up and runs the MODIS L1A script.
     """
-    prog = os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_L1A.py')
+    prog = build_executable_path('modis_L1A.py')
     args = proc.input_file
     args += ' --output=' + proc.output_file
     args += get_options(proc.par_data)
@@ -1718,7 +1732,7 @@ def run_modis_l1b(proc):
     """
     Runs the L1B script.
     """
-    prog = os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_L1B.py')
+    prog = build_executable_path('modis_L1B.py')
     args = ' -o ' + proc.output_file
     args += get_options(proc.par_data)
     # The following is no longer needed, but kept for reference.
@@ -1795,7 +1809,7 @@ def run_script(proc, script_name):
     """
     Build the command to run the processing script which is passed in.
     """
-    prog = os.path.join(proc.ocssw_root, 'run', 'scripts', script_name)
+    prog = build_executable_path(script_name)
     args = ' ifile=' + proc.input_file
     args += ' ofile=' + proc.output_file
     args += get_options(proc.par_data)
@@ -1888,6 +1902,11 @@ SUFFIXES = {
 input_file_data = {}
 #verbose = False
 
+if os.environ['OCSSWROOT']:
+    OCSSWROOT_DIR = os.environ['OCSSWROOT']
+    print 'OCSSWROOT -> {0}'.format(OCSSWROOT_DIR)
+else:
+    sys.exit('Error! Cannot find OCSSWROOT environment variable.')
 
 if __name__ == "__main__":
     sys.exit(main())

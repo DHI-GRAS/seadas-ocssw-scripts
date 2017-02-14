@@ -133,8 +133,11 @@ def dump_metadata(filename):
         print "Can't find input file '" + filename + "'."
         return None
 
-    ncdump = os.path.join(os.getenv('LIB3_BIN'), 'ncdump')
-    ncdump_hdf = os.path.join(os.getenv('LIB3_BIN'), 'ncdump_hdf')
+    lib3_bin_dir = os.getenv('LIB3_BIN')
+    if not lib3_bin_dir:
+        sys.exit('Error! Unable to locate LIB3_BIN environment variable. You may need to run')
+    ncdump = os.path.join(lib3_bin_dir, 'ncdump')
+    ncdump_hdf = os.path.join(lib3_bin_dir, 'ncdump_hdf')
 
     # mimecmd = ['file', '--brief', filename]
     # mime = subprocess.Popen(mimecmd, stdout=subprocess.PIPE).communicate()[0]
@@ -229,7 +232,7 @@ def readMetadata(filename):
                     if line.find('Daily-OI') != -1:
                         # NOAA supplied SST Ancillary files
                         return {'Title': 'Ancillary', 'Data Type': 'SST'}
-    elif isinstance(text, types.StringType) and text[0:6] == 'netcdf':
+    elif isinstance(text, types.StringType) and (text[0:6] == 'netcdf'):
         attrs = {}
         lines = text.split('\n')
         for line in lines:
@@ -242,7 +245,12 @@ def readMetadata(filename):
                     pos += 1
                 attrs[key.strip()] = fields[1].strip()
         return attrs
-    elif re.search(r'<\?xml', text):
+    elif isinstance(text, types.StringType) and (text[0:4] == 'HDF5'):
+        attrs = get_hdf5_attr(text)
+        return attrs
+    # elif isinstance(text, types.StringType) and text[0:4] == 'HDF5':
+    #     attrs = get_hdf5_attr(text)
+    elif re.search(r'<\?xml', text)  or (text[0:4] == 'HDF5'):
         # if hdf5 file
         attrs = get_xml_attr(text)
     else:
@@ -266,6 +274,10 @@ def readMetadata(filename):
     return attrs
 
 def get_attr(text):
+    """
+    :param text: Text containing metadata to be parsed.
+    :return: A dictionary containing metadata attributes.
+    """
     attrs = {}
     lines = text.split('\n')
     attr_pattern = re.compile(r'^\s*Attr\d+: Name = ')
@@ -289,15 +301,49 @@ def get_attr(text):
                     attrs[attr_name] = val
     return attrs
 
+def get_hdf5_attr(header_text):
+    """ Returns a Python dictionary containing the file metadata passed from
+    header_text. The dictionary keys will the attribute names and the values
+    will be the data values for the attributes. """
+    attributes = {}
+    attr_regex = re.compile(r'ATTRIBUTE "')
+    data_item_regex = re.compile(r'\(\d+(,\d+)?\): ".+"')
+    data_open_regex = re.compile(r'DATA \{')
+    close_regex = re.compile(r' \}')
+    data_lines = header_text.split('\n')
+    in_attr = False
+    in_data = False
+    for line in data_lines:
+        if attr_regex.search(line):
+            in_attr = True
+            attr_name = re.search(r'ATTRIBUTE "(.+)"', line).group(1)
+            attributes[attr_name] = ''
+        elif data_open_regex.search(line):
+            in_data = True
+        elif in_data:
+            if close_regex.search(line):
+                in_data = False
+            # elif data_item_regex.search(line):
+            elif re.search(r'\(\d+\)\:', line):
+                # data_name = re.search(r'\(\d+(,\d+)?\): "(.+)"', line).group(2)
+                # Because the data fields can start or end with extra spaces
+                # both inside and outside the quotation marks, there are
+                # multiple calls to .strip().
+                the_data = line.split(':')[1].strip().strip('"').strip()
+                attributes[attr_name] = the_data
+        elif in_attr and close_regex.search(line):
+            in_attr = False
+    return attributes
+
 def get_odl_attr(metatext):
     """
     get interesting bits from ODL formatted metadata
     """
     attrs = {}
     pattern = r'^\s*Attr\d+: Name=(.+?)\s*Type=(.+?)\s*Count=(.+?)\s*Value=(.+?)$'
-    reAttr = re.compile(pattern, re.MULTILINE | re.DOTALL)
+    re_attr = re.compile(pattern, re.MULTILINE | re.DOTALL)
 
-    for att in reAttr.finditer(metatext):
+    for att in re_attr.finditer(metatext):
         name, dtype, count, value = att.groups()
 
         if 'char' in dtype:
@@ -337,7 +383,7 @@ def get_xml_attr(metaxml):
     attr = {}
 
     try:
-        for ndx, cur_attr in enumerate(raw_attrs):
+        for cur_attr in raw_attrs:
             if (cur_attr != '\n') and \
                (isinstance(cur_attr, types.ListType) or
                 isinstance(cur_attr, BeautifulSoup.Tag)):
@@ -348,8 +394,8 @@ def get_xml_attr(metaxml):
                         if cur_attr.contents[5].contents[1].contents[0]: #).strip()).strip('"'):
                             attr[str(cur_attr.attrs[0][1]).strip()] = (str(cur_attr.contents[5].contents[1].contents[0]).strip()).strip('"')
     except TypeError:
-        for ei in sys.exc_info():
-            print ei
+        for exc_item in sys.exc_info():
+            print exc_item
     return attr
 
 
@@ -358,9 +404,9 @@ def parse_odl(text):
 
     # descend into GROUP/OBJECT heirarchy
     pattern = r"(GROUP|OBJECT)=(.+?)$(.+?)END_\1=\2"
-    reODL = re.compile(pattern, re.MULTILINE | re.DOTALL)
+    re_odl = re.compile(pattern, re.MULTILINE | re.DOTALL)
     items = {}
-    blocks = reODL.findall(text)
+    blocks = re_odl.findall(text)
     for block in blocks:
         key = block[1]
         value = block[2]

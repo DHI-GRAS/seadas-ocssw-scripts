@@ -129,7 +129,7 @@ class ParReader(object):
                         sect_dict, sect_key = self._start_new_section(line)
                     else:
                         if sect_key != None:
-                            if line.find('='):
+                            if line.find('=') != -1:
                                 key, val = line.split('=', 2)
                                 if key == 'par':
                                     add_par_entry(sect_dict, 'par',

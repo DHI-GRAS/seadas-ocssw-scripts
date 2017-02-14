@@ -1,16 +1,16 @@
 """
-A module containomg the ViirsNextLevelNameFinder class for finding standard
+A module containing the ViirsNextLevelNameFinder class for finding standard
 output file names for VIIRS files when run through OBPG software.
 """
+
+import re
+import sys
+import modules.next_level_name_finder as next_level_name_finder
+# import next_level_name_finder
 
 __author__ = 'melliott'
 
 __version__ = '1.0.3-2015-08-10'
-
-# import modules.next_level_name_finder as next_level_name_finder
-import next_level_name_finder
-import re
-import sys
 
 class AquariusNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
     """
@@ -76,23 +76,24 @@ class AquariusNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         An internal method to set up the "table" of functions to be
         called for each level of processing.
         """
-        return {'Level 1A': {
-                    'Level 1B': self._get_l1b_name,
-                    'l1aextract_seawifs' : self._get_l1aextract_name,
-                    'l1bgen' : self._get_l1b_name,
-                    'l1mapgen': self._get_l1mapgen_name,
-                    'Level 2' : self._get_l2_name },
-                'Level 1B': {
-                    'Level 2': self._get_l2_name,
-                    'l1brsgen': self._get_l1brsgen_name,
-                    'l1mapgen': self._get_l1mapgen_name },
-                'Level 2': { 'l2bin_aquarius': self._get_l3bin_name,
-                    'l2extract': self._get_l2extract_name,
-                    'l3bin': self._get_l3bin_name,
-                    'l2brsgen': self._get_l2brsgen_name,
-                    'l2mapgen': self._get_l2mapgen_name },
-                'Level 3 Binned': {
-                    'l3bin' : self._get_l3bin_name,
-                    'SMI' : self._get_smigen_name,
-                    'l3gen': self._get_l3gen_name}
-        }
+        return {'Level 1A': {'Level 1B': self._get_l1b_name,
+                             'l1aextract_seawifs' : self._get_l1aextract_name,
+                             'l1bgen' : self._get_l1b_name,
+                             'l1mapgen': self._get_l1mapgen_name,
+                             'Level 2' : self._get_l2_name
+                            },
+                'Level 1B': {'Level 2': self._get_l2_name,
+                             'l1brsgen': self._get_l1brsgen_name,
+                             'l1mapgen': self._get_l1mapgen_name
+                            },
+                'Level 2': {'l2bin_aquarius': self._get_l3bin_name,
+                            'l2extract': self._get_l2extract_name,
+                            'l3bin': self._get_l3bin_name,
+                            'l2brsgen': self._get_l2brsgen_name,
+                            'l2mapgen': self._get_l2mapgen_name
+                           },
+                'Level 3 Binned': {'l3bin' : self._get_l3bin_name,
+                                   'SMI' : self._get_l3mapgen_name,
+                                   'l3gen': self._get_l3gen_name
+                                  }
+               }

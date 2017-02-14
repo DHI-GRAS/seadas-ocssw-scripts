@@ -96,23 +96,6 @@ class ObpgFileTyper(object):
 #        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
 #        return dt_obj.strftime('%Y%j%H%M%S')
 
-    def _create_meris_l1b_timestamp(self, time_str):
-        """
-        Returns a properly formatted date/time stamp for MERIS L1B files from
-        an attribute in the file.
-        """
-        # Todo: Check that MERIS' and Python's month abbreviations match up ...
-        month_abbrs = dict((v.upper(), k) for k, v in
-                            enumerate(calendar.month_abbr))
-        year = int(time_str[7:11])
-        mon = int(month_abbrs[time_str[3:6]])
-        dom = int(time_str[0:2])
-        hrs = int(time_str[12:14])
-        mins = int(time_str[15:17])
-        secs = int(time_str[18:20])
-        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
-        return dt_obj.strftime('%Y%j%H%M%S')
-
     def _create_modis_l1_timestamp(self, rng_date, rng_time):
         """
         Returns a date/time stamp for a MODIS L1 file from the appropriate
@@ -139,6 +122,21 @@ class ObpgFileTyper(object):
         hrs = int(dt_str[9:11])
         mins = int(dt_str[12:14])
         secs = int(dt_str[15:17])
+        dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
+        return dt_obj.strftime('%Y%j%H%M%S')
+
+    def _create_timestamp_using_mon_abbr(self, time_str):
+        """
+        Returns a properly formatted date/time stamp for MERIS L1B files from
+        an attribute in the file.
+        """
+        # Todo: Check that MERIS' and Python's month abbreviations match up ...
+        year = int(time_str[7:11])
+        mon = int(MONTH_ABBRS[time_str[3:6]])
+        dom = int(time_str[0:2])
+        hrs = int(time_str[12:14])
+        mins = int(time_str[15:17])
+        secs = int(time_str[18:20])
         dt_obj = datetime.datetime(year, mon, dom, hrs, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
 
@@ -390,13 +388,27 @@ class ObpgFileTyper(object):
         """
         Returns the stamp computed from the coverage_time
         """
+        if coverage_time[0:4] == '':
+            yr = '0000'
+        else:
+            yr = '{0:04d}'.format(int(coverage_time[0:4]))
         doy = '{0:03d}'.format(
                         modules.time_utils.convert_month_day_to_doy(coverage_time[5:7],
                                                             coverage_time[8:10],
                                                             coverage_time[0:4]))
-        time_stamp = ''.join([coverage_time[0:4], str(doy),
-                               coverage_time[11:13], coverage_time[14:16],
-                               coverage_time[17:19]])
+        if coverage_time[11:13] == '':
+            hr = '00'
+        else:
+            hr = '{0:02d}'.format(int(coverage_time[11:13]))
+        if coverage_time[14:16] == '':
+            min = '00'
+        else:
+            min = '{0:02d}'.format(int(coverage_time[14:16]))
+        if coverage_time[17:19] == '':
+            sec = '00'
+        else:
+            sec = '{0:02d}'.format(int(coverage_time[17:19]))
+        time_stamp = ''.join([yr, str(doy), hr, min, sec])
         return time_stamp
 
 
@@ -555,8 +567,10 @@ class ObpgFileTyper(object):
         """
         Finds and returns timestamps for GOCI L1 data files.
         """
-        if 'start_time' in self.attributes and \
-           self.attributes['start_time'] != 'unknown':
+        if 'Scene Start time' in self.attributes and self.attributes['Scene Start time'] != 'unknown':
+            # start_time = self.attributes['Scene Start time']
+            start_time = self._create_timestamp_using_mon_abbr(self.attributes['Scene Start time'])
+        elif 'start_time' in self.attributes and self.attributes['start_time'] != 'unknown':
             start_time = self.attributes['start_time']
         elif 'processing start time' in self.attributes:
             st_yr = int(self.attributes['processing start time'][7:11])
@@ -568,8 +582,9 @@ class ObpgFileTyper(object):
                 int(self.attributes['processing start time'][12:14]),
                 self.attributes['processing start time'][15:17],
                 self.attributes['processing start time'][18:20])
-        if 'end_time' in self.attributes and \
-           self.attributes['end_time'] != 'unknown':
+        if 'Scene end time' in self.attributes and self.attributes['Scene end time'] != 'unknown':
+            end_time = self._create_timestamp_using_mon_abbr(self.attributes['Scene end time'])
+        elif 'end_time' in self.attributes and self.attributes['end_time'] != 'unknown':
             end_time = self.attributes['end_time']
         elif 'processing end time' in self.attributes:
             end_yr = int(self.attributes['processing end time'][7:11])
@@ -600,14 +615,14 @@ class ObpgFileTyper(object):
         Finds and returns timestamps for MERIS L1 data files.
         """
         if 'FIRST_LINE_TIME' in self.attributes:
-            start_time = self._create_meris_l1b_timestamp(
+            start_time = self._create_timestamp_using_mon_abbr(
                 self.attributes['FIRST_LINE_TIME'])
-            end_time = self._create_meris_l1b_timestamp(
+            end_time = self._create_timestamp_using_mon_abbr(
                 self.attributes['LAST_LINE_TIME'])
         else:
-            start_time = self._create_meris_l1b_timestamp(
+            start_time = self._create_timestamp_using_mon_abbr(
                 self.attributes['start_date'].strip('"'))
-            end_time = self._create_meris_l1b_timestamp(
+            end_time = self._create_timestamp_using_mon_abbr(
                 self.attributes['stop_date'].strip('"'))
         return start_time, end_time
 
@@ -876,6 +891,8 @@ KNOWN_SENSORS = ['Aquarius', 'CZCS', 'HICO',
                  'MODIS Aqua', 'MODIST', 'MODIS Terra',
                  'MOS', 'OCM2', 'OCTS',
                  'OSMI','SeaWiFS', 'VIIRS']
+
+MONTH_ABBRS = dict((v.upper(), k) for k, v in enumerate(calendar.month_abbr))
 
 if __name__ == '__main__':
     sys.exit(main())

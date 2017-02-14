@@ -4,13 +4,14 @@ class for finding standard output file names for VIIRS files when run through
 OBPG software.
 """
 
+# import os
+import re
+import modules.next_level_name_finder as next_level_name_finder
+
+
 __author__ = 'melliott'
 
 __version__ = '1.0.4-2016-04-29'
-
-import modules.next_level_name_finder as next_level_name_finder
-import os
-import re
 
 class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
     """
@@ -64,8 +65,8 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
             time_stamp = self.data_files[0].start_time
         elif self.data_files[0].metadata:
             time_stamp = self._extract_l1_time(
-                            self.data_files[0].metadata['RANGEBEGINNINGDATE'],
-                            self.data_files[0].metadata['RANGEBEGINNINGTIME'])
+                self.data_files[0].metadata['RANGEBEGINNINGDATE'],
+                self.data_files[0].metadata['RANGEBEGINNINGTIME'])
         geo_name = self.get_platform_indicator() + time_stamp +\
                    self._get_geo_extension()
         return geo_name
@@ -102,29 +103,34 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         An internal method to set up the "table" of functions to be
         called for each level of processing.
         """
-        return {'Level 1A': {'Level 1B': self._get_l1b_name,
-                               'geo': self._get_geo_name,
-                               'l1aextract_viirs' : self._get_l1aextract_name,
-                               'l1bgen' : self._get_l1b_name,
-                               'l1brsgen': self._get_l1brsgen_name,
-                               'l1mapgen': self._get_l1mapgen_name,
-                               'Level 2' : self._get_l2_name },
-                'SDR': {'Level 1B': self._get_l1b_name,
-                               'l1aextract_seawifs' : self._get_l1aextract_name,
-                               'l1bgen' : self._get_l1b_name,
-                               'l1brsgen': self._get_l1brsgen_name,
-                               'l1mapgen': self._get_l1mapgen_name,
-                               'Level 2' : self._get_l2_name },
-                'Level 1B': {'Level 2': self._get_l2_name,
+        return {'Level 1A': {'Level 1B':   self._get_l1b_name,
+                             'geo':      self._get_geo_name,
+                             'l1aextract_viirs' : self._get_l1aextract_name,
+                             'l1bgen' :  self._get_l1b_name,
                              'l1brsgen': self._get_l1brsgen_name,
-                             'l1mapgen': self._get_l1mapgen_name },
-                'Level 2': { 'l2bin': self._get_l3bin_name,
-                             'l2extract': self._get_l2extract_name,
-                             'l3bin': self._get_l3bin_name,
-                             'l2brsgen': self._get_l2brsgen_name,
-                             'l2mapgen': self._get_l2mapgen_name },
-                'Level 3 Binned': {'l3bin' : self._get_l3bin_name,
-                                     'SMI' : self._get_smigen_name,
-                                     'l3gen': self._get_l3gen_name
-                                     }
-                }
+                             'l1mapgen': self._get_l1mapgen_name,
+                             'Level 2' : self._get_l2_name
+                            },
+                'SDR': {'Level 1B': self._get_l1b_name,
+                        'l1aextract_seawifs' : self._get_l1aextract_name,
+                        'l1bgen' :  self._get_l1b_name,
+                        'l1brsgen': self._get_l1brsgen_name,
+                        'l1mapgen': self._get_l1mapgen_name,
+                        'Level 2' : self._get_l2_name
+                       },
+                'Level 1B':  {'Level 2': self._get_l2_name,
+                              'l1brsgen': self._get_l1brsgen_name,
+                              'l1mapgen': self._get_l1mapgen_name
+                             },
+                'Level 2': {'l2bin':     self._get_l3bin_name,
+                            'l2extract': self._get_l2extract_name,
+                            'l3bin':     self._get_l3bin_name,
+                            'l2brsgen':  self._get_l2brsgen_name,
+                            'l2mapgen':  self._get_l2mapgen_name
+                           },
+                'Level 3 Binned': {'l3bin' :    self._get_l3bin_name,
+                                   'l3gen':     self._get_l3gen_name,
+                                   'l3mapgen' : self._get_l3mapgen_name,
+                                   'SMI' :      self._get_l3mapgen_name
+                                  }
+               }

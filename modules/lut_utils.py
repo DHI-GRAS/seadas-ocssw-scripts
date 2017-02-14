@@ -4,6 +4,68 @@ from shutil import copyfile
 import ProcUtils as ProcUtils
 import httplib
 from urlparse import urlparse
+import modules.ProcUtils as ProcUtils
+
+def get_lut_version(lut_name):
+    """
+    Returns the version part of a LUT, as found in the file name.
+    """
+    version = ''
+    ver_parts = lut_name.split('.')
+    if len(ver_parts) > 1:
+        ver_fnd = False
+        ndx = 0
+        while not ver_fnd and ndx < len(ver_parts):
+            if ver_parts[ndx][0] == 'V':
+                ver_fnd = True
+            else:
+                ndx += 1
+        while ver_fnd and ndx < len(ver_parts):
+            for char in ver_parts[ndx]:
+                if char.isdigit():
+                    version += str(int(char))
+                elif char == '_':
+                    ver_fnd = False
+            ndx += 1
+    return version
+
+def compare_lut_names(lut1, lut2):
+    """
+    Compare two Look Up Table file names and return -1, 0, or 1 respectively
+    if the file named in l1 "is less" (i.e. older), equal to, or "greater"
+    (newer) than the file named l2.
+    """
+    ret_val = 0
+    lut1_ver = get_lut_version(lut1)
+    lut2_ver = get_lut_version(lut2)
+
+#    l1_parts = lut1.split('.')
+#    l2_parts = lut2.split('.')
+#    if len(l1_parts) == len(l2_parts):
+#        if l1_parts[0] == l2_parts[0]:
+#            for ndx in xrange(1, len(l1_parts)):
+#                ver_part1 = '0'
+#                for p1ndx in xrange(len(l1_parts[ndx])):
+#                    if l1_parts[ndx][p1ndx].isdigit():
+#                        ver_part1 += l1_parts[ndx][p1ndx]
+#                ver_part2 = '0'
+#                for p2ndx in xrange(len(l2_parts[ndx])):
+#                    if l2_parts[ndx][p2ndx].isdigit():
+#                        ver_part2 += l2_parts[ndx][p2ndx]
+#                try:
+#                    v1int = int(ver_part1)
+#                except ValueError:
+#                    v1int = 0
+#                try:
+#                    v2int = int(ver_part2)
+#                except ValueError:
+#                    v2int = 0
+
+    if lut1_ver < lut2_ver:
+        return -1
+    elif lut1_ver > lut2_ver:
+        return 1
+    return ret_val
 
 class lut_utils:
     def __init__(self, mission=None, verbose=False, curdir=False, ancdir=None, timeout=10):
@@ -33,7 +95,6 @@ class lut_utils:
         proxy_set = os.environ.get('https_proxy')
         if proxy_set is None:
             proxy_set = os.environ.get('http_proxy')
-
         if proxy_set:
             proxy = urlparse(proxy_set)
 
@@ -59,7 +120,7 @@ class lut_utils:
         # OPER
         status = ProcUtils.httpdl(
             self.data_site, "/Ancillary/LUTs/aquarius",
-            localpath=outputdir, outputfilename="index.html", timeout=self.timeout,reuseConn=True, urlConn=urlConn, verbose=self.verbose)
+            localpath=outputdir, outputfilename="index.html", timeout=self. timeout, reuseConn=True, urlConn=urlConn, verbose=self.verbose)
         if status:
             print "Error downloading %s" % '/'.join(
                 [self.data_site, "Ancillary/LUTs/aquarius/"])
@@ -89,7 +150,6 @@ class lut_utils:
         proxy_set = os.environ.get('https_proxy')
         if proxy_set is None:
             proxy_set = os.environ.get('http_proxy')
-
         if proxy_set:
             proxy = urlparse(proxy_set)
 
@@ -115,7 +175,7 @@ class lut_utils:
             if self.verbose: print "+ elements.dat"
 
         # time_anomaly.txt
-        url =  "/Ancillary/LUTs/seawifs/time_anomaly.txt"
+        url = "/Ancillary/LUTs/seawifs/time_anomaly.txt"
         outputdir = os.path.join(self.dirs['var'], 'seawifs')
         status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True, urlConn=urlConn, verbose=self.verbose)
         if status:
@@ -138,7 +198,6 @@ class lut_utils:
         proxy_set = os.environ.get('https_proxy')
         if proxy_set is None:
             proxy_set = os.environ.get('http_proxy')
-
         if proxy_set:
             proxy = urlparse(proxy_set)
 
@@ -151,12 +210,12 @@ class lut_utils:
 
         msn = {'aqua': 'modisa', 'terra': 'modist', 'viirsn': 'viirsn'}
 
-        if self.mission in ('aqua','terra'):
+        if self.mission in ('aqua', 'terra'):
 
             if self.verbose:
                 print "[ MODIS ]"
 
-            url =  "/Ancillary/LUTs/modis/leapsec.dat"
+            url = "/Ancillary/LUTs/modis/leapsec.dat"
             outputdir = os.path.join(self.dirs['var'], 'modis')
             status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
@@ -182,7 +241,7 @@ class lut_utils:
             if self.verbose:
                 print "[ VIIRS ]"
 
-            url =  "/Ancillary/LUTs/viirsn/IETTime.dat"
+            url = "/Ancillary/LUTs/viirsn/IETTime.dat"
             outputdir = os.path.join(self.dirs['var'], 'viirsn')
             status = ProcUtils.httpdl(self.data_site, url, localpath=outputdir, timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
@@ -221,7 +280,7 @@ class lut_utils:
             # Get remote list of files and download if necessary
             # OPER
             status = ProcUtils.httpdl(
-                self.data_site , "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER",
+                self.data_site, "/Ancillary/LUTs/" + msn[self.mission] + "/" + cal + "/OPER",
                 localpath=outputdir,outputfilename="index.html", timeout=self.timeout,reuseConn=True,urlConn=urlConn, verbose=self.verbose)
             if status:
                 print "Error downloading %s" % '/'.join(
@@ -229,7 +288,7 @@ class lut_utils:
                 self.status = 1
 
             parse = re.compile(r"(?<=(\'|\")>)\S+(\.(hdf|h5|nc))")
-            operlist = ProcUtils.cleanList(listFile,parse=parse)
+            operlist = ProcUtils.cleanList(listFile, parse=parse)
             ProcUtils.remove(listFile)
 
             listsplitstr = 'LUTs.'
@@ -252,7 +311,7 @@ class lut_utils:
                     else:
                         operversion2 = (f.split(listsplitstr2)[listelem2]).split('_')[0]
                 else:
-                        operversion = f.split(listsplitstr)[listelem]
+                    operversion = f.split(listsplitstr)[listelem]
 
             #check for version - if different, remove existing files
             for f in luts:
