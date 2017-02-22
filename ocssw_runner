@@ -1,5 +1,4 @@
-#! /bin/bash
-
+#! /bin/bash -l
 # usage ocssw_runner [--ocsswroot <dir>] <command ...>
 #
 # This is a shell script used to run any program after sourcing 
