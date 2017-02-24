@@ -146,7 +146,7 @@ def build_executable_path(prog_name):
     None is returned if the program is not found.
     """
     exe_path = None
-    candidate_subdirs = ['run', 'scripts', '/run/scripts']
+    candidate_subdirs = ['run', 'scripts', 'run/scripts']
     for subdir in candidate_subdirs:
         cand_path = os.path.join(OCSSWROOT_DIR, subdir, prog_name)
         if os.path.exists(cand_path):
