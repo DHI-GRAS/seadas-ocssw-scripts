@@ -49,7 +49,7 @@ class getanc:
         if self.atteph:
             self.proctype = 'modisGEO'
 
-        self.query_site = "oceancolor.gsfc.nasa.gov"
+        self.query_site = "oceandata.sci.gsfc.nasa.gov"
         self.data_site = "oceandata.sci.gsfc.nasa.gov"
 
 
@@ -377,18 +377,20 @@ Using current working directory for storing the ancillary database file: %s''' %
         import sys
         import httplib
         import modules.ancDB as db
+        import json
+
 #        import modules.ancDBmysql as db
 
         #dlstat = 0
-        
+
 
         msn = {"modisa": "A", "modist": "T", "aqua": "A", "terra": "T", "meris": "M", "seawifs": "S", "octs": "O",
-               "czcs": "C", "aquarius":"Q"}
+               "czcs": "C", "aquarius":"Q", "viirs":"V"}
 
         ProcUtils.remove(self.server_file)
 
         # Query the OBPG server for the ancillary file list
-        opt_flag = '&opt_flag=' + str(self.opt_flag)
+        opt_flag = str(self.opt_flag)
         anctype = 'anc'
         if self.atteph:
             opt_flag = ''
@@ -397,26 +399,19 @@ Using current working directory for storing the ancillary database file: %s''' %
         if self.sensor == 'aquarius':
             opt_flag = ''
 
-        msnchar = 'X'
+        msnchar = 'A'
         if msn.has_key(str(self.sensor).lower()):
             msnchar = msn[str(self.sensor).lower()]
 
         if self.stop is None:
-            dlstat = ProcUtils.httpdl(self.query_site,''.join(['/sdpscgi/public/display_ancillary_files.cgi?', 
-                                        'type=',anctype,
-                                        '&start_time=', self.start, "&mission_letter=",
-                                        msnchar, opt_flag]),
+            dlstat = ProcUtils.httpdl(self.query_site,'/'.join(['/api',anctype,msnchar,self.start,'', opt_flag]),
                                         os.path.abspath(os.path.dirname(self.server_file)),
                                         outputfilename=self.server_file,
                                         timeout=self.timeout,
                                         verbose=self.verbose
             )
         else:
-            dlstat = ProcUtils.httpdl(self.query_site,''.join(['/sdpscgi/public/display_ancillary_files.cgi?', 
-                                        'type=',anctype,
-                                        '&start_time=', self.start, "&stop_time=", self.stop,
-                                        "&mission_letter=",
-                                        msnchar, opt_flag]),
+            dlstat = ProcUtils.httpdl(self.query_site,'/'.join(['/api',anctype,msnchar,self.start,self.stop,opt_flag]),
                                         os.path.abspath(os.path.dirname(self.server_file)),
                                         outputfilename=self.server_file,
                                         timeout=self.timeout,
@@ -428,18 +423,12 @@ Using current working directory for storing the ancillary database file: %s''' %
             print "Error retrieving ancillary file list"
             sys.exit(dlstat)
 
-        ad = open(self.server_file, 'r')
-        for line in ad:
-            key, value = line.split('=')
-            value = value.strip()
-            if re.search('(scat|atm|met|ozone|file|att\d|eph\d)', key, re.IGNORECASE):
-                key = key.lower()
-                self.files[key] = value
-            if key == "_REQUEST_STATUS_MAIN_":
-                self.server_status = int(value)
-            if key == "_REQUEST_STATUS_PROC_":
-                self.db_status = int(value)
-        ad.close()
+        with open(self.server_file, 'r') as data_file:
+            results = json.load(data_file)
+            for f in results['files']:
+                self.files[str(f[0]).lower()] = str(f[1])
+
+            self.db_status = int(results['status'])
 
         # FOR MET/OZONE:
         # For each anc type, DB returns either a zero status if all optimal files are
@@ -452,7 +441,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         # reprocessing at a later date.
         #
         # DB return status bitwise values:
-        # -all bits off means all is well in the world 
+        # -all bits off means all is well in the world
         # -bit 1 = 1 - missing one or more MET
         # -bit 2 = 1 - missing one or more OZONE
         # -bit 3 = 1 - missing SST
@@ -467,7 +456,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         # 8 - no ephemeris found
         # 16 - invalid mission
 
-        if self.server_status == 1 or self.server_status is None or self.db_status is None:
+        if self.server_status == 1 or dlstat or self.db_status is None:
             print "ERROR: The display_ancillary_files.cgi script encountered an error and returned the following text:"
             print ""
             ProcUtils.cat(self.server_file)
@@ -548,7 +537,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         proxy_set = os.environ.get('http_proxy')
         if proxy_set:
             proxy = urlparse(proxy_set)
-    
+
         if proxy is None:
             urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
         else:
@@ -597,7 +586,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                     if self.verbose:
                         print "Downloading '" + FILE + "' to " + self.dirs['path']
                     status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
-                            self.dirs['path'],timeout=self.timeout, uncompress=True, 
+                            self.dirs['path'],timeout=self.timeout, uncompress=True,
                             reuseConn=True, urlConn=urlConn, verbose=self.verbose)
                     gc.collect()
                     if status:
@@ -621,7 +610,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                         continue
                 if FILE == self.files[f]:
                     self.files[f] = os.path.join(self.dirs['path'], FILE)
-                    
+
         urlConn.close()
 
 

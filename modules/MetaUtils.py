@@ -57,7 +57,7 @@ def get_hdf5_header_xml(filename):
         return None
 
     # dump file header
-    cmd = [h5dump, '-Au', filename]
+    cmd = [h5dump, '-A', '-u', filename]
     h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE).stdout
     content = h5dump_output.read()
