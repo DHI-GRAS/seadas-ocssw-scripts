@@ -1,39 +1,82 @@
 #!/usr/bin/env python3
 
 """
-A Perl script to create and output satellite matchups from a SeaBASS file given:
-    1) an OB.DAAC L2 (SST, SST4, IOP, or OC) satellite file
-    2) a valid SeaBASS file with lat,lon,date,time as /field entries or lat,lon,year,month,day,hour,minute,second as /field entries.
-
+A Perl script to create and output satellite matchups from a SeaBASS file given an 
+OB.DAAC L2 (SST, SST4, IOP, or OC) satellite file and a valid SeaBASS file containing
+lat, lon, date, and time as /field entries or fixed --slat and --slon coords or a fixed
+box bounded by --slat, --slon, --elat, and --elon. NOTE: --slat and --slon will override
+lat/lons in --seabass_file.
 written by J.Scott on 2016/12/13 (joel.scott@nasa.gov)
 """
 
 def main():
 
-    import argparse, os, sys, re, subprocess
+    import argparse
+    import os
+    import re
+    import subprocess
     from datetime import datetime, timedelta
+    from statistics import median
     from copy import copy
     from math import isnan
     from collections import OrderedDict
-    sys.path.append('./modules')
     from SB_support_v35 import readSB
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,description='''\
       This program create and output satellite matchups from a given SeaBASS file.
-      
+
+      REQUIRED inputs:
+          1) --sat_file=        an OB.DAAC L2 (SST, SST4, IOP, or OC) satellite file
+          2) --seabass_file=    a valid SeaBASS file with lat,lon,date,time as field entries or
+                                lat,lon,year,month,day,hour,minute,second as field entries.
+
+      Notes on OPTIONAL inputs:
+          1) --slat= --slon=    must be used together and will override any lat/lons in --seabass_file
+          2) --elat= --elon=    must be used together and with --slon= and --slat=
+                                will override any lat/lons in --seabass_file
+                                uses a lat/lon bounding box instead of --box_size=
+
       Outputs:
           1) the original SeaBASS data
           AND
-          2) collocated satellite products as additional fields as columns into -out_file 
-             OR if -out_file is not specified, as -seabass_file with _matchups.sb appeneded
-
-      Required inputs:
-          1) an OB.DAAC L2 (SST, SST4, IOP, or OC) satellite file
-          2) a valid SeaBASS file with lat,lon,date,time as field entries or
-             lat,lon,year,month,day,hour,minute,second as field entries.
+          2) collocated satellite products as additional columns into --out_file 
+             OR if --out_file is not specified, --seabass_file will be appended
 
       Example usage call:
-         mk_matchup.py --sat_file=[OB.DAAC satellite file name].nc --seabass_file=[SeaBASS file name].sb --out_file=[OPTIONAL, output SeaBASS file name].sb
+         mk_matchup.py --sat_file=[file name].nc --seabass_file=[file name].sb --out_file=[OPTIONAL, file name].sb
+         mk_matchup.py --sat_file=[file name].nc --seabass_file=[file name].sb --slat=45.3 --slon=-157.4
+         mk_matchup.py --sat_file=[file name].nc --seabass_file=[file name].sb --slat=45.3 --elat=48.7 --slon=-157.4 --elon=-145.3
+
+      Caveats:
+        * This script is designed to work with files that have been properly
+          formatted according to SeaBASS guidelines (i.e. Files that passed FCHECK).
+          Some error checking is performed, but improperly formatted input files
+          could cause this script to error or behave unexpectedly. Files
+          downloaded from the SeaBASS database should already be properly formatted, 
+          however, please email seabass@seabass.gsfc.nasa.gov and/or the contact listed
+          in the metadata header if you identify problems with specific files.
+
+        * It is always HIGHLY recommended that you check for and read any metadata
+          header comments and/or documentation accompanying data files. Information 
+          from those sources could impact your analysis.
+
+        * Compatibility: This script was developed for Python 3.5.
+
+      License:
+        /*=====================================================================*/
+                         NASA Goddard Space Flight Center (GSFC) 
+                 Software distribution policy for Public Domain Software
+
+         The fd_matchup.py code is in the public domain, available without fee for 
+         educational, research, non-commercial and commercial purposes. Users may 
+         distribute this code to third parties provided that this statement appears
+         on all copies and that no charge is made for such copies.
+
+         NASA GSFC MAKES NO REPRESENTATION ABOUT THE SUITABILITY OF THE SOFTWARE
+         FOR ANY PURPOSE. IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED
+         WARRANTY. NEITHER NASA GSFC NOR THE U.S. GOVERNMENT SHALL BE LIABLE FOR
+         ANY DAMAGE SUFFERED BY THE USER OF THIS SOFTWARE.
+        /*=====================================================================*/
       ''',add_help=True)
 
     parser.add_argument('--sat_file', nargs=1, required=True, type=str, help='''\
@@ -54,10 +97,34 @@ def main():
       ''')
 
     parser.add_argument('--clobber', nargs='?', const=True, help='''\
-      OPTIONAL: clobber original -seabass_file and reuse as out_file
+      OPTIONAL: This flag is depricated and will be removed from future releases
       Matched-up satellite variables will be APPENDED as additional fields
-      to the data matrix and relevant headers in the -seabass_file.
+      to the original file (--seabass_file) data matrix and relevant headers.
       ''')
+
+    parser.add_argument('--slat', nargs=1, type=float, help=('''\
+      OPTIONAL: Starting latitude, south-most boundary
+      If used with --seabass_file, will override lats in the file
+      Valid values: (-90,90N)
+      '''))
+
+    parser.add_argument('--elat', nargs=1, type=float, help=('''\
+      OPTIONAL: Ending latitude, north-most boundary
+      If used with --seabass_file and --slat, will override lats in the file
+      Valid values: (-90,90N)
+      '''))
+
+    parser.add_argument('--slon', nargs=1, type=float, help=('''\
+      OPTIONAL: Starting longitude, west-most boundary
+      If used with --seabass_file, will override lons in the file
+      Valid values: (-180,180E)
+      '''))
+
+    parser.add_argument('--elon', nargs=1, type=float, help=('''\
+      OPTIONAL: Ending longitude, east-most boundary
+      If used with --seabass_file and --slon, will override lons in the file
+      Valid values: (-180,180E)
+      '''))
 
     parser.add_argument('--box_size', nargs=1, default=([5]), type=int, help=('''\
       OPTIONAL: box size of the satellite data extract made around the in situ point
@@ -90,6 +157,17 @@ def main():
         dict_args=vars(args)
 
     # input verification
+    if not dict_args['sat_file'][0] or not re.search('\.nc', dict_args['sat_file'][0]) or not re.search('L2', dict_args['sat_file'][0]):
+        parser.error("invalid --sat_file specified, must be a Level-2 (l2) OB.DAAC netCDF (nc) file.")
+    else:
+        #set l2_flags to check for OC/IOP versus SST/SST4 product suites
+        if re.search('SST', dict_args['sat_file'][0]):
+            flag_arg = ' ignore_flags=LAND\ NAVFAIL\ NAVWARN' + \
+                       ' count_flags=LAND\ NAVFAIL'
+        else:
+            flag_arg = ' ignore_flags=LAND\ HIGLINT\ HILT\ HISATZEN\ HISOLZEN\ STRAYLIGHT\ CLDICE\ ATMFAIL\ LOWLW\ FILTER\ NAVFAIL\ NAVWARN' + \
+                       ' count_flags=LAND\ NAVFAIL'
+
     if ((dict_args["box_size"][0] % 2) == 0) or (dict_args["box_size"][0] > 11) or (dict_args["box_size"][0] < 3):
         parser.error("invalid --box_size specified, must be an ODD integer between 3 and 11")
 
@@ -107,9 +185,12 @@ def main():
 
     if not args.out_file:
         if not args.clobber:
-            dict_args['out_file']=[dict_args['seabass_file'][0] + '_matchups.sb']
+            #dict_args['out_file']=[dict_args['seabass_file'][0] + '_matchups.sb']
+            dict_args['out_file']=dict_args['seabass_file']
         else:
             dict_args['out_file']=dict_args['seabass_file']
+            print('WARNING: --clobber flag is depricated and will be removed from future releases.')
+            print('The --clobber flag behavior is now default. To save to a another file than --seabass_file, use the --out_file argument.')
 
     # read and verify SeaBASS file and required fields
     if os.path.isfile(dict_args['seabass_file'][0]):
@@ -117,73 +198,148 @@ def main():
     else:
         parser.error('ERROR: invalid --seabass_file specified. Does: ' + dict_args['seabass_file'][0] + ' exist?')
 
-    try:
-        ds.lon = [float(i) for i in ds.data['lon']]
-        ds.lat = [float(i) for i in ds.data['lat']]
-    except:
-        parser.error('missing fields in SeaBASS file. File must contain lat,lon')
+    ds.datetime = ds.fd_datetime()
+    if not ds.datetime:
+        parser.error('missing fields in SeaBASS file. File must contain date/time, date/hour/minute/second, year/month/day/time, OR year/month/day/hour/minute/second')
 
-    try:
-        ds.datetime = readSB.fd_datetime_ymdhms(ds.data['year'], ds.data['month'], ds.data['day'], ds.data['hour'], ds.data['minute'], ds.data['second'])
-    except:
-        try:
-            ds.datetime = readSB.fd_datetime(ds.data['date'], ds.data['time'])
-        except:
-            parser.error('missing fields in SeaBASS file. File must contain date,time OR year,month,day,hour,minute,second')
 
     write_flag = 0
 
-    out_ls = []
-    for i in range(0,len(ds.lat)):
-        out_ls.append(str(ds.missing))
+    ds.out_ls = []
+    for i in range(0,len(ds.datetime)):
+        ds.out_ls.append(str(ds.missing))
 
     # loop through input SeaBASS file data rows
-    for lat,lon,dt,row in zip(ds.lat,ds.lon,ds.datetime,range(0,len(ds.lat))):
-
-        # verify inputs
-        if isnan(lat) or isnan(lon):
-            continue
-
-        if abs(lon) > 180.0:
-            parser.error('invalid longitude input: all longitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -180/180E deg.')
-        if abs(lat) > 90.0:
-            parser.error('invalid latitude input: all latitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -90/90N deg.')
+    for dt,row in zip(ds.datetime,range(0,len(ds.datetime))):
 
         # create time range of satellite obs to extract
         tim_min = dt + timedelta(hours=twin_min)
         tim_max = dt + timedelta(hours=twin_max)
 
-        # construct sys call to make
-        print(' ')
-        print('Calculating satellite match-up for L2 file: ')
-        sys_call_str = 'val_extract' + \
-                       ' ifile=' + dict_args['sat_file'][0] + \
-                       ' slon=' + str(lon) + \
-                       ' slat=' + str(lat) + \
-                       ' global_att=1' + \
-                       ' variable_att=1' + \
-                       ' boxsize=' + str(dict_args['box_size'][0]) + \
-                       ' ignore_flags=LAND\ HIGLINT\ HILT\ HISATZEN\ HISOLZEN\ STRAYLIGHT\ CLDICE\ ATMFAIL\ LOWLW\ FILTER\ NAVFAIL\ NAVWARN' + \
-                       ' count_flags=LAND\ NAVFAIL'
-        # variable_att flag needed to extract units
-        # global_att flag needed to extract sensor/instrument names
-        # sunzen=70.0  <---- HISOLZEN threshold
-        # satzen=60.0  <---- HISATZEN threshold
+        #handle slat/slon/elat/elon from command line
+        if args.slat and args.slon and args.elat and args.elon:
+            #check lat/lon inputs
+            if abs(dict_args['slon'][0]) > 180.0 or abs(dict_args['elon'][0]) > 180.0:
+                parser.error('invalid longitude inputs: --slon and --elon MUST be between -180/180E deg. Received --slon = ' + \
+                            str(dict_args['slon'][0]) + ' and --elon = ' + str(dict_args['elon'][0]))
+            if abs(dict_args['slat'][0]) > 90.0 or abs(dict_args['elat'][0]) > 90.0:
+                parser.error('invalid latitude inputs: --slat and --elat MUST be between -90/90N deg. Received --slat = ' + \
+                            str(dict_args['slat'][0]) + ' and --elat = ' + str(dict_args['elat'][0]))
+            if dict_args['slat'][0] > dict_args['elat'][0]:
+                parser.error('invalid latitude inputs: --slat MUST be less than --elat and both MUST be between -90/90N deg. Received --slat = ' + \
+                            str(dict_args['slat'][0]) + ' and --elat = ' + str(dict_args['elat'][0]))
+            if dict_args['slon'][0] > dict_args['elon'][0]:
+                parser.error('invalid longitude inputs: --slon MUST be less than --elon and both MUST be between -180/180E deg. Received --slon = ' + \
+                            str(dict_args['slon'][0]) + ' and --elon = ' + str(dict_args['elon'][0]))
 
-        s1 = subprocess.call(sys_call_str, shell=True)
+            # construct sys call to val_extract
+            print(' ')
+            print('Calculating satellite match-up for L2 file: ')
+            sys_call_str = 'val_extract' + \
+                           ' ifile=' + dict_args['sat_file'][0] + \
+                           ' slon=' + str(dict_args['slon'][0]) + \
+                           ' slat=' + str(dict_args['slat'][0]) + \
+                           ' elon=' + str(dict_args['elon'][0]) + \
+                           ' elat=' + str(dict_args['elat'][0]) + \
+                           ' global_att=1' + \
+                           ' variable_att=1' + flag_arg
+            # variable_att flag needed to extract units
+            # global_att flag needed to extract sensor/instrument names
+            # sunzen=70.0  <---- HISOLZEN threshold
+            # satzen=60.0  <---- HISATZEN threshold
 
-        if s1 == 99:
+            s1 = subprocess.call(sys_call_str, shell=True)
+            if s1 == 99:
+                print('WARNING: No satellite matchups found for --slat=' + str(dict_args['slat'][0]) + ', --slon=' + str(dict_args['slon'][0]) + \
+                        ', --elat=' + str(dict_args['elat'][0]) + ', --elon=' + str(dict_args['elon'][0]) + \
+                        ', and time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
+                continue
+            elif s1 == 101 or s1 == 102:
+                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + \
+                                dict_args['sat_file'][0] + ' is not a valid L2 file.')
+            elif s1 != 0:
+                parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + \
+                                dict_args['sat_file'][0] + ' exists.')
 
-            print('WARNING: No satellite matchups found for point: lat=' + str(lat) + ', lon=' + str(lon) + ', time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
-            continue
+        #handle slat/slon only from command line
+        elif args.slat and args.slon and not args.elat and not args.elon:
+            #check lat/lon inputs
+            if abs(dict_args['slon'][0]) > 180.0:
+                parser.error('invalid longitude inputs: --slon MUST be between -180/180E deg. Received --slon = ' + str(dict_args['slon'][0]))
+            if abs(dict_args['slat'][0]) > 90.0:
+                parser.error('invalid latitude inputs: --slat MUST be between -90/90N deg. Received --slat = ' + str(dict_args['slat'][0]))
 
-        elif s1 == 101 or s1 == 102:
+            # construct sys call to val_extract
+            print(' ')
+            print('Calculating satellite match-up for L2 file: ')
+            sys_call_str = 'val_extract' + \
+                           ' ifile=' + dict_args['sat_file'][0] + \
+                           ' slon=' + str(dict_args['slon'][0]) + \
+                           ' slat=' + str(dict_args['slat'][0]) + \
+                           ' global_att=1' + \
+                           ' variable_att=1' + \
+                           ' boxsize=' + str(dict_args['box_size'][0]) + flag_arg
+            # variable_att flag needed to extract units
+            # global_att flag needed to extract sensor/instrument names
+            # sunzen=70.0  <---- HISOLZEN threshold
+            # satzen=60.0  <---- HISATZEN threshold
 
-            parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + dict_args['sat_file'][0] + ' is not a valid L2 file.')
+            s1 = subprocess.call(sys_call_str, shell=True)
+            if s1 == 99:
+                print('WARNING: No satellite matchups found for --slat=' + str(dict_args['slat'][0]) + ', --slon=' + str(dict_args['slon'][0]) + \
+                        ', and time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
+                continue
+            elif s1 == 101 or s1 == 102:
+                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + \
+                                dict_args['sat_file'][0] + ' is not a valid L2 file.')
+            elif s1 != 0:
+                parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + \
+                                dict_args['sat_file'][0] + ' exists.')
 
-        elif s1 != 0:
+        #handle lat/lon from file
+        else:
 
-            parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + dict_args['sat_file'][0] + ' exists.')
+            # verify lat/lon inputs from file
+            try:
+                ds.lon = [float(i) for i in ds.data['lon']]
+                ds.lat = [float(i) for i in ds.data['lat']]
+            except:
+                parser.error('Missing fields in SeaBASS file. File must contain lat and lon as fields, or specify --slat and --slon.')
+
+            if isnan(ds.lat[row]) or isnan(ds.lon[row]):
+                continue
+
+            if abs(ds.lon[row]) > 180.0:
+                parser.error('invalid longitude input: all longitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -180/180E deg.')
+            if abs(ds.lat[row]) > 90.0:
+                parser.error('invalid latitude input: all latitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -90/90N deg.')
+
+            # construct sys call to val_extract
+            print(' ')
+            print('Calculating satellite match-up for L2 file: ')
+            sys_call_str = 'val_extract' + \
+                           ' ifile=' + dict_args['sat_file'][0] + \
+                           ' slon=' + str(ds.lon[row]) + \
+                           ' slat=' + str(ds.lat[row]) + \
+                           ' global_att=1' + \
+                           ' variable_att=1' + \
+                           ' boxsize=' + str(dict_args['box_size'][0]) + flag_arg
+            # variable_att flag needed to extract units
+            # global_att flag needed to extract sensor/instrument names
+            # sunzen=70.0  <---- HISOLZEN threshold
+            # satzen=60.0  <---- HISATZEN threshold
+
+            s1 = subprocess.call(sys_call_str, shell=True)
+            if s1 == 99:
+                print('WARNING: No satellite matchups found for point: lat=' + str(ds.lat[row]) + ', lon=' + str(ds.lon[row]) + \
+                        ', time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
+                continue
+            elif s1 == 101 or s1 == 102:
+                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + \
+                                dict_args['sat_file'][0] + ' is not a valid L2 file.')
+            elif s1 != 0:
+                parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + \
+                                dict_args['sat_file'][0] + ' exists.')
 
         # define structures to keep track of val_extract's output files
         file_ls = OrderedDict()
@@ -197,8 +353,7 @@ def main():
         tims = 0
         tim_sat = 0
 
-        inst = 'na'
-        plat = 'na'
+        cvs = []
 
         # parse the extract information
         file_del.append(dict_args['sat_file'][0] + '.qc');
@@ -215,7 +370,7 @@ def main():
                     pix_ct = int(newline.split('=')[1])
                 elif 'time' in newline:
                     try:
-                        tims = re.match("(\d+)-(\d+)-(\d+)\s+(\d+):(\d+):(\d+)", newline.split('=')[1]);
+                        tims = re.search("(\d+)-(\d+)-(\d+)\s+(\d+):(\d+):(\d+)", newline.split('=')[1]);
                         tim_sat = datetime(year=int(tims.group(1)), \
                                   month=int(tims.group(2)), \
                                   day=int(tims.group(3)), \
@@ -235,8 +390,6 @@ def main():
                            'bias_sst4'  in var or \
                            'flags_sst'  in var or \
                            'flags_sst4' in var or \
-                           'qual_sst'   in var or \
-                           'qual_sst4'  in var or \
                            'longitude'  in var or \
                            'latitude'   in var:
                             continue
@@ -247,26 +400,21 @@ def main():
 
         # parse the satellite nc file information
         file_del.append(dict_args['sat_file'][0] + '.qc.global_attrs');
-        try:
-            fileobj = open(dict_args['sat_file'][0] + '.qc.global_attrs','r')
-            lines = fileobj.readlines()
-            for line in lines:
-                newline = re.sub("[\r\n]+",'',line)
-                if 'instrument' in newline:
-                    inst = newline.lower().split('=')[1]
-                elif 'platform' in newline:
-                    plat = newline.lower().split('=')[1]
-            fileobj.close()
-        except:
-            parser.error(' unable to open and read file: ' + dict_args['sat_file'][0] + '.qc.global_attrs')
+        [inst, plat] = readValEglobatt(dict_args['sat_file'][0] + '.qc.global_attrs', parser)
+        if not inst:
+            inst = 'na'
+        if not plat:
+            plat = 'na'
 
         # apply exclusion criteria
+        # compute and evaluate the max time diff test
         if tim_sat > tim_max or tim_sat < tim_min:
             print('Warning: satellite match-up does NOT meet exclusion criteria for --max_time_diff = ' + str(dict_args['max_time_diff'][0]))
             clean_file_lis(file_del)
             continue
 
-        if (pix_ct - fpix_ct) != 0:
+        # compute and evaluate the min valid sat pix test
+        if (pix_ct - fpix_ct) != 0 and upix_ct >= dict_args['box_size'][0]:
             pix_thresh = 100.0 * (upix_ct / (pix_ct - fpix_ct))
             if pix_thresh < dict_args['min_valid_sat_pix'][0]:
                 print('Warning: satellite match-up does NOT meet exclusion criteria for --min_valid_sat_pix = ' + str(dict_args['min_valid_sat_pix'][0]))
@@ -277,7 +425,34 @@ def main():
             clean_file_lis(file_del)
             continue
 
-        write_flag = 1
+        # compute and evaluate the CV test
+        for var in var_ls:
+            try:
+                m = re.search("(rrs|aot)_([\d.]+)", var.lower())
+                # only compute CV using Rrs between 405nm and 570nm and using AOT between 860nm and 900nm
+                if (float(m.group(2)) > 405 and float(m.group(2)) < 570) or (float(m.group(2)) > 860 and float(m.group(2)) < 900):
+                    if 'modis' in inst.lower():
+                        # for MODIS Aqua and Terra don't use land bands 469nm and 555nm
+                        if float(m.group(2)) == 469 or float(m.group(2)) == 555:
+                            continue
+
+                    [fmean, fstdev, units] = readValEfile(file_ls[var], parser)
+                    if not fmean or not fstdev:
+                        continue
+                    if float(fmean) != 0:
+                        cvs.append(float(fstdev)/float(fmean))
+                    else:
+                        cvs.append(0.0)
+            except:
+                continue #case if var not Rrs nor AOT, also catches L2 IOP's rrsdiff_giop
+
+        if cvs: #handles non-OC files, which don't have vars for CV test
+            if median(cvs) > dict_args['max_coeff_variation'][0]:
+                print('Warning: satellite match-up does NOT meet exclusion criteria for --max_coeff_variation = ' + str(dict_args['max_coeff_variation'][0]))
+                clean_file_lis(file_del)
+                continue
+
+        write_flag = 1 #only write out (write_flag == true), if matchups found
         print('Satellite/in situ match-up found.')
 
         # add L2_fname var space to output array
@@ -288,66 +463,70 @@ def main():
                 ds.headers['units'] = ds.headers['units'] + ',none'
             except:
                 print('Warning: no units found in SeaBASS file header.')
-            ds.data[var_fname] = copy(out_ls)
+            ds.data[var_fname] = copy(ds.out_ls)
 
         # extract variables
         for var in file_ls:
-            var_name = inst + '_' + plat + '_' + var.lower()
-            units = 'none'
-            value = str(ds.missing)
+            if 'qual_sst' in var:
+                [fmean, fmax] = readValEfile_qsst(file_ls[var], parser)
 
-            try:
-                fileobj = open(file_ls[var],'r')
-                lines = fileobj.readlines()
-                for line in lines:
-                    newline = re.sub("[\r\n]+",'',line)
-                    if 'filtered_mean' in newline:
-                        value = newline.split('=')[1]
-                    elif 'units' in newline:
-                        units = re.sub('\s', '_', newline.split('=')[1])
-                fileobj.close()
-            except:
-                parser.error(' unable to open and read file: ' + file_ls[var])
+                #save mean qual_sst value
+                var_name = inst + '_' + plat + '_' + var.lower() + '_mean'
+                units = 'none'
+                ds = addDataToOutput(ds,dict_args['sat_file'][0],var_fname,row, var_name,units,fmean)
 
-            if var_name not in ds.data:
-                ds.headers['fields'] = ds.headers['fields'] + ',' + var_name
-                try:
-                    ds.headers['units'] = ds.headers['units'] + ',' + units.lower()
-                except:
-                    print('Warning: no units found in SeaBASS file header.')
-                ds.data[var_name] = copy(out_ls)
+                #save max qual_sst value
+                var_name = inst + '_' + plat + '_' + var.lower() + '_max'
+                units = 'none'
+                ds = addDataToOutput(ds,dict_args['sat_file'][0],var_fname,row, var_name,units,fmax)
 
-            #TODO - handle repeat matchups per row (near poles, etc)
-            #       Relevant for calling script in a loop on multiple L2 files, especially with -clobber flag
-            #       Currently, skips overwriting valid data in that row and column/var_name, preserving the first valid matchup
-            if float(ds.data[var_name][row]) == ds.missing and float(value) != ds.missing:
-                ds.data[var_fname][row] = os.path.basename(dict_args['sat_file'][0])
-                ds.data[var_name][row] = value
+            else:
+                #save filtered_mean for each var in file_lis
+                [fmean, fstdev, units] = readValEfile(file_ls[var], parser)
+
+                var_name = inst + '_' + plat + '_' + var.lower()
+                ds = addDataToOutput(ds,dict_args['sat_file'][0],var_fname,row, var_name,units,fmean)
 
         clean_file_lis(file_del)
 
     print(' ')
     if write_flag == 1:
+        ds.comments.append(' ')
+        ds.comments.append(' File ammended by OCSSW match-up maker script: mk_matchup.py on ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ',')
+        ds.comments.append(' using satellite data from ' + inst + ' ' + plat + ' granule: ' + dict_args['sat_file'][0])
+        ds.comments.append(' WARNINGS: This script does NOT adjust in situ data to water-leaving values')
+        ds.comments.append('           This script does NOT account for potential oversampling by the in situ data in time or space.')
+        ds.comments.append('           If successive calls to this script are made for a single in situ file AND multiple-valid-overpasses exist,')
+        ds.comments.append('               only the data from the last successive call will be saved to the output file. This may NOT be the best')
+        ds.comments.append('               quality satellite data in space and time.')
+        ds.comments.append(' Default exclusion criteria are obtained from: S.W. Bailey and P.J. Werdell, "A multi-sensor approach')
+        ds.comments.append(' for the on-orbit validation of ocean color satellite data products", Rem. Sens. Environ. 102, 12-23 (2006).')
+        ds.comments.append(' NOTE: The coefficient of variation is computed using all available Rrs between 405nm and 570nm and AOT between 860nm and 900nm,')
+        ds.comments.append('       with the exception of MODIS Rrs land bands at 469nm and 555nm')
+        ds.comments.append(' EXCLUSION CRITERIA applied to this satellite file:')
+        ds.comments.append('     Box size of satellite extract = ' + str(dict_args['box_size'][0]) + ' pixels by ' + str(dict_args['box_size'][0]) + ' pixels')
+        ds.comments.append('     Minimum percent valid satellite pixels = ' + str(dict_args['min_valid_sat_pix'][0]))
+        ds.comments.append('     Maximum solar zenith angle = 70 degrees')
+        ds.comments.append('     Maximum satellite zenith angel = 60 degrees')
+        ds.comments.append('     Maximum time difference between satellite and in situ = ' + str(dict_args['max_time_diff'][0]) + ' hours')
+        ds.comments.append('     Maximum coefficient of variation of satellite pixels = ' + str(dict_args['max_coeff_variation'][0]))
+        ds.comments.append(' EXCEPTIONS to Bailey and Werdell (2006):')
+        ds.comments.append('     1. User defined values given to mk_matchup.py will override recommended defaults.')
+        ds.comments.append('     2. The maximum allowed solar zenith angle used here is 70-deg vs the paper-recommended 75-deg.')
+        ds.comments.append('     3. Rrs and AOT data are only in the OC L2 satellite product suite.')
+        ds.comments.append('        Other file_types (SST, SST4, IOP, etc) will not evaluate any maximum coefficient of variation threshhold.')
+        ds.comments.append('     4. For all SST file_types, the qual_sst_max or qual_sst_mean fields should be used to screen the sst value quality.')
+        ds.comments.append('        The qual_sst value varies between 0 (best) and 4 (worst).')
+        ds.comments.append('        The qual_sst_mean (qual_sst_max) is the mean (max) of the ' + \
+                           str(dict_args['box_size'][0]) + ' by ' + str(dict_args['box_size'][0]) + ' pixel satellite extract.')
+        ds.comments.append(' ')
+
         print('Writing output to file: ' + dict_args['out_file'][0])
-        fout = open(dict_args['out_file'][0],'w')
-        fout.write('/begin_header\n')
-        for header in ds.headers:
-            fout.write('/' + header + '=' + ds.headers[header] + '\n')
-        for comment in ds.comments:
-            fout.write('!' + comment + '\n')
-        fout.write('/end_header\n')
-        if 'comma' in ds.headers['delimiter']: delim = ','
-        if 'space' in ds.headers['delimiter']: delim = ' '
-        if 'tab'   in ds.headers['delimiter']: delim = '\t'
-        for i in range(0,len(ds.lat)):
-            row_ls = []
-            for var in ds.data:
-                row_ls.append(str(ds.data[var][i]))
-            fout.write(delim.join(row_ls) + '\n')
-        fout.close()
+        writeSBfile(ds,ds.datetime,parser, dict_args['out_file'][0])
     else:
         print('Exiting: No valid satellite match-ups found for any lat/lon/time pairs in: ' + dict_args['seabass_file'][0])
 
+    return
 
 
 def clean_file_lis(file_ls):
@@ -359,6 +538,117 @@ def clean_file_lis(file_ls):
             print('WARNING: Cleanup of ' + d + ' failed. Ensure that you have read/write priviledges in the current directory.')
     return
 
+
+def readValEglobatt(fname, parser):
+    import re
+    inst = ''
+    plat = ''
+    try:
+        fileobj = open(fname,'r')
+        lines = fileobj.readlines()
+        for line in lines:
+            newline = re.sub("[\r\n]+",'',line)
+            if 'instrument=' in newline:
+                inst = newline.lower().split('=')[1]
+            elif 'platform=' in newline:
+                plat = newline.lower().split('=')[1]
+        fileobj.close()
+    except:
+        parser.error(' unable to open and read file: ' + fname)
+    return(inst, plat)
+
+
+def readValEfile(fname, parser):
+    import re
+    fmean  = ''
+    fstdev = ''
+    units  = ''
+    try:
+        fileobj = open(fname,'r')
+        lines = fileobj.readlines()
+        fileobj.close()
+
+        for line in lines:
+            newline = re.sub("[\r\n]+",'',line)
+            if 'filtered_mean' in newline:
+                fmean = newline.split('=')[1]
+            elif 'filtered_stddev' in newline:
+                fstdev = newline.split('=')[1]
+            elif 'units' in newline:
+                units = re.sub('\s', '_', newline.split('=')[1])
+    except:
+        parser.error(' unable to open and read file: ' + fname)
+    return(fmean, fstdev, units)
+
+
+def readValEfile_qsst(fname,parser):
+    import re
+    fmean  = ''
+    fmax = ''
+    try:
+        fileobj = open(fname,'r')
+        lines = fileobj.readlines()
+        fileobj.close()
+
+        for line in lines:
+            newline = re.sub("[\r\n]+",'',line)
+            if 'mean' in newline and not 'filtered_' in newline:
+                fmean = newline.split('=')[1]
+            elif 'max' in newline:
+                fmax = newline.split('=')[1]
+    except:
+        parser.error(' unable to open and read file: ' + fname)
+    return(fmean, fmax)
+
+
+def addDataToOutput(ds,fname,var_fname,row, var_name,units,fmean):
+    import os
+    from copy import copy
+
+    if not fmean:
+        fmean = str(ds.missing)
+    if not units:
+        units = 'none'
+
+    if var_name not in ds.data:
+        ds.headers['fields'] = ds.headers['fields'] + ',' + var_name
+        try:
+            ds.headers['units'] = ds.headers['units'] + ',' + units.lower()
+        except:
+            print('Warning: no units found in SeaBASS file header.')
+        ds.data[var_name] = copy(ds.out_ls)
+
+    #TODO - handle repeat matchups per row (near poles, etc)
+    #       Relevant for calling script in a loop on multiple L2 files, especially with -clobber flag
+    #       Currently, skips overwriting valid data in that row and column/var_name, preserving the first valid matchup
+    if float(ds.data[var_name][row]) == ds.missing and float(fmean) != ds.missing:
+        ds.data[var_fname][row] = os.path.basename(fname)
+        ds.data[var_name][row] = fmean
+
+    return(ds)
+
+
+def writeSBfile(dictSBdata,indepVar,parser, outfile):
+    try:
+        fout = open(outfile,'w')
+        fout.write('/begin_header\n')
+        for header in dictSBdata.headers:
+            fout.write('/' + header + '=' + dictSBdata.headers[header] + '\n')
+        for comment in dictSBdata.comments:
+            fout.write('!' + comment + '\n')
+        fout.write('/end_header\n')
+        if 'comma' in dictSBdata.headers['delimiter']: delim = ','
+        if 'space' in dictSBdata.headers['delimiter']: delim = ' '
+        if 'tab'   in dictSBdata.headers['delimiter']: delim = '\t'
+        for i in range(0,len(indepVar)):
+            row_ls = []
+            for var in dictSBdata.data:
+                row_ls.append(str(dictSBdata.data[var][i]))
+            fout.write(delim.join(row_ls) + '\n')
+        fout.close()
+    except:
+        parser.error(' unable to open and write file: ' + outfile)
+    return
 
 
 if __name__ == "__main__": main()

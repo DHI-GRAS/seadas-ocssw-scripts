@@ -2,41 +2,63 @@
 
 """
 A script to perform searches of the EarthData Common Metadata Repository (CMR)
-for satellite granule names given:
-    OB.DAAC satellite/instrument
-AND
-        lat/lon/time pair (or range)
-    OR
-        a valid SeaBASS file with lat/lon/time
-
+for satellite granule names and download links.
 written by J.Scott on 2016/12/12 (joel.scott@nasa.gov)
 """
 
 def main():
 
-    import argparse, os, sys, re, json, subprocess
-    from urllib import request
-    from datetime import datetime, timedelta
+    import argparse
+    from datetime import timedelta
     from math import isnan
     from collections import OrderedDict
-    sys.path.append('./modules')
-    from SB_support_v35 import readSB
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,description='''\
       This program perform searches of the EarthData Common Metadata Repository (CMR) for satellite
-      granule names given an OB.DAAC satellite/instrument, lat/lon/time pair or range
+      granule names given an OB.DAAC satellite/instrument and lat/lon/time point or range.
       
       Outputs:
-         1) a list of OB.DAAC L2 satellite file granule names that contain the input criteria, per the CMR records.
+         1) a list of OB.DAAC L2 satellite file granule names that contain the input criteria, per the CMR's records.
          2) a list of public download links to fetch the matching satellite file granules, per the CMR's records.
       
       Inputs:
         The argument-list is a set of -keyword value pairs.
 
       Example usage calls:
-         fd_matchup.py --sat=modist --lat_pnt=23.0 --lon_pnt=170.0 --time_pnt=2015-11-16T09:00:00Z --time_window=8
-         fd_matchup.py --sat=modist --time_range_min=2015-11-15T09:00:00Z --time_range_max=2015-11-17T09:00:00Z --lat_range_min=23.0 --lat_range_max=25.0 --lon_range_min=170.0 --lon_range_max=175.0
+         fd_matchup.py --sat=modist --slat=23.0 --slon=170.0 --stime=2015-11-16T09:00:00Z --time_window=8
+         fd_matchup.py --sat=modist --stime=2015-11-15T09:00:00Z --etime=2015-11-17T09:00:00Z --slat=23.0 --elat=25.0 --slon=170.0 --elon=175.0
          fd_matchup.py --sat=modist --time_window=4 --seabass_file=[your SB file name].sb
+
+      Caveats:
+        * This script is designed to work with files that have been properly
+          formatted according to SeaBASS guidelines (i.e. Files that passed FCHECK).
+          Some error checking is performed, but improperly formatted input files
+          could cause this script to error or behave unexpectedly. Files
+          downloaded from the SeaBASS database should already be properly formatted, 
+          however, please email seabass@seabass.gsfc.nasa.gov and/or the contact listed
+          in the metadata header if you identify problems with specific files.
+
+        * It is always HIGHLY recommended that you check for and read any metadata
+          header comments and/or documentation accompanying data files. Information 
+          from those sources could impact your analysis.
+
+        * Compatibility: This script was developed for Python 3.5.
+
+      License:
+        /*=====================================================================*/
+                         NASA Goddard Space Flight Center (GSFC) 
+                 Software distribution policy for Public Domain Software
+
+         The fd_matchup.py code is in the public domain, available without fee for 
+         educational, research, non-commercial and commercial purposes. Users may 
+         distribute this code to third parties provided that this statement appears
+         on all copies and that no charge is made for such copies.
+
+         NASA GSFC MAKES NO REPRESENTATION ABOUT THE SUITABILITY OF THE SOFTWARE
+         FOR ANY PURPOSE. IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED
+         WARRANTY. NEITHER NASA GSFC NOR THE U.S. GOVERNMENT SHALL BE LIABLE FOR
+         ANY DAMAGE SUFFERED BY THE USER OF THIS SOFTWARE.
+        /*=====================================================================*/
       ''',add_help=True)
 
     parser.add_argument('--sat', nargs=1, required=True, type=str, choices=['modisa','modist','viirsn','goci','meris','czcs','octs','seawifs'], help='''\
@@ -65,65 +87,48 @@ def main():
       sst  = Returns SST product suite (including SST4 where applicable)
       ''')
 
-    parser.add_argument('--lat_pnt', nargs=1, type=float, help=('''\
-      Latitude (point) of interest
+    parser.add_argument('--slat', nargs=1, type=float, help=('''\
+      Starting latitude, south-most boundary
+      If used with --seabass_file, will override lats in the file
       Valid values: (-90,90N)
-      Use with -lon_pnt
       '''))
 
-    parser.add_argument('--lon_pnt', nargs=1, type=float, help=('''\
-      Longitude (point) of interest
-      Valid values: (-180,180E)
-      Use with -lat_pnt
-      '''))
-
-    parser.add_argument('--lat_range_min', nargs=1, type=float, help=('''\
-      Minimum latitude (range) for region of interest
+    parser.add_argument('--elat', nargs=1, type=float, help=('''\
+      Ending latitude, north-most boundary
+      If used with --seabass_file and --slat, will override lats in the file
       Valid values: (-90,90N)
-      Use with -lon_range_min, -lon_range_max, -lat_range_max
       '''))
 
-    parser.add_argument('--lat_range_max', nargs=1, type=float, help=('''\
-      Maximum latitude (range) for region of interest
-      Valid values: (-90,90N)
-      Use with -lon_range_min, -lon_range_max, -lat_range_min
-      '''))
-
-    parser.add_argument('--lon_range_min', nargs=1, type=float, help=('''\
-      Minimum longitude (range) for region of interest
+    parser.add_argument('--slon', nargs=1, type=float, help=('''\
+      Starting longitude, west-most boundary
+      If used with --seabass_file, will override lons in the file
       Valid values: (-180,180E)
-      Use with -lon_range_max, -lat_range_min, -lat_range_max
       '''))
 
-    parser.add_argument('--lon_range_max', nargs=1, type=float, help=('''\
-      Maximum longitude (range) for region of interest
+    parser.add_argument('--elon', nargs=1, type=float, help=('''\
+      Ending longitude, east-most boundary
+      If used with --seabass_file and --slon, will override lons in the file
       Valid values: (-180,180E)
-      Use with -lon_range_min, -lat_range_min, -lat_range_max
       '''))
 
-    parser.add_argument('--time_pnt', nargs=1, type=str, help='''\
+    parser.add_argument('--stime', nargs=1, type=str, help='''\
       Time (point) of interest in UTC
       Default behavior: returns matches within 90 minutes before and 90 minutes after this given time
       Valid format: string of the form: yyyy-mm-ddThh:mm:ssZ
-      OPTIONALLY: Use with -time_window
+      OPTIONALLY: Use with --time_window or --etime
       ''')
 
     parser.add_argument('--time_window', nargs=1, type=int, default=([3]), help=('''\
       Hour time window about given time(s)
       OPTIONAL: default value 3 hours (i.e. - 90 minutes before and 90 minutes after given time)
       Valid values: integer hours (1-11)
-      Use with -seabass_file OR -time_pnt
+      Use with --seabass_file OR --stime
       '''))
 
-    parser.add_argument('--time_range_min', nargs=1, type=str, help='''\
-      Minimum time (range) of interest in UTC
-      Valid format: string of the form: yyyy-mm-ddThh:mm:ssZ
-      Use with -time_range_max
-     ''')
-    parser.add_argument('--time_range_max', nargs=1, type=str, help='''\
+    parser.add_argument('--etime', nargs=1, type=str, help='''\
       Maximum time (range) of interest in UTC
       Valid format: string of the form: yyyy-mm-ddThh:mm:ssZ
-      Use with -time_range_min
+      Use with --stime
      ''')
 
     parser.add_argument('--seabass_file', nargs=1, type=str, help='''\
@@ -134,11 +139,12 @@ def main():
 
     parser.add_argument('--get_data', nargs=1, type=str, help='''\
       Flag to download all identified satellite granules.
-      Requires the use of a system wget call.
-      Set to the desired output directory.
+      Requires the use of an HTTP request.
+      Set to the desired output directory with NO trailing slash.
       ''')
 
     args=parser.parse_args()
+
     if not args.sat:
         parser.error("you must specify an satellite string to conduct a search")
     else:
@@ -147,7 +153,6 @@ def main():
 
     #dictionary of lists of CMR platform, instrument, collection names
     dict_plat = {}
-
     dict_plat['modisa']  = ['MODIS','AQUA','MODISA_L2_']
     dict_plat['modist']  = ['MODIS','TERRA','MODIST_L2_']
     dict_plat['viirsn']  = ['VIIRS','NPP','VIIRSN_L2_']
@@ -160,187 +165,361 @@ def main():
     if sat not in dict_plat:
         parser.error('you provided an invalid satellite string specifier. Use -h flag to see a list of valid options for --sat')
 
-    if args.time_window:
-        if dict_args['time_window'][0] < 0 or dict_args['time_window'][0] > 11:
-            parser.error('invalid --time_window value provided. Please specify an integer between 0 and 11 hours. Received --time_window = ' + str(dict_args['time_window'][0]))
+    if args.get_data:
+        if not dict_args['get_data'][0] or dict_args['get_data'][0][-1] == '/' or dict_args['get_data'][0][-1] == '\\':
+            parser.error('invalid --get_data target download directory provided. Do not use any trailing slash or backslash characters.')
+
+    if dict_args['time_window'][0] < 0 or dict_args['time_window'][0] > 11:
+        parser.error('invalid --time_window value provided. Please specify an integer between 0 and 11 hours. Received --time_window = ' + str(dict_args['time_window'][0]))
+    else:
         twin_Hmin = -1 * int(dict_args['time_window'][0] / 2)
         twin_Mmin = -60 * int((dict_args['time_window'][0] / 2) - int(dict_args['time_window'][0] / 2))
         twin_Hmax = 1 * int(dict_args['time_window'][0] / 2)
         twin_Mmax = 60 * ((dict_args['time_window'][0] / 2) - int(dict_args['time_window'][0] / 2));
 
+    granlinks = OrderedDict()
+
     #beginning of file/loop if-condition
     if args.seabass_file:
-        if os.path.isfile(dict_args['seabass_file'][0]):
-            ds = readSB(filename=dict_args['seabass_file'][0], mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1)
-        else:
-            parser.error('ERROR: invalid --seabass_file specified. Does: ' + dict_args['seabass_file'][0] + ' exist?')
 
-        #given date,time,lat,lon OR year,month,day,hour,minute,second,lat,lon
-        try:
-            ds.datetime = readSB.fd_datetime_ymdhms(ds.data['year'], ds.data['month'], ds.data['day'], ds.data['hour'], ds.data['minute'], ds.data['second'])
-        except:
-            try:
-                ds.datetime = readSB.fd_datetime(ds.data['date'], ds.data['time'])
-            except:
-                parser.error('missing fields in SeaBASS file. File must contain date,time OR year,month,day,hour,minute,second')
-
-        try:
-            ds.lon = [float(i) for i in ds.data['lon']]
-            ds.lat = [float(i) for i in ds.data['lat']]
-        except:
-            parser.error('missing fields in SeaBASS file. File must contain lat,lon')
-
-        granlinks = OrderedDict()
+        ds = check_SBfile(parser, dict_args['seabass_file'][0])
         hits = 0
 
-        for lat,lon,dt in zip(ds.lat,ds.lon,ds.datetime):
-            if isnan(lat) or isnan(lon):
-                continue
-            if abs(lon) > 180.0:
-                parser.error('invalid longitude input: all longitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -180/180E deg.')
-            if abs(lat) > 90.0:
-                parser.error('invalid latitude input: all latitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -90/90N deg.')
-            tim_min = dt + timedelta(hours=twin_Hmin,minutes=twin_Mmin) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
-            tim_max = dt + timedelta(hours=twin_Hmax,minutes=twin_Mmax) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
-            url = 'https://cmr.earthdata.nasa.gov/search/granules.json?page_size=2000' + \
-                        '&provider=OB_DAAC' + \
-                        '&point=' + str(lon) + ',' + str(lat) + \
-                        '&instrument=' + dict_plat[sat][0] + \
-                        '&platform=' + dict_plat[sat][1] + \
-                        '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
-                        '&options[entry_title][pattern]=true' + \
-                        '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                        '&sort_key=entry_title'
-            req = request.Request(url)
-            req.add_header('Accept', 'application/json')
-            content = json.loads(request.urlopen(req).read().decode('utf-8'))
+        if args.slat and args.slon and args.elat and args.elon:
+            check_lon(parser, dict_args['slon'][0])
+            check_lon(parser, dict_args['elon'][0])
 
-            hits = hits + len(content['feed']['entry'])
-            for entry in content['feed']['entry']:
-                granid = entry['producer_granule_id']
-                granlinks[granid] = entry['links'][0]['href']
-        if hits > 0:
-            unique_hits = 0
-            for granid in granlinks:
-                unique_hits = unique_hits + 1
-                print('Match found for: ' + dict_plat[sat][1] + '/' + dict_plat[sat][0] + \
-                      ', ' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ' to ' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                      ', lat=' + str(lat) + ', lon=' + str(lon))
-                print('Match-up granule name: ' + granid)
-                if args.get_data and dict_args['get_data'][0]:
-                    print('Downloading file to: ' + dict_args['get_data'][0])
-                    s1 = subprocess.call("wget -4 --content-disposition --directory-prefix=" + dict_args['get_data'][0] + " " + granlinks[granid], shell=True)
-                else:
-                    print('Download link: ' + granlinks[granid])
-                print('')
-            print('Number of granules found: ' + str(unique_hits))
+            check_lat(parser, dict_args['slat'][0])
+            check_lat(parser, dict_args['elat'][0])
+
+            check_lat_relative(parser, dict_args['slat'][0], dict_args['elat'][0])
+            check_lon_relative(parser, dict_args['slon'][0], dict_args['elon'][0])
+
+            #loop through times in file
+            for dt in ds.datetime:
+                tim_min = dt + timedelta(hours=twin_Hmin,minutes=twin_Mmin) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
+                tim_max = dt + timedelta(hours=twin_Hmax,minutes=twin_Mmax) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+                url = 'https://cmr.earthdata.nasa.gov/search/granules.json?page_size=2000' + \
+                            '&provider=OB_DAAC' + \
+                            '&bounding_box=' + str(dict_args['slon'][0]) + ',' + str(dict_args['slat'][0]) + ',' + \
+                                               str(dict_args['elon'][0]) + ',' + str(dict_args['elat'][0]) + \
+                            '&instrument=' + dict_plat[sat][0] + \
+                            '&platform=' + dict_plat[sat][1] + \
+                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[entry_title][pattern]=true' + \
+                            '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
+                            '&sort_key=entry_title'
+
+                content = send_CMRreq(url)
+                [hits, granlinks] = process_CMRreq(content, hits, granlinks)
+
+        elif args.slat and args.slon and not args.elat and not args.elon:
+            check_lon(parser, dict_args['slon'][0])
+            check_lat(parser, dict_args['slat'][0])
+
+            #loop through times in file
+            for dt in ds.datetime:
+                tim_min = dt + timedelta(hours=twin_Hmin,minutes=twin_Mmin) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
+                tim_max = dt + timedelta(hours=twin_Hmax,minutes=twin_Mmax) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+                url = 'https://cmr.earthdata.nasa.gov/search/granules.json?page_size=2000' + \
+                            '&provider=OB_DAAC' + \
+                            '&point=' + str(dict_args['slon'][0]) + ',' + str(dict_args['slat'][0]) + \
+                            '&instrument=' + dict_plat[sat][0] + \
+                            '&platform=' + dict_plat[sat][1] + \
+                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[entry_title][pattern]=true' + \
+                            '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
+                            '&sort_key=entry_title'
+
+                content = send_CMRreq(url)
+                [hits, granlinks] = process_CMRreq(content, hits, granlinks)
+
         else:
-            print('WARNING: No granules found for ' + dict_plat[sat][1] + '/' + dict_plat[sat][0] + ' and any lat/lon/time inputs.')
-    #end of file/loop if-condition
+            ds = check_SBfile_latlon(parser, ds)
 
+            for lat,lon,dt in zip(ds.lat,ds.lon,ds.datetime):
+                if isnan(lat) or isnan(lon):
+                    continue
+                check_lon(parser, lon)
+                check_lat(parser, lat)
+
+                tim_min = dt + timedelta(hours=twin_Hmin,minutes=twin_Mmin) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
+                tim_max = dt + timedelta(hours=twin_Hmax,minutes=twin_Mmax) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+                url = 'https://cmr.earthdata.nasa.gov/search/granules.json?page_size=2000' + \
+                            '&provider=OB_DAAC' + \
+                            '&point=' + str(lon) + ',' + str(lat) + \
+                            '&instrument=' + dict_plat[sat][0] + \
+                            '&platform=' + dict_plat[sat][1] + \
+                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[entry_title][pattern]=true' + \
+                            '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
+                            '&sort_key=entry_title'
+
+                content = send_CMRreq(url)
+                [hits, granlinks] = process_CMRreq(content, hits, granlinks)
+
+        print_CMRreq(hits, granlinks, dict_plat[sat], args, dict_args)
+
+    #end of file/loop if-condition
     #beginning of lat/lon/time if-condition
     else:
         #Define time vars from input
-        if args.time_pnt:
-            try:
-                tims = re.match("(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z", dict_args['time_pnt'][0]);
-                dt = datetime(year=int(tims.group(1)), \
-                              month=int(tims.group(2)), \
-                              day=int(tims.group(3)), \
-                              hour=int(tims.group(4)), \
-                              minute=int(tims.group(5)), \
-                              second=int(tims.group(6)))
-                tim_min = dt + timedelta(hours=twin_Hmin,minutes=twin_Mmin) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
-                tim_max = dt + timedelta(hours=twin_Hmax,minutes=twin_Mmax) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
-            except:
-                parser.error('invalid time arguments provided. All time inputs MUST be in UTC in the form: YYYY-MM-DDTHH:MM:SSZReceived --time_pnt = ' + dict_args['time_pnt'][0])
-        elif args.time_range_min and args.time_range_max:
-            try:
-                tims = re.match("(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z", dict_args['time_range_min'][0]);
-                tim_min = datetime(year=int(tims.group(1)), \
-                              month=int(tims.group(2)), \
-                              day=int(tims.group(3)), \
-                              hour=int(tims.group(4)), \
-                              minute=int(tims.group(5)), \
-                              second=int(tims.group(6))) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
-                tims = re.match("(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z", dict_args['time_range_max'][0]);
-                tim_max = datetime(year=int(tims.group(1)), \
-                              month=int(tims.group(2)), \
-                              day=int(tims.group(3)), \
-                              hour=int(tims.group(4)), \
-                              minute=int(tims.group(5)), \
-                              second=int(tims.group(6))) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
-            except:
-                parser.error('invalid time arguments provided. All time inputs MUST be in UTC in the form: YYYY-MM-DDTHH:MM:SSZ Received --time_range_min = ' + dict_args['time_range_min'][0] + ' and --time_range_max = ' + dict_args['time_range_max'][0])
-            if tim_min > tim_max:
-                parser.error('invalid time inputs: --time_range_min MUST be less than --time_range_max. Received --time_range_min = ' + dict_args['time_range_min'][0] + ' and --time_range_max = ' + dict_args['time_range_max'][0])
+        if args.stime and not args.etime:
+            dt = check_time(parser, dict_args['stime'][0])
+
+            tim_min = dt + timedelta(hours=twin_Hmin,minutes=twin_Mmin) #use as: tim_min.strftime('%Y-%m-%dT%H:%M:%SZ')
+            tim_max = dt + timedelta(hours=twin_Hmax,minutes=twin_Mmax) #use as: tim_max.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        elif args.stime and args.etime:
+            tim_min = check_time(parser, dict_args['stime'][0])
+            tim_max = check_time(parser, dict_args['etime'][0])
+            
+            check_time_relative(parser, tim_min, tim_max)
+
         else:
-            parser.error('invalid time arguments provided. All time inputs MUST be in UTC. Valid options are --time_pnt= OR --time_range_min= AND --time_range_max=, where all times are of the format YYYY-MM-DDTHH:MM:SSZ')
+            parser.error('invalid time: All time inputs MUST be in UTC. Must receive --stime=YYYY-MM-DDTHH:MM:SSZ')
 
         #Define lat vars from input and call search query
-        if args.lat_pnt and args.lon_pnt:
-            if abs(dict_args['lon_pnt'][0]) > 180.0:
-                parser.error('invalid longitude input: --lon_pnt MUST be between -180/180E deg. Received lon = ' + str(dict_args['lon_pnt'][0]))
-            if abs(dict_args['lat_pnt'][0]) > 90.0:
-                parser.error('invalid latitude input: --lat_pnt MUST be between -90/90N deg. Received lat = ' + str(dict_args['lat_pnt'][0]))
+        if args.slat and args.slon and not args.elat and not args.elon:
+            check_lon(parser, dict_args['slon'][0])
+            check_lat(parser, dict_args['slat'][0])
+
             url = 'https://cmr.earthdata.nasa.gov/search/granules.json?page_size=2000' + \
                             '&provider=OB_DAAC' + \
-                            '&point=' + str(dict_args['lon_pnt'][0]) + ',' + str(dict_args['lat_pnt'][0]) + \
+                            '&point=' + str(dict_args['slon'][0]) + ',' + str(dict_args['slat'][0]) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
                             '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
                             '&options[entry_title][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
                             '&sort_key=entry_title'
-            req = request.Request(url)
-            req.add_header('Accept', 'application/json')
-            content = json.loads(request.urlopen(req).read().decode('utf-8'))
-        elif args.lat_range_min and args.lat_range_max and \
-             args.lon_range_min and args.lon_range_max:
-            if abs(dict_args['lon_range_min'][0]) > 180.0 or abs(dict_args['lon_range_max'][0]) > 180.0:
-                parser.error('invalid longitude inputs: --lon_range_min and --lon_range_max MUST be between -180/180E deg. Received --lon_range_min = ' + str(dict_args['lon_range_min'][0]) + ' and --lon_range_max = ' + str(dict_args['lon_range_max'][0]))
-            if abs(dict_args['lat_range_min'][0]) > 90.0 or abs(dict_args['lat_range_max'][0]) > 90.0:
-                parser.error('invalid latitude inputs: --lat_range_min and --lat_range_max MUST be between -90/90N deg. Received --lat_range_min = ' + str(dict_args['lat_range_min'][0]) + ' and -lat_range_max = ' + str(dict_args['lat_range_max'][0]))
-            if dict_args['lat_range_min'][0] > dict_args['lat_range_max'][0]:
-                parser.error('invalid latitude inputs: --lat_range_min MUST be less than --lat_range_max and both MUST be between -90/90N deg. Received --lat_range_min = ' + str(dict_args['lat_range_min'][0]) + ' and --lat_range_max = ' + str(dict_args['lat_range_max'][0]))
-            if dict_args['lon_range_min'][0] > dict_args['lon_range_max'][0]:
-                parser.error('invalid longitude inputs: --lon_range_min MUST be less than --lon_range_max and both MUST be between -180/180E deg. Received --lon_range_min = ' + str(dict_args['lon_range_min'][0]) + ' and --lon_range_max = ' + str(dict_args['lon_range_max'][0]))
+
+            content = send_CMRreq(url)
+
+        elif args.slat and args.elat and args.slon and args.elon:
+            check_lon(parser, dict_args['slon'][0])
+            check_lon(parser, dict_args['elon'][0])
+
+            check_lat(parser, dict_args['slat'][0])
+            check_lat(parser, dict_args['elat'][0])
+
+            check_lat_relative(parser, dict_args['slat'][0], dict_args['elat'][0])
+            check_lon_relative(parser, dict_args['slon'][0], dict_args['elon'][0])
+
             url = 'https://cmr.earthdata.nasa.gov/search/granules.json?page_size=2000' + \
                             '&provider=OB_DAAC' + \
-                            '&bounding_box=' + str(dict_args['lon_range_min'][0]) + ',' + str(dict_args['lat_range_min'][0]) + ',' + \
-                                                   str(dict_args['lon_range_max'][0]) + ',' + str(dict_args['lat_range_max'][0]) + \
+                            '&bounding_box=' + str(dict_args['slon'][0]) + ',' + str(dict_args['slat'][0]) + ',' + \
+                                                   str(dict_args['elon'][0]) + ',' + str(dict_args['elat'][0]) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
                             '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
                             '&options[entry_title][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
                             '&sort_key=entry_title'
-            req = request.Request(url)
-            req.add_header('Accept', 'application/json')
-            content = json.loads(request.urlopen(req).read().decode('utf-8'))
+
+            content = send_CMRreq(url)
+
         else:
-            parser.error('invalid combination of --lat_pnt and --lon_pnt OR --lat_range_min, --lat_range_max, --lon_range_min, and --lon_range_max arguments provided. All latitude inputs MUST be between -90/90N deg. All longitude inputs MUST be between -180/180E deg.')
+            parser.error('invalid combination of --slat and --slon OR --slat, --elat, --slon, and --elon arguments provided. All latitude inputs MUST be between -90/90N deg. All longitude inputs MUST be between -180/180E deg.')
 
         #Parse json return for the lat/lon/time if-condition
-        granlinks = OrderedDict()
+        processANDprint_CMRreq(content, granlinks, dict_plat[sat], args, dict_args, tim_min, tim_max)
+
+    return
+
+
+def check_SBfile(parser, file_sb):
+    """ function to verify SB file exists, is valid, and has correct fields; returns data structure """
+    import os
+    from SB_support_v35 import readSB
+
+    if os.path.isfile(file_sb):
+        ds = readSB(filename=file_sb, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1)
+    else:
+        parser.error('ERROR: invalid --seabass_file specified. Does: ' + file_sb + ' exist?')
+
+    ds.datetime = ds.fd_datetime()
+    if not ds.datetime:
+        parser.error('missing fields in SeaBASS file. File must contain date/time, date/hour/minute/second, year/month/day/time, OR year/month/day/hour/minute/second')
+    
+    return ds
+
+
+def check_SBfile_latlon(parser, ds):
+    """ function to verify lat/lon exist in SB file's data structure """
+
+    try:
+        ds.lon = []
+        ds.lat = []
+        for lat,lon in zip(ds.data['lat'],ds.data['lon']):
+            check_lat(parser, float(lat))
+            check_lon(parser, float(lon))
+            ds.lat.append(float(lat))
+            ds.lon.append(float(lon))
+    except:
+        parser.error('missing fields in SeaBASS file. File must contain lat,lon')
+
+    return ds
+
+
+def check_lat(parser, lat):
+    """ function to verify lat range """
+    if abs(lat) > 90.0:
+        parser.error('invalid latitude: all LAT values MUST be between -90/90N deg. Received: ' + str(lat))
+    return
+
+
+def check_lon(parser, lon):
+    """ function to verify lon range """
+    if abs(lon) > 180.0:
+        parser.error('invalid longitude: all LON values MUST be between -180/180E deg. Received: ' + str(lon))
+    return
+
+def check_lat_relative(parser, slat, elat):
+    """ function to verify two lats relative to each other """
+    if slat > elat:
+        parser.error('invalid latitude: --slat MUST be less than --elat. Received --slat = ' + str(slat) + ' and --elat = ' + str(elat))
+    return
+
+
+def check_lon_relative(parser, slon, elon):
+    """ function to verify two lons relative to each other """
+    if slon > elon:
+        parser.error('invalid longitude: --slon MUST be less than --elon. Received --slon = ' + str(slon) + ' and --elon = ' + str(elon))
+    return
+
+
+def check_time(parser, tim):
+    """ function to verify time """
+    import re
+    from datetime import datetime
+
+    try:
+        tims = re.search("(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z", tim);
+        dt = datetime(year=int(tims.group(1)), \
+                      month=int(tims.group(2)), \
+                      day=int(tims.group(3)), \
+                      hour=int(tims.group(4)), \
+                      minute=int(tims.group(5)), \
+                      second=int(tims.group(6)))
+    except:
+        parser.error('invalid time: All time inputs MUST be in UTC in the form: YYYY-MM-DDTHH:MM:SSZ Received: ' + tim)
+    return dt
+
+
+def check_time_relative(parser, tim_min, tim_max):
+    """ function to verify two times relative to each other """
+    if tim_min > tim_max:
+        parser.error('invalid time: --stime MUST be less than --etime. Received --stime = ' + \
+                     tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ' and --etime = ' + \
+                     tim_max.strftime('%Y-%m-%dT%H:%M:%SZ'))
+    return
+
+
+def send_CMRreq(url):
+    """ function to submit a given URL request to the CMR; return JSON output """
+    import requests
+
+    req = requests.get(url)
+    content = req.json()
+
+    return content
+
+
+#def send_CMRreq(url):
+#    """ function to submit a given URL request to the CMR; return JSON output """
+#    from urllib import request
+#    import json
+#
+#    req = request.Request(url)
+#    req.add_header('Accept', 'application/json')
+#    content = json.loads(request.urlopen(req).read().decode('utf-8'))
+#
+#    return content
+
+
+def process_CMRreq(content, hits, granlinks):
+    """ function to process the return from a single CMR JSON return """
+
+    try:
+        hits = hits + len(content['feed']['entry'])
+        for entry in content['feed']['entry']:
+            granid = entry['producer_granule_id']
+            granlinks[granid] = entry['links'][0]['href']
+    except:
+        print('WARNING: No matching granules found for a row. Continuing to search for granules from the rest of the input file...')
+
+    return hits, granlinks
+
+
+def download_file(url, out_dir):
+    """ function to download a file given a URL and out_dir """
+    import requests
+
+    local_filename = out_dir + '/' + url.split('/')[-1]
+    r = requests.get(url, stream=True)
+
+    with open(local_filename, 'wb') as f:
+        for chunk in r.iter_content(chunk_size=1024): 
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
+
+    return local_filename
+
+
+def print_CMRreq(hits, granlinks, plat_ls, args, dict_args):
+    """" function to print the CMR results from a SB file """
+
+    if hits > 0:
+        unique_hits = 0
+        for granid in granlinks:
+            unique_hits = unique_hits + 1
+
+            print(plat_ls[1] + '/' + plat_ls[0] + ' granule match found: ' + granid)
+
+            if args.get_data and dict_args['get_data'][0]:
+                print('Downloading file to: ' + dict_args['get_data'][0])
+                fname_loc = download_file(granlinks[granid], dict_args['get_data'][0])
+            else:
+                print('Download link: ' + granlinks[granid])
+            print(' ')
+        print('Number of granules found: ' + str(unique_hits))
+    else:
+        print('WARNING: No granules found for ' + plat_ls[1] + '/' + plat_ls[0] + ' and any lat/lon/time inputs.')
+
+    return
+
+
+def processANDprint_CMRreq(content, granlinks, plat_ls, args, dict_args, tim_min, tim_max):
+    """ function to process AND print the return from a single CMR JSON return """
+
+    try:
         hits = len(content['feed']['entry'])
-        if hits > 0:
-            for entry in content['feed']['entry']:
-                granid = entry['producer_granule_id']
-                granlinks[granid] = entry['links'][0]['href']
-                print('Match found for: ' + dict_plat[sat][1] + '/' + dict_plat[sat][0] + \
-                      ', ' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ' to ' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ'))
-                print('Match-up granule name: ' + granid)
-                if args.get_data and dict_args['get_data'][0]:
-                    print('Downloading file to: ' + dict_args['get_data'][0])
-                    s1 = subprocess.call("wget -4 --content-disposition --directory-prefix=" + dict_args['get_data'][0] + " " + granlinks[granid], shell=True)
-                else:
-                    print('Download link: ' + granlinks[granid])
-                print('')
-            print('Number of granules found: ' + str(hits))
-        else:
-            print('WARNING: No matching granules found for ' + dict_plat[sat][1] + '/' + dict_plat[sat][0] + \
-                  ' containing the requested lat/lon area during the ' + str(dict_args['time_window'][0]) + '-hr window of ' + \
-                  tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ' to ' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ'))
+        for entry in content['feed']['entry']:
+            granid = entry['producer_granule_id']
+            granlinks[granid] = entry['links'][0]['href']
+
+            print(plat_ls[1] + '/' + plat_ls[0] + ' granule match found: ' + granid)
+
+            if args.get_data and dict_args['get_data'][0]:
+                print('Downloading file to: ' + dict_args['get_data'][0])
+                fname_loc = download_file(granlinks[granid], dict_args['get_data'][0])
+            else:
+                print('Download link: ' + granlinks[granid])
+
+            print(' ')
+        print('Number of granules found: ' + str(hits))
+
+    except:
+        print('WARNING: No matching granules found for ' + plat_ls[1] + '/' + plat_ls[0] + \
+              ' containing the requested lat/lon area during the ' + \
+              str(dict_args['time_window'][0]) + '-hr window of ' + \
+              tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ' to ' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ'))
+
+    return
+
 
 if __name__ == "__main__": main()

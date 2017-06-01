@@ -46,6 +46,7 @@ Changelog:
     updated 2016/10/07, jscott, optimized testing for membership
     updated 2016/11/29, jscott, updated handling of end_header and added try-except for fd_datetime function
     updated 2016/12/21, jscott, removed numpy dependency
+    updated 2017/05/04, jscott, consolidated date time parser functions in a single function fd_datetime of class readSB
 
 """
 
@@ -68,8 +69,8 @@ def is_int(s):
     return True
 
 class readSB:
-    """ Read an FCHECK-verified SeaBASS formatted data file. """
-    """
+    """ Read an FCHECK-verified SeaBASS formatted data file.
+
         Returned data structures:
         filename  = name of data file
         headers   = dictionary of header entry and value, keyed by header entry
@@ -131,9 +132,8 @@ class readSB:
                 try:
                     [h,v] = newline.split('=')
                 except:
-                    print 'Error: Unable to parse header key/value pair from file: ' + self.filename
+                    print 'Warning: Unable to parse header key/value pair from file: ' + self.filename
                     print newline
-                    return
                 h = h[1:]
                 self.headers[h] = v
 
@@ -215,7 +215,7 @@ class readSB:
                     print '         Unable to mask vales as NaNs for file: ' + self.filename
 
                 if mask_below_detection_limit == 1 and not self.bdl:
-                    print 'Warning: No above_detection_limit in file header. Use mask_below_detection_limit=0 to suppress this message.'
+                    print 'Warning: No below_detection_limit in file header. Use mask_below_detection_limit=0 to suppress this message.'
                     print '         Unable to mask vales as NaNs for file: ' + self.filename
 
                 end_header = True
@@ -251,25 +251,89 @@ class readSB:
             #print 'Warning: No valid units were detected in the SeaBASS file header.'
             self.variables = OrderedDict(zip(_vars,_vars))
 
-    def fd_datetime(date, time):
+    def fd_datetime(self):
+        """ Convert date and time information from the file's data to a Python list of datetime objects.
+
+            Returned data structure:
+            dt = a list of Python datetime objects
+
+            Looks for these fields/keys:
+                date/time,
+                year/month/day/hour/minute/second,
+                year/month/day/time,
+                date/hour/minute/second, OR
+                date_time
+            in the SELF.data OrderedDict Python structure.
+        """
         dt = []
-        for i,j in zip([str(d) for d in date],time):
-            da = re.search("(\d{4})(\d{2})(\d{2})", i)
-            ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", j)
+
+        try:
+            for d,t in zip([str(d) for d in self.data['date']],self.data['time']):
+                da = re.search("(\d{4})(\d{2})(\d{2})", d)
+                ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", t)
+                try:
+                    dt.append(datetime(int(da.group(1)), \
+                            int(da.group(2)), \
+                            int(da.group(3)), \
+                            int(ti.group(1)), \
+                            int(ti.group(2)), \
+                            int(ti.group(3))))
+                except Exception, e:
+                    print('Exception: ', e)
+                    print 'Error: date/time fields not formatted correctly; unable to parse.'
+
+        except:
             try:
-                dt.append(datetime(int(da.group(1)), \
-                        int(da.group(2)), \
-                        int(da.group(3)), \
-                        int(ti.group(1)), \
-                        int(ti.group(2)), \
-                        int(ti.group(3))))
-            except Exception, e:
-                print('Exception: ', e)
-                print 'Error: date/time field not formatted correctly; unable to parse.'
+                for y,m,d,h,mn,s in zip(self.data['year'], self.data['month'], self.data['day'], self.data['hour'], self.data['minute'], self.data['second']):
+                    dt.append(datetime(int(y), int(m), int(d), int(h), int(mn), int(s)))
+
+            except:
+                try:
+                    for y,m,d,t in zip(self.data['year'], self.data['month'], self.data['day'], self.data['time']):
+                        ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", t)
+                        try:
+                            dt.append(datetime(int(y), \
+                                    int(m), \
+                                    int(d), \
+                                    int(ti.group(1)), \
+                                    int(ti.group(2)), \
+                                    int(ti.group(3))))
+                        except Exception, e:
+                            print('Exception: ', e)
+                            print 'Error: year/month/day/time fields not formatted correctly; unable to parse.'
+
+                except:
+                    try:
+                        for d,h,mn,s in zip(self.data['date'], self.data['hour'], self.data['minute'], self.data['second']):
+                            da = re.search("(\d{4})(\d{2})(\d{2})", d)
+                            try:
+                                dt.append(datetime(int(da.group(1)), \
+                                        int(da.group(2)), \
+                                        int(da.group(3)), \
+                                        int(h), \
+                                        int(mn), \
+                                        int(s)))
+                            except Exception, e:
+                                print('Exception: ', e)
+                                print 'Error: date/hour/minute/second fields not formatted correctly; unable to parse.'
+
+                    except:
+                        try:
+                            for i in self.data('date_time'):
+                                da = re.search("(\d{4})-(\d{2})-(\d{2})\s(\d{1,2})\:(\d{2})\:(\d{2})", i)
+                                try:
+                                    dt.append(datetime(int(da.group(1)), \
+                                            int(da.group(2)), \
+                                            int(da.group(3)), \
+                                            int(da.group(4)), \
+                                            int(da.group(5)), \
+                                            int(da.group(6))))
+                                except Exception, e:
+                                    print('Exception: ', e)
+                                    print 'Error: date_time field not formatted correctly; unable to parse.'
+
+                        except:
+                            print 'Error: Missing fields in SeaBASS file.'
+                            print 'File must contain date/time, date/hour/minute/second, year/month/day/time, OR year/month/day/hour/minute/second'
         return(dt)
 
-    def fd_datetime_ymdhms(year, month, day, hour, minute, second):
-        dt = []
-        for y,m,d,h,mn,s in zip(year, month, day, hour, minute, second):
-            dt.append(datetime(int(y), int(m), int(d), int(h), int(mn), int(s)))
-        return(dt)
