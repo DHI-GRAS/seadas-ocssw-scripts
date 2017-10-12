@@ -18,8 +18,8 @@ def env(self):
         print "Please make sure you have downloaded and installed the SeaDAS processing data support file (seadas_processing.tar.gz)."
         sys.exit(1)
 
-    self.dirs['scripts'] = os.path.join(os.getenv("OCSSWROOT"), "run", "scripts")
-    self.dirs['var'] = os.path.join(os.getenv("OCSSWROOT"), "run", "var")
+    self.dirs['scripts'] = os.path.join(os.getenv("OCSSWROOT"), "scripts")
+    self.dirs['var'] = os.path.join(os.getenv("OCSSWROOT"), "var")
     self.dirs['bin'] = os.getenv("OCSSW_BIN")
     self.dirs['bin3'] = os.getenv("LIB3_BIN")
     self.dirs['log'] = os.path.join(os.getenv("OCSSWROOT"), "log")

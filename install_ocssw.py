@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 
 from optparse import OptionParser
 import os
@@ -17,8 +18,9 @@ checksumFileName = 'bundles.sha256sum'
 checksumDict = {}
 downloadTries = 5
 local = None
+doNotUpdateRepos = False
 FNULL = open(os.devnull, 'w')
-
+newDirStructure = True
 
 # globals for progress display
 numThings = 1
@@ -48,11 +50,11 @@ def loadChecksums():
     installFile(checksumFileName, continueFlag=False)
 
     if verbose:
-        print 'Loading checksum file.'
+        print('Loading checksum file.')
     try:
         csFile = open(os.path.join(installDir, checksumFileName), 'r')
     except IOError:
-        print "Bundle checksum file (" + checksumFileName + ") not downloaded"
+        print("Bundle checksum file (" + checksumFileName + ") not downloaded")
         exit(1)
     for line in csFile:
         parts = line.strip().split()
@@ -67,9 +69,9 @@ def testFileChecksum(fileName):
     """
     global checksumDict, bundleFile
     if verbose:
-        print 'comparing checksum for ' + fileName
+        print('comparing checksum for ' + fileName)
     if fileName not in checksumDict:
-        print fileName + ' is not in the checksum file.'
+        print(fileName + ' is not in the checksum file.')
         exit(1)
 
     bundleDigest = checksumDict[fileName]
@@ -78,7 +80,7 @@ def testFileChecksum(fileName):
     try:
         bundleFile = open(os.path.join(installDir, fileName), 'rb')
     except IOError:
-        print "Bundle file (" + fileName + ") not downloaded"
+        print("Bundle file (" + fileName + ") not downloaded")
         exit(1)
 
     buf = bundleFile.read(blocksize)
@@ -88,7 +90,7 @@ def testFileChecksum(fileName):
     digest = hasher.hexdigest()
     bundleFile.close()
     if digest != bundleDigest:
-        print 'Checksum for ' + fileName + ' does not match'
+        print('Checksum for ' + fileName + ' does not match')
         return False
     return True
 
@@ -99,7 +101,7 @@ def makeDir(dirName):
     fullDir = os.path.join(installDir, dirName)
     if not os.path.isdir(fullDir):
         if verbose:
-            print 'Creating directory', fullDir
+            print('Creating directory', fullDir)
         os.makedirs(fullDir)
 
 def deleteFile(fileName):
@@ -117,9 +119,9 @@ def installFile(fileName, continueFlag=True):
     """
     if verbose:
         if local:
-            print 'Installing', fileName, ' from ', local
+            print('Installing', fileName, ' from ', local)
         else:
-            print 'Downloading', fileName
+            print('Downloading', fileName)
     if not continueFlag:
         deleteFile(fileName)
     commandStr = 'cd ' + installDir + '; ' + downloadCommand
@@ -130,7 +132,7 @@ def installFile(fileName, continueFlag=True):
         commandStr = "cp %s %s" % (os.path.join(local, fileName), installDir)
     retval = os.system(commandStr)
     if retval != 0:
-        print 'Error - Executing command \"' + commandStr + '\"'
+        print('Error - Executing command \"' + commandStr + '\"')
         return False
     return True
 
@@ -140,21 +142,15 @@ def installGitRepo(repoName, dirName):
     """
     fullDir = os.path.join(installDir, dirName)
     if os.path.isdir(fullDir):
-        if local:
-            print "Not updating Git Repository, in local mode"
+        if doNotUpdateRepos:
+            print("Not updating Git Repository, no-update requested")
         else:
-            try:
-                if subprocess.call(['svn', 'info'], cwd=fullDir, stdout=FNULL, stderr=subprocess.STDOUT) == 0:
-                    print "aborting - " + fullDir + " is an svn repository."
-                    exit(1)
-            except OSError:
-                pass
             # save any local modifications using git stash
             cmd = ['git', 'stash']
-            stashOutput = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=fullDir).communicate()[0]
+            stashOutput = subprocess.Popen(cmd, stdout=subprocess.PIPE, cwd=fullDir).communicate()[0].decode("utf-8")
             if not stashOutput.startswith('No local changes to save'):
                 if verbose:
-                    print "Saved local changes with \"git stash\""
+                    print("Saved local changes with \"git stash\"")
     
             # set remote repo to http location
             commandStr = 'cd ' + fullDir + '; '
@@ -163,43 +159,43 @@ def installGitRepo(repoName, dirName):
             # directory exists try a git fetch.
             commandStr = 'cd ' + fullDir + '; git fetch'
             if verbose:
-                print "Updating (fetch) existing repository - ", fullDir
+                print("Updating (fetch) existing repository - ", fullDir)
             else:
                 commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
-                print 'Error - Could not run \"' + commandStr + '\"'
+                print('Error - Could not run \"' + commandStr + '\"')
                 exit(1)
 
             # try a git chechout.
             commandStr = 'cd ' + fullDir + '; git checkout -t -B ' + gitBranch + ' remotes/origin/' + gitBranch
             if verbose:
-                print "Switching to branch - ", gitBranch
+                print("Switching to branch - ", gitBranch)
             else:
                 commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
-                print 'Error - Could not run \"' + commandStr + '\"'
+                print('Error - Could not run \"' + commandStr + '\"')
                 exit(1)
             
             # try a git pull.
             commandStr = 'cd ' + fullDir + '; git pull --progress'
             if verbose:
-                print "Pulling from remote repository"
+                print("Pulling from remote repository")
             else:
                 commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
-                print 'Error - Could not run \"' + commandStr + '\"'
+                print('Error - Could not run \"' + commandStr + '\"')
                 exit(1)
                 
     else:
         # directory does not exist
         if verbose:
             if local:
-                print "Installing new directory - ", fullDir
+                print("Installing new directory - ", fullDir)
             else:
-                print "Downloading new directory - ", fullDir
+                print("Downloading new directory - ", fullDir)
 
         # download bundle
         testFailed = True
@@ -215,7 +211,7 @@ def installGitRepo(repoName, dirName):
             deleteFile(repoName + '.bundle')
 
         if testFailed:
-            print "Tried to download " + repoName + ".bundle " + str(downloadTries) + " times, but failed checksum"
+            print("Tried to download " + repoName + ".bundle " + str(downloadTries) + " times, but failed checksum")
             exit(1)
 
         # git clone
@@ -223,7 +219,7 @@ def installGitRepo(repoName, dirName):
         commandStr += 'git clone --progress -b master ' + repoName + '.bundle ' + fullDir
         retval = os.system(commandStr)
         if retval:
-            print 'Error - Could not run \"' + commandStr + '\"'
+            print('Error - Could not run \"' + commandStr + '\"')
             exit(1)
 
         # remove bundle
@@ -234,44 +230,44 @@ def installGitRepo(repoName, dirName):
         commandStr += 'git remote set-url origin ' + gitBase + repoName + '.git'
         retval = os.system(commandStr)
         if retval:
-            print 'Error - Could not run \"' + commandStr + '\"'
+            print('Error - Could not run \"' + commandStr + '\"')
             exit(1)
 
         # git pull to make sure we are up to date
-        if local:
-            print 'Not updating Git Repository, in local mode'
+        if doNotUpdateRepos:
+            print('Not updating Git Repository, no-update requested')
         else:
             # try a git fetch.
             commandStr = 'cd ' + fullDir + '; git fetch'
             if verbose:
-                print "Updating (fetch) existing repository -", fullDir
+                print("Updating (fetch) existing repository -", fullDir)
             else:
                 commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
-                print 'Error - Could not run \"' + commandStr + '\"'
+                print('Error - Could not run \"' + commandStr + '\"')
                 exit(1)
 
             # try a git chechout.
             commandStr = 'cd ' + fullDir + '; git checkout -t -B ' + gitBranch + ' remotes/origin/' + gitBranch
             if verbose:
-                print "Switching to branch - ", gitBranch
+                print("Switching to branch - ", gitBranch)
             else:
                 commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
-                print 'Error - Could not run \"' + commandStr + '\"'
+                print('Error - Could not run \"' + commandStr + '\"')
                 exit(1)
             
             # try a git pull.
             commandStr = 'cd ' + fullDir + '; git pull --progress > /dev/null'
             if verbose:
-                print "Pulling from remote repository -", fullDir
+                print("Pulling from remote repository -", fullDir)
             else:
                 commandStr += ' -q > /dev/null'
             retval = os.system(commandStr)
             if retval:
-                print 'Error - Could not run \"' + commandStr + '\"'
+                print('Error - Could not run \"' + commandStr + '\"')
                 exit(1)
 
 def getArch():
@@ -282,17 +278,17 @@ def getArch():
     if sysname == 'Darwin':
         if machine == 'x86_64' or machine == 'i386':
             return 'macosx_intel'
-        print "unsupported Mac machine =", machine
+        print("unsupported Mac machine =", machine)
         exit(1)
     if sysname == 'Linux':
         if machine == 'x86_64':
             return 'linux_64'
         return 'linux'
     if sysname == 'Windows':
-        print "Error: can not install OCSSW software on Windows"
+        print("Error: can not install OCSSW software on Windows")
         exit(1)
-    print '***** unrecognized system =', sysname, ', machine =', machine
-    print '***** defaulting to linux_64'
+    print('***** unrecognized system =', sysname, ', machine =', machine)
+    print('***** defaulting to linux_64')
     return 'linux_64'
 
 def printProgress(name):
@@ -301,15 +297,32 @@ def printProgress(name):
     """
     global currentThing
     global numThings
-    print 'Installing ' + name + ' (' + str(currentThing) + ' of ' + str(numThings) + ')'
+    print('Installing ' + name + ' (' + str(currentThing) + ' of ' + str(numThings) + ')')
     sys.stdout.flush()
     currentThing += 1
+
+def convertToNewDirStructure():
+    if newDirStructure:
+        # see if the current installation is the old dir structure
+        # use scripts dir as the test
+        if os.path.isdir(os.path.join(installDir, 'run', 'scripts')):
+            print('Converting to new directory structure')
+            shutil.move(os.path.join(installDir, 'run', 'bin', getArch()), os.path.join(installDir, 'bin'))
+            shutil.move(os.path.join(installDir, 'run', 'data'), os.path.join(installDir, 'share'))
+            shutil.move(os.path.join(installDir, 'run', 'scripts'), os.path.join(installDir, 'scripts'))
+            shutil.move(os.path.join(installDir, 'run', 'var'), os.path.join(installDir, 'var'))
+            shutil.rmtree(os.path.join(installDir, 'run'))
+
+            if os.path.isdir(os.path.join(installDir, 'build')):
+                print('WARNING - old style build directory exists')
+                print('WARNING - the directory has been moved to "build.old"')
+                shutil.move(os.path.join(installDir, 'build'), os.path.join(installDir, 'build.old'))
 
 
 if __name__ == "__main__":
 
     # Read commandline options...
-    version = "%prog 2.1"
+    version = "%prog 3.0"
     usage = '''usage: %prog [options]'''
     parser = OptionParser(usage=usage, version=version)
 
@@ -322,7 +335,7 @@ if __name__ == "__main__":
                       default="https://oceandata.sci.gsfc.nasa.gov/ocssw/",
                       help="web location for the git repositories")
     parser.add_option("-b", "--git-branch", action="store", dest="git_branch",
-                      default="master",
+                      default="v7.5",
                       help="branch in the git repositories to checkout")
     parser.add_option("-a", "--arch", action="store", dest='arch',
                       help="set system architecture (linux, linux_64, macosx_intel)")
@@ -334,6 +347,8 @@ if __name__ == "__main__":
                       default=False, help="Do a clean install by deleting the install directory first, if it exists")
     parser.add_option("--curl", action="store_true", dest='curl', 
                       default=False, help="use curl for download instead of wget")
+    parser.add_option("--no-update", action="store_true", dest='noUpdate', 
+                      default=False, help="do not update the git repositories or luts")
 
     # add missions
     parser.add_option("--aquarius", action="store_true", dest="aquarius",
@@ -354,6 +369,8 @@ if __name__ == "__main__":
                       default=False, help="install MODIS Terra files")
     parser.add_option("--mos", action="store_true", dest="mos", default=False,
                       help="install MOS files")
+    parser.add_option("--msi", action="store_true", dest="msi", default=False,
+                      help="install MSI files")
     parser.add_option("--ocm1", action="store_true", dest="ocm1", default=False,
                       help="install OCM1 files")
     parser.add_option("--ocm2", action="store_true", dest="ocm2", default=False,
@@ -378,22 +395,32 @@ if __name__ == "__main__":
 
     (options, args) = parser.parse_args()
 
+    # add a few places to the path to help find git
+    os.environ['PATH'] += ':' + os.environ['HOME'] + '/bin:/opt/local/bin:/usr/local/git/bin:/usr/local/bin:/sw/bin'
+
     # set global variables
     gitBase = options.git_base
     if not gitBase.endswith('/'):
         gitBase += '/'
     gitBranch = options.git_branch
 
-    verbose = options.verbose
-    local = options.local
+    # figure out if we are using the new directory structure
+    if float(gitBranch[1:]) < 7.5:
+        newDirStructure = False
 
+    verbose = options.verbose
+    doNotUpdateRepos = options.noUpdate
+    local = options.local
+    if local:
+        doNotUpdateRepos = True
+    
     # setup download command
     if options.curl:
         retval = os.system("which curl > /dev/null")
         if retval == 0:
             setupCurlDownload()
         else:
-            print "Error: Could not find curl."
+            print("Error: Could not find curl.")
             exit(1)
     else:
         retval = os.system("which wget > /dev/null")
@@ -403,10 +430,10 @@ if __name__ == "__main__":
             retval = os.system("which curl > /dev/null")
             if retval == 0:
                 if verbose:
-                    print 'Could not find wget, defaulting to using curl.'
+                    print('Could not find wget, defaulting to using curl.')
                 setupCurlDownload()
             else:
-                print "Error: Could not find wget or curl in the PATH."
+                print("Error: Could not find wget or curl in the PATH.")
                 exit(1)
 
     # set installDir using param or a default
@@ -417,6 +444,15 @@ if __name__ == "__main__":
             installDir = os.path.abspath(os.path.join(os.getenv("HOME"), "ocssw"))
         else:
             installDir = os.path.abspath(os.getenv("OCSSWROOT"))
+
+    # check if this is a development git repo
+    # bail if it is
+    try:
+        if subprocess.call(['git', 'status'], cwd=installDir, stdout=FNULL, stderr=subprocess.STDOUT) == 0:
+            print("aborting - " + installDir + " is a development git repository.")
+            exit(1)
+    except OSError:
+        pass
 
     if options.arch:
         arch = options.arch
@@ -430,69 +466,73 @@ if __name__ == "__main__":
 
     # print out info if in verbose mode
     if verbose:
-        print '\ngitBase     =', gitBase
-        print 'gitBranch   =', gitBranch
-        print 'install dir =', installDir
-        print 'arch        =', arch
+        print('\ngitBase     =', gitBase)
+        print('gitBranch   =', gitBranch)
+        print('install dir =', installDir)
+        print('arch        =', arch)
+        if doNotUpdateRepos:
+            print('no-update   =', doNotUpdateRepos)
         if local:
-            print 'local dir   =', local
-        print
-
+            print('local dir   =', local)
+        print()
+        
     # remove the install directory if --clean and it exists
     if options.clean:
         if os.path.exists(installDir):
             shutil.rmtree(installDir)
 
+    # convert to new directory structure if necessary
+    convertToNewDirStructure()
+    
     # create directory structure
-    makeDir('run/data')
-    makeDir('run/bin')
-    makeDir('run/bin3')
-
-    # add a few places to the path to help find git
-    os.environ['PATH'] += ':' + os.environ['HOME'] + '/bin:/opt/local/bin:/usr/local/git/bin:/usr/local/bin:/sw/bin'
-
+    if newDirStructure:
+        makeDir('share')
+    else:
+        makeDir('run/data')
+        makeDir('run/bin')
+        makeDir('run/bin3')
+        
     # make sure git exists and is setup
     commandStr = "git --version > /dev/null"
     retval = os.system(commandStr)
     if retval:
-        print 'Error - git is either not installed or not in the PATH.'
+        print('Error - git is either not installed or not in the PATH.')
         exit(1)
 
     cmd = ['git', 'config', "--get", "user.name"]
-    gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+    gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")
     if verbose:
-        print "git user.name = \"" + gitResult.rstrip() + "\""
+        print("git user.name = \"" + gitResult.rstrip() + "\"")
     if gitResult == "":
         commandStr = "git config --global user.name \"Default Seadas User\""
         retval = os.system(commandStr)
         if retval:
-            print 'Error - Could not execute system command \"' + commandStr + '\"'
+            print('Error - Could not execute system command \"' + commandStr + '\"')
             exit(1)
 
     cmd = ['git', 'config', "--get", "user.email"]
-    gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+    gitResult = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")
     if verbose:
-        print "git user.email = \"" + gitResult.rstrip() + "\""
+        print("git user.email = \"" + gitResult.rstrip() + "\"")
     if gitResult == "":
         commandStr = "git config --global user.email \"seadas-user@localhost\""
         retval = os.system(commandStr)
         if retval:
-            print 'Error - Could not execute system command \"' + commandStr + '\"'
+            print('Error - Could not execute system command \"' + commandStr + '\"')
             exit(1)
 
     # setup progress monitor output
     currentThing = 1
-    numThings = 1
+    numThings = 0
 
     numThings += 1         # bundle checksum file
     numThings += 1         # common
     numThings += 1         # OCSSW_bash.env
-    numThings += 1         # README
-    if options.src:
-        numThings += 1     # src
     numThings += 1         # ocrvc
     if options.aquarius:
-        numThings += 2     # aquarius + luts
+        numThings += 1     # aquarius
+        if not doNotUpdateRepos:
+            numThings += 1 # luts
     if options.avhrr:
         numThings += 1     # avhrr
     if options.czcs:
@@ -508,166 +548,203 @@ if __name__ == "__main__":
     if options.aqua or options.terra:
         numThings += 1     # modis
     if options.aqua:
-        numThings += 3     # aqua + luts
+        numThings += 2     # modisa + hmodisa
+        if not doNotUpdateRepos:
+            numThings += 1 # luts
     if options.terra:
-        numThings += 3     # terra + luts
+        numThings += 2     # modist + hmodist
+        if not doNotUpdateRepos:
+            numThings += 1 # luts
     if options.mos:
         numThings += 1     # mos
+    if options.msi:
+        numThings += 1     # msi
     if options.ocm1:
         numThings += 1     # ocm1
     if options.ocm2:
         numThings += 1     # ocm2
     if options.octs:
         numThings += 1     # octs
+    if options.osmi:
+        numThings += 1     # osmi
     if options.oli:
         numThings += 1     # oli
     if options.olci:
         numThings += 1     # olci
-    if options.osmi:
-        numThings += 1     # osmi
     if options.seawifs:
-        numThings += 2     # seawifs and luts
+        numThings += 1     # seawifs
+        if not doNotUpdateRepos:
+            numThings += 1 # luts
     if options.viirsn:
-        numThings += 2     # viirsn + luts
+        numThings += 1     # viirsn
+        if not doNotUpdateRepos:
+            numThings += 1 # luts
     numThings += 1         # bin
-    numThings += 1         # bin3
+    numThings += 1         # opt (or bin3)
+    if options.src:
+        numThings += 1     # src
+        if newDirStructure:
+            numThings += 1 # opt/src
     numThings += 1         # scripts
+
+    shareDir = "share/"
+    if not newDirStructure:
+        shareDir = "run/data/"
 
     # download checksum file
     printProgress(checksumFileName)
     loadChecksums()
 
-    # install run/data/common
+    # install share/common
     # the git install checks to see if the dir is svn and bails
     printProgress('common')
-    installGitRepo('common', 'run/data/common')
+    installGitRepo('common', shareDir + 'common')
 
     # download OCSSW_bash.env
     printProgress('OCSSW_bash.env')
-    installFile('OCSSW_bash.env', continueFlag=False)
-
-    # download README
-    printProgress('README')
-    installFile('README', continueFlag=False)
-
-    # install build source directory
-    if options.src:
-        printProgress('src')
-        installGitRepo('build', 'build')
-
-    # install run/data/ocrvc
+    if newDirStructure:
+        installFile('OCSSW_bash.env.new', continueFlag=False)
+        os.rename(os.path.join(installDir, 'OCSSW_bash.env.new'), os.path.join(installDir, 'OCSSW_bash.env'))
+    else:
+        installFile('OCSSW_bash.env', continueFlag=False)
+    
+    # install share/ocrvc
     printProgress('ocrvc')
-    installGitRepo('ocrvc', 'run/data/ocrvc')
+    installGitRepo('ocrvc', shareDir + 'ocrvc')
 
-    # install run/data/aquarius
+    # install share/aquarius
     if options.aquarius:
         printProgress('aquarius')
-        installGitRepo('aquarius', 'run/data/aquarius')
+        installGitRepo('aquarius', shareDir + 'aquarius')
 
-    # install run/data/avhrr
+    # install share/avhrr
     if options.avhrr:
         printProgress('avhrr')
-        installGitRepo('avhrr', 'run/data/avhrr')
+        installGitRepo('avhrr', shareDir + 'avhrr')
 
-    # install run/data/czcs
+    # install share/czcs
     if options.czcs:
         printProgress('czcs')
-        installGitRepo('czcs', 'run/data/czcs')
+        installGitRepo('czcs', shareDir + 'czcs')
 
-    # install run/data/eval
+    # install share/eval
     if options.eval:
         printProgress('eval')
-        installGitRepo('eval', 'run/data/eval')
+        installGitRepo('eval', shareDir + 'eval')
 
-    # install run/data/goci
+    # install share/goci
     if options.goci:
         printProgress('goci')
-        installGitRepo('goci', 'run/data/goci')
+        installGitRepo('goci', shareDir + 'goci')
 
-    # install run/data/hico
+    # install share/hico
     if options.hico:
         printProgress('hico')
-        installGitRepo('hico', 'run/data/hico')
+        installGitRepo('hico', shareDir + 'hico')
 
-    # install run/data/meris
+    # install share/meris
     if options.meris:
         printProgress('meris')
-        installGitRepo('meris', 'run/data/meris')
+        installGitRepo('meris', shareDir + 'meris')
 
-    # install run/data/modis
+    # install share/modis
     if options.aqua or options.terra:
         printProgress('modis')
-        installGitRepo('modis', 'run/data/modis')
+        installGitRepo('modis', shareDir + 'modis')
 
-    # install run/data/aqua
+    # install share/aqua
     if options.aqua:
         printProgress('modisa')
-        installGitRepo('modisa', 'run/data/modisa')
+        installGitRepo('modisa', shareDir + 'modisa')
         printProgress('hmodisa')
-        installGitRepo('hmodisa', 'run/data/hmodisa')
+        installGitRepo('hmodisa', shareDir + 'hmodisa')
 
-    # install run/data/terra
+    # install share/terra
     if options.terra:
         printProgress('modist')
-        installGitRepo('modist', 'run/data/modist')
+        installGitRepo('modist', shareDir + 'modist')
         printProgress('hmodist')
-        installGitRepo('hmodist', 'run/data/hmodist')
+        installGitRepo('hmodist', shareDir + 'hmodist')
 
-    # install run/data/mos
+    # install share/mos
     if options.mos:
         printProgress('mos')
-        installGitRepo('mos', 'run/data/mos')
+        installGitRepo('mos', shareDir + 'mos')
 
-    # install run/data/ocm1
+    # install share/msi
+    if options.msi:
+        printProgress('msi')
+        installGitRepo('msi', shareDir + 'msi')
+
+    # install share/ocm1
     if options.ocm1:
         printProgress('ocm1')
-        installGitRepo('ocm1', 'run/data/ocm1')
+        installGitRepo('ocm1', shareDir + 'ocm1')
 
-    # install run/data/ocm2
+    # install share/ocm2
     if options.ocm2:
         printProgress('ocm2')
-        installGitRepo('ocm2', 'run/data/ocm2')
+        installGitRepo('ocm2', shareDir + 'ocm2')
 
-    # install run/data/octs
+    # install share/octs
     if options.octs:
         printProgress('octs')
-        installGitRepo('octs', 'run/data/octs')
+        installGitRepo('octs', shareDir + 'octs')
 
-    # install run/data/osmi
+    # install share/osmi
     if options.osmi:
         printProgress('osmi')
-        installGitRepo('osmi', 'run/data/osmi')
+        installGitRepo('osmi', shareDir + 'osmi')
 
-    # install run/data/oli
+    # install share/oli
     if options.oli:
         printProgress('oli')
-        installGitRepo('oli', 'run/data/oli')
-    # install run/data/olci
+        installGitRepo('oli', shareDir + 'oli')
+    # install share/olci
     if options.olci:
         printProgress('olci')
-        installGitRepo('olci', 'run/data/olci')
+        installGitRepo('olci', shareDir + 'olci')
 
-    # install run/data/seawifs
+    # install share/seawifs
     if options.seawifs:
         printProgress('seawifs')
-        installGitRepo('seawifs', 'run/data/seawifs')
+        installGitRepo('seawifs', shareDir + 'seawifs')
 
-    # install run/data/viirsn
+    # install share/viirsn
     if options.viirsn:
         printProgress('viirsn')
-        installGitRepo('viirsn', 'run/data/viirsn')
+        installGitRepo('viirsn', shareDir + 'viirsn')
 
     # download bin dir
-    repo = 'bin-' + arch
-    dirStr = 'run/bin/' + arch
     printProgress('bin')
-    installGitRepo(repo, dirStr)
+    if newDirStructure:
+        installGitRepo('bin-' + arch, 'bin')
+    else:
+        installGitRepo('bin-' + arch, 'run/bin/' + arch)
 
-    # download bin dir3
-    repo = 'bin3-' + arch
-    dirStr = 'run/bin3/' + arch
-    printProgress('bin3')
-    installGitRepo(repo, dirStr)
+    # download opt or bin3
+    if newDirStructure:
+        printProgress('opt')
+        installGitRepo('opt-' + arch, 'opt')
+    else:
+        printProgress('bin3')
+        installGitRepo('bin3-' + arch, 'run/bin3/' + arch)
+
+    # install source directory
+    if options.src:
+        printProgress('src')
+        if newDirStructure:
+            installGitRepo('ocssw-src', 'build')
+            printProgress('opt-src')
+            installFile('opt_src.tar')
+            commandStr = 'cd ' +  os.path.join(installDir, 'opt') + '; tar xf ../opt_src.tar'
+            retval = os.system(commandStr)
+            if retval:
+                print('Error - Can not expand opt/src directory')
+                exit(1)
+        else:
+            installGitRepo('build', 'build')
+
 
     #####################################################
     # install the scripts last since it is used as
@@ -676,69 +753,80 @@ if __name__ == "__main__":
 
     # install run/scripts
     printProgress('scripts')
-    installGitRepo('scripts', 'run/scripts')
-
+    if newDirStructure:
+        installGitRepo('scripts', 'scripts')
+    else:
+        installGitRepo('scripts', 'run/scripts')
+        
     # check that shared libc version will work
-    commandStr = os.path.join(installDir, 'run', 'bin3', arch, 'hdp')
+    if newDirStructure:
+        commandStr = os.path.join(installDir, 'opt', 'bin', 'hdp')
+    else:
+        commandStr = os.path.join(installDir, 'run', 'bin3', arch, 'hdp')
+
     commandStr += ' -H list > /dev/null'
     if verbose:
-        print 'Checking that an installed executable can run'
+        print('Checking that an installed executable can run')
     retval = os.system(commandStr)
     if retval:
-        print 'Error - Can not run an installed executable'
+        print('Error - Can not run an installed executable')
         exit(1)
 
+    scriptsDir = os.path.join(installDir, 'run', 'scripts')
+    if newDirStructure:
+        scriptsDir = os.path.join(installDir, 'scripts')
+        
     # check the version of python
-    commandStr = os.path.join(installDir, 'run/scripts/ocssw_runner')
+    commandStr = os.path.join(scriptsDir, 'ocssw_runner')
     commandStr += ' --ocsswroot ' + installDir
     commandStr += ' pyverchk.py'
     if verbose:
-        print 'Checking Python version'
+        print('Checking Python version')
     retval = os.system(commandStr)
     if retval:
-        print 'Error - Python version is not new enough to install luts'
+        print('Error - Python version is not new enough to install luts')
         exit(1)
 
     # install the luts
-    if local:
-        print "Not updating LUTs, in local mode"
+    if doNotUpdateRepos:
+        print("Not updating LUTs, no-update requested")
     else:
-        commandStr = os.path.join(installDir, 'run/scripts/ocssw_runner')
+        commandStr = os.path.join(scriptsDir, 'ocssw_runner')
         commandStr += ' --ocsswroot ' + installDir
         commandStr += ' update_luts.py '
         if options.seawifs:
             printProgress('seawifs-luts')
             retval = os.system(commandStr + 'seawifs')
             if retval:
-                print 'Error - Could not install luts for seawifs'
+                print('Error - Could not install luts for seawifs')
                 exit(1)
     
         if options.aqua:
             printProgress('aqua-luts')
             retval = os.system(commandStr + 'aqua')
             if retval:
-                print 'Error - Could not install luts for aqua'
+                print('Error - Could not install luts for aqua')
                 exit(1)
     
         if options.terra:
             printProgress('terra-luts')
             retval = os.system(commandStr + 'terra')
             if retval:
-                print 'Error - Could not install luts for terra'
+                print('Error - Could not install luts for terra')
                 exit(1)
     
         if options.viirsn:
             printProgress('viirsn-luts')
             retval = os.system(commandStr + 'viirsn')
             if retval:
-                print 'Error - Could not install luts for viirsn'
+                print('Error - Could not install luts for viirsn')
                 exit(1)
     
         if options.aquarius:
             printProgress('aquarius-luts')
             retval = os.system(commandStr + 'aquarius')
             if retval:
-                print 'Error - Could not install luts for aquarius'
+                print('Error - Could not install luts for aquarius')
                 exit(1)
 
     exit(0)

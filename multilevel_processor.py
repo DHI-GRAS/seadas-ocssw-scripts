@@ -5,7 +5,7 @@ Program to perform multilevel processing (previously known as the
 seadas_processor and sometimes referred to as the 'uber' processor).
 """
 
-__version__ = '1.0.3'
+__version__ = '1.0.5'
 
 __author__ = 'melliott'
 
@@ -195,12 +195,14 @@ def build_general_rules():
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                              True),
-        'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l3bin'],
+                                                run_l3mapgen, False),
+        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
                                               False)
     }
     rules_order = ['level 1a', 'l1brsgen', 'l1mapgen', 'level 1b', 'l2gen',
                    'l2extract', 'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
-                   'smigen']
+                   'l3mapgen', 'smigen']
     rules = processing_rules.RuleSet('General rules', rules_dict, rules_order)
     return rules
 
@@ -225,7 +227,11 @@ def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
 
 def build_modis_rules():
     """
-    Builds and returns the MODIS rules set.
+    Builds and returns the MODIS rules.
+
+    Rule format:
+    target type (string),  source types (list of strings), action to take
+    (function name), batch processing flag (Boolean)
     """
     rules_dict = {
         'level 0': processing_rules.build_rule('level 0', ['nothing lower'],
@@ -257,14 +263,14 @@ def build_modis_rules():
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                              True),
-        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l2bin'],
-                                                run_l3mapgen, False),
-        'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l3bin'],
+                                                run_l3mapgen, False, False),
+        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
                                               False)
     }
     rules_order = ['level 0', 'level 1a', 'l1brsgen', 'l1mapgen', 'geo',
                    'l1aextract_modis', 'level 1b', 'l2gen', 'l2extract',
-                   'l2bin', 'l2brsgen', 'l2mapgen', 'l3mapgen', 'l3bin',
+                   'l2bin', 'l2brsgen', 'l2mapgen', 'l3bin', 'l3mapgen',
                    'smigen']
     rules = processing_rules.RuleSet("MODIS Rules", rules_dict, rules_order)
     return rules
@@ -284,6 +290,8 @@ def build_seawifs_rules():
                                                 run_l1brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
                                                 run_l1mapgen, False),
+        'geo': processing_rules.build_rule('geo', ['level 1a'], None,
+                                           False),
         'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
                                                 run_l1b, False),
         # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
@@ -299,13 +307,16 @@ def build_seawifs_rules():
         'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
-                                             True),
-        'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
+                                             True, False),
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l3bin'],
+                                                run_l3mapgen, False, False),
+        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
                                               False)
     }
     rules_order = ['level 1a', 'l1aextract_seawifs', 'l1brsgen',
-                   'l1mapgen', 'level 1b', 'l2gen', 'l2extract',
-                   'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin', 'smigen']
+                   'l1mapgen', 'geo', 'level 1b', 'l2gen', 'l2extract',
+                   'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
+                   'l3mapgen', 'smigen']
     rules = processing_rules.RuleSet("SeaWiFS Rules", rules_dict, rules_order)
     return rules
 
@@ -332,11 +343,14 @@ def build_viirs_rules():
                                              True),
         'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
                                              True),
-        'smigen': processing_rules.build_rule('smigen', ['l2bin'], run_smigen,
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l3bin'],
+                                                run_l3mapgen, False, False),
+        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
                                               False)
     }
     rules_order = ['level 1a', 'level 1b', 'l2gen', 'l2extract',
-                   'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin', 'smigen']
+                   'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
+                   'l3mapgen', 'smigen']
     rules = processing_rules.RuleSet('VIIRS Rules', rules_dict, rules_order)
     return rules
 
@@ -618,18 +632,28 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                 else:
                     src_files[proc.target_type] = [out_file]
             else:
-                logging.debug('Performing nonbatch processing for ' +
-                              str(proc))
-                src_file_sets = get_source_file_sets(proc_src_types,
-                                                     src_files, src_key)
-                for file_set in src_file_sets:
-                    out_file = run_nonbatch_processor(ndx, processors, file_set)
-                    if out_file:
-                        if proc.target_type in src_files:
-                            if not out_file in src_files[proc.target_type]:
-                                src_files[proc.target_type].append(out_file)
-                        else:
-                            src_files[proc.target_type] = [out_file]
+                if proc.rule_set.rules[proc.target_type].action:
+                    logging.debug('Performing nonbatch processing for ' +
+                                  str(proc))
+                    src_file_sets = get_source_file_sets(proc_src_types,
+                                                         src_files, src_key,
+                                                         proc.rule_set.rules[proc.target_type].requires_all_sources)
+                    success_count = 0
+                    for file_set in src_file_sets:
+                        out_file = run_nonbatch_processor(ndx, processors, file_set)
+                        if out_file:
+                            success_count += 1
+                            if proc.target_type in src_files:
+                                if not out_file in src_files[proc.target_type]:
+                                    src_files[proc.target_type].append(out_file)
+                            else:
+                                src_files[proc.target_type] = [out_file]
+                    if success_count == 0:
+                        msg = 'The {0} processor produced no output files.'.format()
+                        logging.info(msg)
+                else:
+                    msg = '-I- There is no way to create {0} files for {1}.'.format(proc.target_type, proc.instrument)
+                    logging.info(msg)
             if cfg_data.keepfiles or proc.keepfiles:
                 files_to_keep.append(out_file)
                 if cfg_data.tar_filename:
@@ -978,8 +1002,12 @@ def get_options(par_data):
     for key in par_data:
         if key == 'ofile':
             log_and_exit('Error!  The "ofile" option is not permitted.')
-        elif not key == 'keepfiles':
-            options += ' ' + key + '=' + par_data[key]
+        else:
+            if not (key.lower() in FILE_USE_OPTS):
+                if par_data[key]:
+                    options += ' ' + key + '=' + par_data[key]
+                else:
+                    options += ' ' + key
     return options
 
 def get_output_name(inp_files, targ_prog, suite=None, oformt=None, res=None):
@@ -1133,7 +1161,27 @@ def get_required_programs(target_program, ruleset, lowest_source_level):
                         programs_to_run.insert(0, prog)
     return programs_to_run
 
-def get_source_file_sets(proc_src_types, source_files, src_key):
+def get_source_geo_files(source_files, proc_src_types, proc_src_ndx):
+    """
+    :param source_files: list of source files
+    :param proc_src_types: list of source types for the processor
+    :param proc_src_ndx: index into the proc_src_types list pointing to the
+                         source type to use to get the input files
+    :return: list of GEO files that correspond to the files in source_files
+    """
+    inp_files = source_files[proc_src_types[proc_src_ndx]]
+    geo_files = []
+    for inp_file in inp_files:
+        geo_file = find_geo_file(inp_file)
+        if geo_file:
+            geo_files.append(geo_file)
+        else:
+            err_msg = 'Error! Cannot find GEO ' \
+                      'file {0}.'.format(geo_file)
+            log_and_exit(err_msg)
+    return geo_files
+
+def get_source_file_sets(proc_src_types, source_files, src_key, requires_all_sources):
     """
     Returns the set of source files needed.
     """
@@ -1152,56 +1200,44 @@ def get_source_file_sets(proc_src_types, source_files, src_key):
             else:
                 err_msg = 'Error! Unable to determine what source files are required for the specified output files.'
                 log_and_exit(err_msg)
-    elif len(proc_src_types) == 2:
-        if proc_src_types[0] in source_files \
-                and proc_src_types[1] in source_files:
-            src_file_sets = zip(source_files[proc_src_types[0]],
-                                source_files[proc_src_types[1]])
-        else:
-            if proc_src_types[0] in source_files:
-                if proc_src_types[1] == 'geo':
-                    inp_files = source_files[proc_src_types[0]]
-                    geo_files = []
-                    for inp_file in inp_files:
-                        geo_file = find_geo_file(inp_file)
-                        if geo_file:
-                            geo_files.append(geo_file)
-                        else:
-                            err_msg = 'Error! Cannot find GEO ' \
-                                      'file {0}.'.format(geo_file)
-                            log_and_exit(err_msg)
-                    src_file_sets = zip(source_files[proc_src_types[0]],
-                                        geo_files)
-                else:
-                    err_msg = 'Error! Cannot find all {0} and' \
-                              ' {1} source files.'.format(proc_src_types[0],
-                                                          proc_src_types[1])
-                    log_and_exit(err_msg)
-            elif proc_src_types[1] in source_files:
-                if proc_src_types[0] == 'geo':
-                    inp_files = source_files[proc_src_types[1]]
-                    geo_files = []
-                    for inp_file in inp_files:
-                        geo_file = find_geo_file(inp_file)
-                        if geo_file:
-                            geo_files.append(geo_file)
-                        else:
-                            err_msg = 'Error! Cannot find GEO file {0}.'.\
-                                      format(geo_file)
-                            log_and_exit(err_msg)
-                    src_file_sets = zip(source_files[proc_src_types[1]],
-                                        geo_files)
-                else:
-                    err_msg = 'Error! Cannot find all {0} and' \
-                              ' {1} source files.'.format(proc_src_types[0],
-                                                          proc_src_types[1])
-                    log_and_exit(err_msg)
-            else:
-                err_msg = 'Error! Cannot find all source files.'
-                log_and_exit(err_msg)
     else:
-        err_msg = 'Error! Encountered too many source file types.'
-        log_and_exit(err_msg)
+        if requires_all_sources:
+            if len(proc_src_types) == 2:
+                if proc_src_types[0] in source_files \
+                        and proc_src_types[1] in source_files:
+                    src_file_sets = zip(source_files[proc_src_types[0]],
+                                        source_files[proc_src_types[1]])
+                else:
+                    if proc_src_types[0] in source_files:
+                        if proc_src_types[1] == 'geo':
+                            geo_files = get_source_geo_files(source_files, proc_src_types, 0)
+                            src_file_sets = zip(source_files[proc_src_types[0]],
+                                                geo_files)
+                        else:
+                            err_msg = 'Error! Cannot find all {0} and' \
+                                      ' {1} source files.'.format(proc_src_types[0],
+                                                                  proc_src_types[1])
+                            log_and_exit(err_msg)
+                    elif proc_src_types[1] in source_files:
+                        if proc_src_types[0] == 'geo':
+                            geo_files = get_source_geo_files(source_files, proc_src_types, 1)
+                            src_file_sets = zip(source_files[proc_src_types[1]],
+                                                geo_files)
+                        else:
+                            err_msg = 'Error! Cannot find all {0} and' \
+                                      ' {1} source files.'.format(proc_src_types[0],
+                                                                  proc_src_types[1])
+                            log_and_exit(err_msg)
+                    else:
+                        err_msg = 'Error! Cannot find all source files.'
+                        log_and_exit(err_msg)
+            else:
+                err_msg = 'Error! Encountered too many source file types.'
+                log_and_exit(err_msg)
+        else:
+            for proc_src_type in proc_src_types:
+                if proc_src_type in source_files:
+                    src_file_sets = source_files[proc_src_type]
     return src_file_sets
 
 def get_source_files(input_files):
@@ -1309,7 +1345,7 @@ def main():
                     log_and_exit(err_msg)
                 else:
                     # todo: make a friendlier error message
-                    err_msg = 'Unknown error encountered during processing!'
+                    err_msg = 'Unanticipated error encountered during processing!'
                     log_and_exit(err_msg)
         else:
             err_msg = 'Error! Parameter file {0} does not exist.'.\
@@ -1384,7 +1420,7 @@ def run_batch_processor(ndx, processors, file_set):
     Run a processor, e.g. l2bin, which processes batches of files.
     """
     logging.debug('in run_batch_processor, ndx = %d', ndx)
-    if tarfile.is_tarfile(file_set[0]):
+    if os.path.exists((file_set[0])) and tarfile.is_tarfile(file_set[0]):
         processors[ndx].input_file = file_set[0]
     else:
         timestamp = time.strftime('%Y%m%d_%H%M%S', time.gmtime(time.time()))
@@ -1490,17 +1526,25 @@ def run_l1brsgen(proc):
     Runs the l1brsgen executable.
     """
     l1brs_suffixes = {'0':'L1_BRS', '1':'L1_BRS', '2':'ppm',
-                      '3':'flt', '4':'png'}
+                      '3':'flt', '4':'png',
+                      'hdf4': 'hdf', 'bin': 'bin', 'png': 'png',
+                      'ppm': 'ppm'}
     prog = os.path.join(proc.ocssw_bin, 'l1brsgen')
     opts = get_options(proc.par_data)
-    if proc.par_data['outmode']:
-        suffix = l1brs_suffixes[proc.par_data['outmode']]
-    else:
-        suffix = l1brs_suffixes['0']
     #output_name = get_output_name(proc.par_data['ifile'], suffix)
     output_name = get_output_name(proc.input_file, 'l1brsgen')
-    cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
-                    'ofile=' + output_name, 'outmode=' + suffix])
+    if 'outmode' in proc.par_data and proc.par_data['outmode']:
+        suffix = l1brs_suffixes[proc.par_data['outmode']]
+        cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
+                        'ofile=' + output_name, 'outmode=' + suffix])
+    elif 'oformat' in proc.par_data and proc.par_data['oformat']:
+        suffix = l1brs_suffixes['oformat']
+        cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
+                        'ofile=' + output_name, 'oformat=' + suffix])
+    else:
+        # suffix = l1brs_suffixes['0']
+        cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
+                    'ofile=' + output_name])
     logging.debug('Executing: "%s"', cmd)
     status = execute_command(cmd)
     return status
@@ -1548,7 +1592,16 @@ def run_l2bin(proc):
     logging.debug('Running l2bin cmd: ' + cmd)
     if cfg_data.verbose:
         print 'l2bin cmd: ' + cmd
-    return execute_command(cmd)
+    ret_val = execute_command(cmd)
+    if ret_val != 0:
+        if os.path.exists(proc.output_file):
+            msg = '-I- The l2bin program returned a status value of {0}. Proceeding with processing, using the output l2 bin file {1}'.format(ret_val, proc.output_file)
+            logging.info(msg)
+            ret_val = 0
+        else:
+            msg = '-I- The l2bin program produced a bin file with no data. No further processing will be done.'
+            sys.exit(msg)
+    return ret_val
 
 def run_l2brsgen(proc):
     """
@@ -1655,8 +1708,9 @@ def run_l2mapgen(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'l2mapgen')
     args = 'ifile=' + proc.input_file
-    for key in proc.par_data:
-        args += ' ' + key + '=' + proc.par_data[key]
+    for opt_name in proc.par_data:
+        if not (opt_name.lower() in FILE_USE_OPTS):
+            args += ' ' + opt_name + '=' + proc.par_data[opt_name]
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
     logging.debug('Executing: "%s"', cmd)
@@ -1679,14 +1733,25 @@ def run_l3bin(proc):
               format(proc.rule_set.rules[proc.target_type].action)
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
-        args += ' ' + key + '=' + proc.par_data[key]
+        if not (key.lower() in FILE_USE_OPTS):
+            args += ' ' + key + '=' + proc.par_data[key]
     args = 'in=' + proc.input_file
     args += ' ' + "out=" + proc.output_file
-    for key in proc.par_data:
-        args += ' ' + key + '=' + proc.par_data[key]
+    # for key in proc.par_data:
+    #     args += ' ' + key + '=' + proc.par_data[key]
     cmd = ' '.join([prog, args])
     logging.debug('Executing l3bin command: "%s"', cmd)
-    return execute_command(cmd)
+    ret_val = execute_command(cmd)
+    if ret_val != 0:
+        if os.path.exists(proc.output_file):
+            msg = '-I- The l3bin program returned a status value of {0}. Proceeding with processing, using the output l2 bin file {1}'.format(
+                ret_val, proc.output_file)
+            logging.info(msg)
+            ret_val = 0
+    else:
+        msg = "-I- The l3bin program produced a bin file with no data. No further processing will be done."
+        sys.exit(msg)
+    return ret_val
 
 def run_l3mapgen(proc):
     """
@@ -1698,7 +1763,8 @@ def run_l3mapgen(proc):
               format(proc.rule_set.rules[proc.target_type].action)
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
-        args += ' ' + key + '=' + proc.par_data[key]
+        if not (key.lower() in FILE_USE_OPTS):
+            args += ' ' + key + '=' + proc.par_data[key]
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
     logging.debug('Executing l3mapgen command: "%s"', cmd)
@@ -1831,7 +1897,7 @@ def run_smigen(proc):
                ' prod=' + proc.par_data['prod']
         cmd = ' '.join([prog, args])
         for key in proc.par_data:
-            if key != 'prod':
+            if (key != 'prod') and not (key.lower() in FILE_USE_OPTS):
                 args += ' ' + key + '=' + proc.par_data[key]
         logging.debug('\nRunning smigen command: ' + cmd)
         status = execute_command(cmd)
@@ -1895,6 +1961,7 @@ SUFFIXES = {
     'l2gen': 'L2',
     'l2mapgen': 'L2B_MAP',
     'l3bin': 'L3b',
+    'l3mapgen': 'L3m',
     'level 1a': 'L1A',
     'level 1b': 'L1B_LAC',
     'smigen': 'SMI'

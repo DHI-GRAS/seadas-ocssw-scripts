@@ -144,8 +144,11 @@ class ParReader(object):
                             elif line.strip in self.acceptable_single_keys:
                                 sect_dict[key] = 'True'
                             else:
-                                err_msg = 'Found entry {0} with no value in {1}'.format(key, self.filename)
-                                sys.exit(err_msg)
+                                if line.startswith('--'):
+                                    add_sect_entry(sect_dict, line, None)
+                                else:
+                                    err_msg = 'Found entry "{0}" with no value in {1}'.format(line, self.filename)
+                                    sys.exit(err_msg)
                         else:
                             err_msg = 'Error in {0}, no section header found!'.\
                                       format(self.filename)

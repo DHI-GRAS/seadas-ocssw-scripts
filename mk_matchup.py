@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 """
 A Perl script to create and output satellite matchups from a SeaBASS file given an 
@@ -27,8 +28,7 @@ def main():
 
       REQUIRED inputs:
           1) --sat_file=        an OB.DAAC L2 (SST, SST4, IOP, or OC) satellite file
-          2) --seabass_file=    a valid SeaBASS file with lat,lon,date,time as field entries or
-                                lat,lon,year,month,day,hour,minute,second as field entries.
+          2) --seabass_file=    a valid SeaBASS file with latitude, longitude, and date-time information as field entries.
 
       Notes on OPTIONAL inputs:
           1) --slat= --slon=    must be used together and will override any lat/lons in --seabass_file
@@ -40,7 +40,7 @@ def main():
           1) the original SeaBASS data
           AND
           2) collocated satellite products as additional columns into --out_file 
-             OR if --out_file is not specified, --seabass_file will be appended
+             OR if --out_file is not specified, matched-up data will be appended to --seabass_file
 
       Example usage call:
          mk_matchup.py --sat_file=[file name].nc --seabass_file=[file name].sb --out_file=[OPTIONAL, file name].sb
@@ -80,27 +80,43 @@ def main():
       ''',add_help=True)
 
     parser.add_argument('--sat_file', nargs=1, required=True, type=str, help='''\
-      Valid OB.DAAC L2 satellite netcdf file name.
+      REQUIRED: input OB.DAAC Level-2 satellite netCDF file
       ''')
 
     parser.add_argument('--seabass_file', nargs=1, required=True, type=str, help='''\
-      Valid SeaBASS file name
-      File must contain lat,lon,date,time as field entries
-      OR
-      lat,lon,year,month,day,hour,minute,second as field entries.
+      REQUIRED: input SeaBASS file
+      Must be a valid SeaBASS file, passing FHCHECK with no errors.
+      Matched-up satellite variables will be appended as additional fields to the data matrix and relevant headers.
+      File must contain latitude and longitude and date-time expressed as FIELD entries.
+      To save output to a another file, other than --seabass_file, use the --out_file argument.
       ''')
 
     parser.add_argument('--out_file', nargs=1, type=str, help='''\
       OPTIONAL: output SeaBASS file name
+      Use this flag to append the output to a separate file from the input --seabass_file
       Matched-up satellite variables will be appended as additional fields
       to the data matrix and relevant headers.
       ''')
 
-    parser.add_argument('--clobber', nargs='?', const=True, help='''\
-      OPTIONAL: This flag is depricated and will be removed from future releases
-      Matched-up satellite variables will be APPENDED as additional fields
-      to the original file (--seabass_file) data matrix and relevant headers.
-      ''')
+    parser.add_argument('--box_size', nargs=1, default=([5]), type=int, help=('''\
+      OPTIONAL: box size of the satellite data extract made around the in situ point
+      Valid values are odd numbers between 3 and 11, default = 5
+      '''))
+
+    parser.add_argument('--min_valid_sat_pix', nargs=1, default=([50.0]), type=float, help=('''\
+      OPTIONAL: percent minimum valid satellite pixels required to create an extract
+      Valid value: (0.0 - 100.0), default = 50.0
+      '''))
+
+    parser.add_argument('--max_time_diff', nargs=1, default=([3.0]), type=float, help=('''\
+      OPTIONAL: maximum time difference between satellite and in situ point
+      Valid value: (1 - 4 hours), default = 3
+      '''))
+
+    parser.add_argument('--max_coeff_variation', nargs=1, default=([0.15]), type=float, help=('''\
+      OPTIONAL: maximum coefficient of variation of satellite pixels within the satellite extract
+      Valid value: (0.0 - 1.0), default = 0.15
+      '''))
 
     parser.add_argument('--slat', nargs=1, type=float, help=('''\
       OPTIONAL: Starting latitude, south-most boundary
@@ -126,39 +142,19 @@ def main():
       Valid values: (-180,180E)
       '''))
 
-    parser.add_argument('--box_size', nargs=1, default=([5]), type=int, help=('''\
-      OPTIONAL: box size of the satellite data extract made around the in situ point
-      Valid values are odd numbers between 3 and 11, default = 5
-      '''))
-
-    parser.add_argument('--min_valid_sat_pix', nargs=1, default=([50.0]), type=float, help=('''\
-      OPTIONAL: percent minimum valid satellite pixels required to create an extract
-      Valid value: (0.0 - 100.0), default = 50.0
-      '''))
-
-    parser.add_argument('--max_time_diff', nargs=1, default=([3.0]), type=float, help=('''\
-      OPTIONAL: maximum time difference between satellite and in situ point
-      Valid value: (1 - 4 hours), default = 3
-      '''))
-
-    parser.add_argument('--max_coeff_variation', nargs=1, default=([0.15]), type=float, help=('''\
-      OPTIONAL: maximum coefficient of variation of satellite pixels within the satellite extract
-      Valid value: (0.0 - 1.0), default = 0.15
-      '''))
-
     # Exclusion criteria; defaults from:
     # S.W. Bailey and P.J. Werdell, "A multi-sensor approach for the on-orbit validation of ocean color satellite data products", Rem. Sens. Environ. 102, 12-23 (2006).
     # with one exception: The maximum allowed solar zenith angle used here is 70-deg vs the paper's recommended 75-deg.
 
     args=parser.parse_args()
     if not args.sat_file or not args.seabass_file:
-        parser.error("you must specify a --sat_file AND a --seabass_file")
+        parser.error("please specify a --sat_file AND a --seabass_file")
     else:
         dict_args=vars(args)
 
     # input verification
     if not dict_args['sat_file'][0] or not re.search('\.nc', dict_args['sat_file'][0]) or not re.search('L2', dict_args['sat_file'][0]):
-        parser.error("invalid --sat_file specified, must be a Level-2 (l2) OB.DAAC netCDF (nc) file.")
+        parser.error("invalid --sat_file specified, must be a Level-2 (l2) OB.DAAC netCDF (nc) file")
     else:
         #set l2_flags to check for OC/IOP versus SST/SST4 product suites
         if re.search('SST', dict_args['sat_file'][0]):
@@ -183,26 +179,18 @@ def main():
     if (dict_args["max_coeff_variation"][0] > 1.0) or (dict_args["max_coeff_variation"][0] < 0.0):
         parser.error("invalid --max_coeff_variation specified, must be an floating point number between 0.0 and 1.0")
 
-    if not args.out_file:
-        if not args.clobber:
-            #dict_args['out_file']=[dict_args['seabass_file'][0] + '_matchups.sb']
-            dict_args['out_file']=dict_args['seabass_file']
-        else:
-            dict_args['out_file']=dict_args['seabass_file']
-            print('WARNING: --clobber flag is depricated and will be removed from future releases.')
-            print('The --clobber flag behavior is now default. To save to a another file than --seabass_file, use the --out_file argument.')
-
     # read and verify SeaBASS file and required fields
     if os.path.isfile(dict_args['seabass_file'][0]):
-        ds = readSB(filename=dict_args['seabass_file'][0], mask_missing=0, mask_above_detection_limit=0, mask_below_detection_limit=0)
+        ds = readSB(filename=dict_args['seabass_file'][0], mask_missing=0, mask_above_detection_limit=0, mask_below_detection_limit=0, no_warn=1)
     else:
-        parser.error('ERROR: invalid --seabass_file specified. Does: ' + dict_args['seabass_file'][0] + ' exist?')
+        parser.error('ERROR: invalid --seabass_file specified; does ' + dict_args['seabass_file'][0] + ' exist?')
 
     ds.datetime = ds.fd_datetime()
     if not ds.datetime:
-        parser.error('missing fields in SeaBASS file. File must contain date/time, date/hour/minute/second, year/month/day/time, OR year/month/day/hour/minute/second')
+        parser.error('missing fields in SeaBASS file -- file must contain a valid FIELDS combination of date/year/month/day/sdy and time/hour/minute/second')
 
 
+    print('Looking for satellite/in situ match-ups for',dict_args['seabass_file'][0],'in',dict_args['sat_file'][0])
     write_flag = 0
 
     ds.out_ls = []
@@ -233,8 +221,6 @@ def main():
                             str(dict_args['slon'][0]) + ' and --elon = ' + str(dict_args['elon'][0]))
 
             # construct sys call to val_extract
-            print(' ')
-            print('Calculating satellite match-up for L2 file: ')
             sys_call_str = 'val_extract' + \
                            ' ifile=' + dict_args['sat_file'][0] + \
                            ' slon=' + str(dict_args['slon'][0]) + \
@@ -248,18 +234,15 @@ def main():
             # sunzen=70.0  <---- HISOLZEN threshold
             # satzen=60.0  <---- HISATZEN threshold
 
-            s1 = subprocess.call(sys_call_str, shell=True)
-            if s1 == 99:
-                print('WARNING: No satellite matchups found for --slat=' + str(dict_args['slat'][0]) + ', --slon=' + str(dict_args['slon'][0]) + \
-                        ', --elat=' + str(dict_args['elat'][0]) + ', --elon=' + str(dict_args['elon'][0]) + \
-                        ', and time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
-                continue
-            elif s1 == 101 or s1 == 102:
-                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + \
-                                dict_args['sat_file'][0] + ' is not a valid L2 file.')
-            elif s1 != 0:
-                parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + \
-                                dict_args['sat_file'][0] + ' exists.')
+            pid = subprocess.run(sys_call_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if pid.returncode == 99:
+                continue #no valid matchup
+            elif pid.returncode == 101 or pid.returncode == 102:
+                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. ' + \
+                                dict_args['sat_file'][0] + ' is not a valid L2 file')
+            elif pid.returncode != 0:
+                parser.error('val_extract failed -- verify that the val_extract binary is compiled and on your PATH and that ' + \
+                                dict_args['sat_file'][0] + ' exists')
 
         #handle slat/slon only from command line
         elif args.slat and args.slon and not args.elat and not args.elon:
@@ -270,8 +253,6 @@ def main():
                 parser.error('invalid latitude inputs: --slat MUST be between -90/90N deg. Received --slat = ' + str(dict_args['slat'][0]))
 
             # construct sys call to val_extract
-            print(' ')
-            print('Calculating satellite match-up for L2 file: ')
             sys_call_str = 'val_extract' + \
                            ' ifile=' + dict_args['sat_file'][0] + \
                            ' slon=' + str(dict_args['slon'][0]) + \
@@ -284,17 +265,15 @@ def main():
             # sunzen=70.0  <---- HISOLZEN threshold
             # satzen=60.0  <---- HISATZEN threshold
 
-            s1 = subprocess.call(sys_call_str, shell=True)
-            if s1 == 99:
-                print('WARNING: No satellite matchups found for --slat=' + str(dict_args['slat'][0]) + ', --slon=' + str(dict_args['slon'][0]) + \
-                        ', and time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
-                continue
-            elif s1 == 101 or s1 == 102:
-                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + \
-                                dict_args['sat_file'][0] + ' is not a valid L2 file.')
-            elif s1 != 0:
-                parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + \
-                                dict_args['sat_file'][0] + ' exists.')
+            pid = subprocess.run(sys_call_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if pid.returncode == 99:
+                continue #no valid matchup
+            elif pid.returncode == 101 or pid.returncode == 102:
+                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. ' + \
+                                dict_args['sat_file'][0] + ' is not a valid L2 file')
+            elif pid.returncode != 0:
+                parser.error('val_extract failed -- verify that the val_extract binary is compiled and on your PATH and that ' + \
+                                dict_args['sat_file'][0] + ' exists')
 
         #handle lat/lon from file
         else:
@@ -315,8 +294,6 @@ def main():
                 parser.error('invalid latitude input: all latitude values in ' + dict_args['seabass_file'][0] + ' MUST be between -90/90N deg.')
 
             # construct sys call to val_extract
-            print(' ')
-            print('Calculating satellite match-up for L2 file: ')
             sys_call_str = 'val_extract' + \
                            ' ifile=' + dict_args['sat_file'][0] + \
                            ' slon=' + str(ds.lon[row]) + \
@@ -329,17 +306,15 @@ def main():
             # sunzen=70.0  <---- HISOLZEN threshold
             # satzen=60.0  <---- HISATZEN threshold
 
-            s1 = subprocess.call(sys_call_str, shell=True)
-            if s1 == 99:
-                print('WARNING: No satellite matchups found for point: lat=' + str(ds.lat[row]) + ', lon=' + str(ds.lon[row]) + \
-                        ', time=' + dt.strftime('%Y-%m-%dT%H:%M:%SZ') + ' in ' + dict_args['seabass_file'][0])
-                continue
-            elif s1 == 101 or s1 == 102:
-                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. This: ' + \
-                                dict_args['sat_file'][0] + ' is not a valid L2 file.')
-            elif s1 != 0:
-                parser.error('val_extract failed -- ensure that the val_extract binary is compiled and on your PATH and that ' + \
-                                dict_args['sat_file'][0] + ' exists.')
+            pid = subprocess.run(sys_call_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if pid.returncode == 99:
+                continue #no valid matchup
+            elif pid.returncode == 101 or pid.returncode == 102:
+                parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. ' + \
+                                dict_args['sat_file'][0] + ' is not a valid L2 file')
+            elif pid.returncode != 0:
+                parser.error('val_extract failed -- verify that the val_extract binary is compiled and on your PATH and that ' + \
+                                dict_args['sat_file'][0] + ' exists')
 
         # define structures to keep track of val_extract's output files
         file_ls = OrderedDict()
@@ -396,7 +371,7 @@ def main():
                         file_ls[var] = dict_args['sat_file'][0] + '.qc.' + var
             fileobj.close()
         except:
-            parser.error(' unable to open and read file: ' + dict_args['sat_file'][0] + '.qc')
+            parser.error(' unable to open and read file ' + dict_args['sat_file'][0] + '.qc')
 
         # parse the satellite nc file information
         file_del.append(dict_args['sat_file'][0] + '.qc.global_attrs');
@@ -409,21 +384,18 @@ def main():
         # apply exclusion criteria
         # compute and evaluate the max time diff test
         if tim_sat > tim_max or tim_sat < tim_min:
-            print('Warning: satellite match-up does NOT meet exclusion criteria for --max_time_diff = ' + str(dict_args['max_time_diff'][0]))
             clean_file_lis(file_del)
-            continue
+            continue #no valid matchup
 
         # compute and evaluate the min valid sat pix test
         if (pix_ct - fpix_ct) != 0 and upix_ct >= dict_args['box_size'][0]:
             pix_thresh = 100.0 * (upix_ct / (pix_ct - fpix_ct))
             if pix_thresh < dict_args['min_valid_sat_pix'][0]:
-                print('Warning: satellite match-up does NOT meet exclusion criteria for --min_valid_sat_pix = ' + str(dict_args['min_valid_sat_pix'][0]))
                 clean_file_lis(file_del)
-                continue
+                continue #no valid matchup
         else:
-            print('Warning: satellite match-up does NOT meet exclusion criteria for --min_valid_sat_pix = ' + str(dict_args['min_valid_sat_pix'][0]))
             clean_file_lis(file_del)
-            continue
+            continue #no valid matchup
 
         # compute and evaluate the CV test
         for var in var_ls:
@@ -448,48 +420,46 @@ def main():
 
         if cvs: #handles non-OC files, which don't have vars for CV test
             if median(cvs) > dict_args['max_coeff_variation'][0]:
-                print('Warning: satellite match-up does NOT meet exclusion criteria for --max_coeff_variation = ' + str(dict_args['max_coeff_variation'][0]))
                 clean_file_lis(file_del)
-                continue
+                continue #no valid matchup
 
         write_flag = 1 #only write out (write_flag == true), if matchups found
-        print('Satellite/in situ match-up found.')
 
-        # add L2_fname var space to output array
-        var_fname = inst + '_' + plat + '_fname'
-        if var_fname not in ds.data:
-            ds.headers['fields'] = ds.headers['fields'] + ',' + var_fname
-            try:
-                ds.headers['units'] = ds.headers['units'] + ',none'
-            except:
-                print('Warning: no units found in SeaBASS file header.')
-            ds.data[var_fname] = copy(ds.out_ls)
+        #save L2_fname
+        L2file_varname = inst + '_' + plat + '_L2fname'
+        ds = addDataToOutput(ds,row, L2file_varname,'none',os.path.basename(dict_args['sat_file'][0]))
 
-        # extract variables
+        #save rrsaot_cv
+        if cvs:
+            rrscv_varname = inst + '_' + plat + '_rrsaot_cv'
+            ds = addDataToOutput(ds,row, rrscv_varname,'unitless',median(cvs))
+
+        # save extract-variables
         for var in file_ls:
             if 'qual_sst' in var:
                 [fmean, fmax] = readValEfile_qsst(file_ls[var], parser)
 
                 #save mean qual_sst value
                 var_name = inst + '_' + plat + '_' + var.lower() + '_mean'
-                units = 'none'
-                ds = addDataToOutput(ds,dict_args['sat_file'][0],var_fname,row, var_name,units,fmean)
+                ds = addDataToOutput(ds,row, var_name,'none',fmean)
 
                 #save max qual_sst value
                 var_name = inst + '_' + plat + '_' + var.lower() + '_max'
-                units = 'none'
-                ds = addDataToOutput(ds,dict_args['sat_file'][0],var_fname,row, var_name,units,fmax)
+                ds = addDataToOutput(ds,row, var_name,'none',fmax)
 
             else:
-                #save filtered_mean for each var in file_lis
                 [fmean, fstdev, units] = readValEfile(file_ls[var], parser)
 
+                #save filtered_mean for each var in file_lis
                 var_name = inst + '_' + plat + '_' + var.lower()
-                ds = addDataToOutput(ds,dict_args['sat_file'][0],var_fname,row, var_name,units,fmean)
+                ds = addDataToOutput(ds,row, var_name,units,fmean)
+
+                #save filtered_stddev for each var in file_lis
+                var_name = inst + '_' + plat + '_' + var.lower() + '_sd'
+                ds = addDataToOutput(ds,row, var_name,units,fstdev)
 
         clean_file_lis(file_del)
 
-    print(' ')
     if write_flag == 1:
         ds.comments.append(' ')
         ds.comments.append(' File ammended by OCSSW match-up maker script: mk_matchup.py on ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ',')
@@ -521,10 +491,13 @@ def main():
                            str(dict_args['box_size'][0]) + ' by ' + str(dict_args['box_size'][0]) + ' pixel satellite extract.')
         ds.comments.append(' ')
 
-        print('Writing output to file: ' + dict_args['out_file'][0])
-        writeSBfile(ds,ds.datetime,parser, dict_args['out_file'][0])
+        print('Satellite/in situ match-up(s) found')
+        if dict_args['out_file']:
+            writeSBfile(ds,ds.datetime,parser, dict_args['out_file'][0])
+        else:
+            writeSBfile(ds,ds.datetime,parser, dict_args['seabass_file'][0])
     else:
-        print('Exiting: No valid satellite match-ups found for any lat/lon/time pairs in: ' + dict_args['seabass_file'][0])
+        print('No valid satellite match-ups found for any lat/lon/time pairs in',dict_args['seabass_file'][0])
 
     return
 
@@ -535,7 +508,7 @@ def clean_file_lis(file_ls):
         try:
             os.remove(d)
         except:
-            print('WARNING: Cleanup of ' + d + ' failed. Ensure that you have read/write priviledges in the current directory.')
+            print('WARNING: Cleanup of ',d,' failed. Verify that you have read/write priviledges in the current working directory.')
     return
 
 
@@ -554,7 +527,7 @@ def readValEglobatt(fname, parser):
                 plat = newline.lower().split('=')[1]
         fileobj.close()
     except:
-        parser.error(' unable to open and read file: ' + fname)
+        parser.error(' unable to open and read file ' + fname)
     return(inst, plat)
 
 
@@ -577,7 +550,7 @@ def readValEfile(fname, parser):
             elif 'units' in newline:
                 units = re.sub('\s', '_', newline.split('=')[1])
     except:
-        parser.error(' unable to open and read file: ' + fname)
+        parser.error(' unable to open and read file ' + fname)
     return(fmean, fstdev, units)
 
 
@@ -597,38 +570,47 @@ def readValEfile_qsst(fname,parser):
             elif 'max' in newline:
                 fmax = newline.split('=')[1]
     except:
-        parser.error(' unable to open and read file: ' + fname)
+        parser.error(' unable to open and read file ' + fname)
     return(fmean, fmax)
 
 
-def addDataToOutput(ds,fname,var_fname,row, var_name,units,fmean):
-    import os
+def addDataToOutput(ds,row, var_name,units,var_value):
     from copy import copy
+    from SB_support_v35 import is_number
 
-    if not fmean:
-        fmean = str(ds.missing)
+    #check for valid inputs
+    if not var_value:
+        var_value = str(ds.missing)
     if not units:
         units = 'none'
 
+    #define fields, units, and data column, if needed
     if var_name not in ds.data:
         ds.headers['fields'] = ds.headers['fields'] + ',' + var_name
         try:
             ds.headers['units'] = ds.headers['units'] + ',' + units.lower()
         except:
-            print('Warning: no units found in SeaBASS file header.')
+            print('Warning: no units found in SeaBASS file header')
         ds.data[var_name] = copy(ds.out_ls)
 
+    #save data to column and row
+
     #TODO - handle repeat matchups per row (near poles, etc)
-    #       Relevant for calling script in a loop on multiple L2 files, especially with -clobber flag
+    #       Relevant for calling script in a loop on multiple L2 files
     #       Currently, skips overwriting valid data in that row and column/var_name, preserving the first valid matchup
-    if float(ds.data[var_name][row]) == ds.missing and float(fmean) != ds.missing:
-        ds.data[var_fname][row] = os.path.basename(fname)
-        ds.data[var_name][row] = fmean
+
+    if is_number(ds.data[var_name][row]):
+        if float(ds.data[var_name][row]) == ds.missing:
+            ds.data[var_name][row] = var_value
+    else:
+        if str(ds.missing) in ds.data[var_name][row]:
+            ds.data[var_name][row] = var_value
 
     return(ds)
 
 
 def writeSBfile(dictSBdata,indepVar,parser, outfile):
+    print('Writing output to',outfile)
     try:
         fout = open(outfile,'w')
         fout.write('/begin_header\n')
@@ -647,7 +629,7 @@ def writeSBfile(dictSBdata,indepVar,parser, outfile):
             fout.write(delim.join(row_ls) + '\n')
         fout.close()
     except:
-        parser.error(' unable to open and write file: ' + outfile)
+        parser.error(' unable to open and write file ' + outfile)
     return
 
 

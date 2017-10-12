@@ -269,13 +269,13 @@ def modis_env(self):
         self.sat_inst = 'PM1M'
         self.prefix = 'MYD'
         if self.proctype == 'modisL1B':
-            self.pgeversion = "6.1.15b"
+            self.pgeversion = "6.1.37_obpg"
     elif self.sat_name == 'terra':
         self.sensor = 'modist'
         self.sat_inst = 'AM1M'
         self.prefix = 'MOD'
         if self.proctype == 'modisL1B':
-            self.pgeversion = "6.1.12b"
+            self.pgeversion = "6.1.26_obpg"
 
     else:
         print "ERROR: Unable to determine platform type for", self.file

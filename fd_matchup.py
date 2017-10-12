@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 """
 A script to perform searches of the EarthData Common Metadata Repository (CMR)
@@ -9,20 +10,21 @@ written by J.Scott on 2016/12/12 (joel.scott@nasa.gov)
 def main():
 
     import argparse
+    import os
     from datetime import timedelta
     from math import isnan
     from collections import OrderedDict
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,description='''\
-      This program perform searches of the EarthData Common Metadata Repository (CMR) for satellite
-      granule names given an OB.DAAC satellite/instrument and lat/lon/time point or range.
+      This program perform searches of the EarthData Search (https://search.earthdata.nasa.gov/search) Common Metadata
+      Repository (CMR) for satellite granule names given an OB.DAAC satellite/instrument and lat/lon/time point or range.
       
       Outputs:
          1) a list of OB.DAAC L2 satellite file granule names that contain the input criteria, per the CMR's records.
          2) a list of public download links to fetch the matching satellite file granules, per the CMR's records.
       
       Inputs:
-        The argument-list is a set of -keyword value pairs.
+        The argument-list is a set of --keyword value pairs.
 
       Example usage calls:
          fd_matchup.py --sat=modist --slat=23.0 --slon=170.0 --stime=2015-11-16T09:00:00Z --time_window=8
@@ -133,14 +135,13 @@ def main():
 
     parser.add_argument('--seabass_file', nargs=1, type=str, help='''\
       Valid SeaBASS file name
-      File must contain lat,lon,date,time as /field entries OR
-      lat,lon,year,month,day,hour,minute,second as /field entries.
+      File must contain latitude, longitude, and date-time information as fields.
       ''')
 
     parser.add_argument('--get_data', nargs=1, type=str, help='''\
       Flag to download all identified satellite granules.
       Requires the use of an HTTP request.
-      Set to the desired output directory with NO trailing slash.
+      Set to the desired output directory.
       ''')
 
     args=parser.parse_args()
@@ -166,7 +167,7 @@ def main():
         parser.error('you provided an invalid satellite string specifier. Use -h flag to see a list of valid options for --sat')
 
     if args.get_data:
-        if not dict_args['get_data'][0] or dict_args['get_data'][0][-1] == '/' or dict_args['get_data'][0][-1] == '\\':
+        if not dict_args['get_data'][0] or not os.path.exists(dict_args['get_data'][0]):
             parser.error('invalid --get_data target download directory provided. Do not use any trailing slash or backslash characters.')
 
     if dict_args['time_window'][0] < 0 or dict_args['time_window'][0] > 11:
@@ -337,7 +338,7 @@ def check_SBfile(parser, file_sb):
     from SB_support_v35 import readSB
 
     if os.path.isfile(file_sb):
-        ds = readSB(filename=file_sb, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1)
+        ds = readSB(filename=file_sb, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1, no_warn=1)
     else:
         parser.error('ERROR: invalid --seabass_file specified. Does: ' + file_sb + ' exist?')
 
@@ -456,16 +457,28 @@ def process_CMRreq(content, hits, granlinks):
 
 
 def download_file(url, out_dir):
-    """ function to download a file given a URL and out_dir """
+    '''
+    download_file downloads a file
+    given URL and out_dir strings
+    syntax fname_local = download_file(url, out_dir)
+    '''
     import requests
 
-    local_filename = out_dir + '/' + url.split('/')[-1]
+    if '/' in out_dir[-1]:
+        local_filename = out_dir + url.split('/')[-1]
+
+    else:
+        local_filename = out_dir + '/' + url.split('/')[-1]
+
+    print('Downloading',url.split('/')[-1],'to:',out_dir)
     r = requests.get(url, stream=True)
 
     with open(local_filename, 'wb') as f:
         for chunk in r.iter_content(chunk_size=1024): 
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
+
+    print('SUCCESS!')
 
     return local_filename
 
@@ -481,7 +494,6 @@ def print_CMRreq(hits, granlinks, plat_ls, args, dict_args):
             print(plat_ls[1] + '/' + plat_ls[0] + ' granule match found: ' + granid)
 
             if args.get_data and dict_args['get_data'][0]:
-                print('Downloading file to: ' + dict_args['get_data'][0])
                 fname_loc = download_file(granlinks[granid], dict_args['get_data'][0])
             else:
                 print('Download link: ' + granlinks[granid])
@@ -505,7 +517,6 @@ def processANDprint_CMRreq(content, granlinks, plat_ls, args, dict_args, tim_min
             print(plat_ls[1] + '/' + plat_ls[0] + ' granule match found: ' + granid)
 
             if args.get_data and dict_args['get_data'][0]:
-                print('Downloading file to: ' + dict_args['get_data'][0])
                 fname_loc = download_file(granlinks[granid], dict_args['get_data'][0])
             else:
                 print('Download link: ' + granlinks[granid])

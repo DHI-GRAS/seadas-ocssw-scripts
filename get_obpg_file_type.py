@@ -3,7 +3,7 @@
 """
 A class for determining the OBPG type of a file.
 """
-__version__ = '1.2.1-2016-04-28'
+__version__ = '1.2.2-2017-07-15'
 
 __author__ = 'melliott'
 
@@ -52,6 +52,17 @@ def get_timestamp_from_year_day_mil(year, doy, millisecs):
     time_str = convert_millisecs_to_time_str(millisecs)
     timestamp = '{0:04}{1:03}{2}'.format(year, doy, time_str)
     return timestamp
+
+def get_usage_text():
+    usage_text = \
+        """usage: %prog [options] FILE_NAME [FILE_NAME ...]
+
+  The following file types are recognized:
+    Instruments: CZCS, GOCI, HICO, Landsat OLI, MODIS Aqua,
+                 MODIS Terra, OCM2, OCTS, SeaWiFS, VIIRS
+    Processing Levels: L0 (MODIS only), L1A, L1B, L2, L3 binned,
+                       L3 mapped """
+    return usage_text
 
 class ObpgFileTyper(object):
     """
@@ -837,7 +848,7 @@ def main():
     """
     Main function to drive the program when invoked as a program.
     """
-    use_msg = 'usage: %prog [options] FILE_NAME [FILE_NAME ...]'
+    use_msg = get_usage_text()
     ver_msg = ' '.join(['%prog', __version__])
     cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
     (opts, args) = process_command_line(cl_parser)

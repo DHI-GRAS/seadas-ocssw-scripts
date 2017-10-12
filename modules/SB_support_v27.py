@@ -1,12 +1,24 @@
-""" Module for classes for manipulating data from NASA GSFC SeaBASS files.
+""" Module for manipulating data from NASA GSFC SeaBASS files.
 
 author: Joel Scott, SAIC / NASA GSFC Ocean Ecology Lab
 
-included classes:
+Module includes:
 
-class:   readsb is designed to open and read data files that are in a SeaBASS
-         format (http://seabass.gsfc.nasa.gov/), having passed FCHECK-verification.
-syntax:  dataset = readsb(filename)
+class:    readSB is designed to open and read data files that are in a SeaBASS
+          format (http://seabass.gsfc.nasa.gov/), having passed FCHECK-verification.
+          syntax: dataset = readSB(filename)
+
+function: is_number determines if a given string is a number or not, uses complex()
+          returns True for int, float, long, or complex numbers, else False
+          syntax: is_number(str)
+
+function: is_int determines if a given string is an integer or not, uses int()
+          returns True for int numbers, else False
+          syntax: is_int(str)
+
+function: doy2mndy returns the month and day of month as integers
+          given year and julian day
+          syntax: [mn, dy] = doy2mndy(yr, doy)
 
 Notes:
 * This module is designed to work with files that have been properly
@@ -47,26 +59,65 @@ Changelog:
     updated 2016/11/29, jscott, updated handling of end_header and added try-except for fd_datetime function
     updated 2016/12/21, jscott, removed numpy dependency
     updated 2017/05/04, jscott, consolidated date time parser functions in a single function fd_datetime of class readSB
+    updated 2017/07/14, jscott, added grt_circ_dist function
 
 """
+
+#==========================================================================================================================================
 
 import re
 from datetime import datetime
 from collections import OrderedDict
 
+#==========================================================================================================================================
+
 def is_number(s):
+
+    """
+    is_number determines if a given string is a number or not, uses complex()
+    returns True for int, float, long, or complex numbers, else False
+    syntax: is_number(str)
+    """
+
     try:
-        complex(s) # for int, long, float and complex
+        float(s) # handles int, long, and float, but not complex
     except ValueError:
         return False
     return True
 
+#==========================================================================================================================================
+
 def is_int(s):
+
+    """
+    is_int determines if a given string is an integer or not, uses int()
+    returns True for int numbers, else False
+    syntax: is_int(str)
+    """
+
     try:
-        int(s) # for int, long, float and complex
+        int(s) # handles int
     except ValueError:
         return False
     return True
+
+#==========================================================================================================================================
+
+def doy2mndy(yr, doy):
+
+    """
+    doy2mndy returns the month and day of month as integers
+    given year and julian day
+    syntax: [mn, dy] = doy2mndy(yr, doy)
+    """
+
+    from datetime import datetime
+
+    dt = datetime.strptime('{:04d}{:03d}'.format(yr,doy), '%Y%j')
+
+    return int(dt.strftime('%m')),int(dt.strftime('%d'))
+
+#==========================================================================================================================================
 
 class readSB:
     """ Read an FCHECK-verified SeaBASS formatted data file.
@@ -78,12 +129,13 @@ class readSB:
         missing   = fill value as a float used for missing data, read from header
         variables = dictionary of field name and unit, keyed by field name
         data      = dictionary of data values, keyed by field name, returned as a list
+        length    = number of rows in the data matrix (i.e. the length of each list in data)
 
         bdl       = fill value as a float used for below detection limit, read from header (empty if missing or N/A)
         adl       = fill value as a float used for above detection limit, read from header (empty if missing or N/A)
     """
 
-    def __init__(self, filename, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1):
+    def __init__(self, filename, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1, no_warn=0):
         """
         Required arguments:
         filename = name of SeaBASS input file (string)
@@ -92,164 +144,189 @@ class readSB:
         mask_missing               = flag to set missing values to NaN, default set to 1 (turned on)
         mask_above_detection_limit = flag to set above_detection_limit values to NaN, default set to 1 (turned on)
         mask_below_detection_limit = flag to set below_detection_limit values to NaN, default set to 1 (turned on)
+        no_warn                    = flag to suppress warnings, default set to 0 (turned off)
         """
-        self.filename  = filename
-        self.headers   = OrderedDict()
-        self.comments  = []
-        self.variables = OrderedDict()
-        self.data      = OrderedDict()
-        self.missing   = ''
-        self.adl       = ''
-        self.bdl       = ''
+        self.filename          = filename
+        self.headers           = OrderedDict()
+        self.comments          = []
+        self.variables         = OrderedDict()
+        self.data              = OrderedDict()
+        self.missing           = ''
+        self.adl               = ''
+        self.bdl               = ''
+        self.length            = 0
+        self.optically_shallow = False
 
-        end_header    = False
+        end_header             = False
 
         try:
             fileobj = open(self.filename,'r')
+
         except Exception, e:
-            print('Exception: ', e)
-            print 'Error: unable to open file for reading: ' + self.filename 
+            raise Exception('Unable to open file for reading: {:}. Error: {:}'.format(self.filename,e))
             return
 
         try:
             lines = fileobj.readlines()
             fileobj.close()
+
         except Exception, e:
-            print('Exception: ', e)
-            print 'Error: Unable to read data from file: ' + self.filename
+            raise Exception('Unable to read data from file: {:}. Error: {:}'.format(self.filename,e))
             return
+
+        """ Remove any/all newline and carriage return characters """
+        lines = [re.sub("[\r\n]+",'',line).strip().lower() for line in lines]
 
         for line in lines:
 
-            """ Remove any/all newline and carriage return characters """
-            newline = re.sub("[\r\n]+",'',line).strip()
-
             """ Extract header """
             if not end_header \
-                and not '/begin_header' in newline \
-                and not '/end_header' in newline \
-                and not '!' in newline:
+                and not '/begin_header' in line \
+                and not '/end_header' in line \
+                and not '!' in line:
                 try:
-                    [h,v] = newline.split('=')
+                    [h,v] = line.split('=', 1)
+
                 except:
-                    print 'Warning: Unable to parse header key/value pair from file: ' + self.filename
-                    print newline
+                    if no_warn == 0:
+                        print 'Warning: Unable to parse header key/value pair in file: {:}. In line: {:} Use no_warn=1 to suppress this message.'.format(self.filename,line)
+
                 h = h[1:]
                 self.headers[h] = v
 
             """ Extract fields """
-            if '/fields=' in newline:
+            if '/fields=' in line and not '!' in line:
                 try:
-                    _vars = newline.split('=')[1].split(',')
+                    _vars = line.split('=', 1)[1].split(',')
                     for var in _vars:
                         self.data[var] = []
+
                 except:
-                    print 'Error: Unable to parse fields in file: ' + self.filename
-                    print newline
+                    raise Exception('Unable to parse /fields in file: {:}. Error: {:}. In line: {:}'.format(self.filename,e,line))
                     return
 
             """ Extract units """
-            if '/units=' in newline:
-                _units = newline.split('=')[1].split(',')
+            if '/units=' in line and not '!' in line:
+                _units = line.split('=', 1)[1].split(',')
 
             """ Extract missing val """
-            if '/missing=' in newline:
+            if '/missing=' in line and not '!' in line:
                 try:
-                    self.missing = float(newline.split('=')[1])
-                except:
-                    print 'Error: Unable to parse missing value in file: ' + self.filename
-                    print newline
+                    self.missing = float(line.split('=', 1)[1])
+
+                except Exception, e:
+                    raise Exception('Unable to parse /missing value in file: {:}. Error: {:}. In line: {:}'.format(self.filename,e,line))
                     return
 
-            """ Extract below detection limit """
-            if '/below_detection_limit=' in newline:
-                try:
-                    self.bdl = float(newline.split('=')[1])
-                except:
-                    print 'Error: Unable to parse below_detection_limit in file: ' + self.filename
-                    print newline
-                    return
+            """ Extract optical depth warning """
+            if '/optical_depth_warning=' in line and not '!' in line:
+                _opt_shallow = line.split('=', 1)[1]
+                if 'true' in _opt_shallow:
+                    self.optically_shallow = True
 
             """ Extract below detection limit """
-            if '/above_detection_limit=' in newline:
+            if '/below_detection_limit=' in line and not '!' in line:
                 try:
-                    self.adl = float(newline.split('=')[1])
-                except:
-                    print 'Error: Unable to parse above_detection_limit in file: ' + self.filename
-                    print newline
+                    self.bdl = float(line.split('=', 1)[1])
+
+                except Exception, e:
+                    raise Exception('Unable to parse /below_detection_limit value in file: {:}. Error: {:}. In line: {:}'.format(self.filename,e,line))
+                    return
+
+            """ Extract above detection limit """
+            if '/above_detection_limit=' in line and not '!' in line:
+                try:
+                    self.adl = float(line.split('=', 1)[1])
+
+                except Exception, e:
+                    raise Exception('Unable to parse /above_detection_limit value in file: {:}. Error: {:}. In line: {:}'.format(self.filename,e,line))
                     return
 
             """ Extract delimiter """
-            if '/delimiter=' in newline:
-                if 'comma' in newline:
+            if '/delimiter=' in line and not '!' in line:
+                if 'comma' in line:
                     delim = ',+'
-                elif 'space' in newline:
+                elif 'space' in line:
                     delim = '\s+'
-                elif 'tab'   in newline:
+                elif 'tab'   in line:
                     delim = '\t+'
                 else:
-                    print 'Error: Invalid delimiter detected in file: ' + self.filename
-                    print newline
+                    raise Exception('Invalid delimiter detected in file: {:}. In line: {:}'.format(self.filename,line))
                     return
 
             """ Extract comments, but not history of metadata changes """
-            if '!' in newline and not '!/' in newline:
-                self.comments.append(newline[1:])
+            if '!' in line and not '!/' in line:
+                self.comments.append(line[1:])
 
             """ Check for required SeaBASS file header elements before parsing data matrix """
-            if '/end_header' in newline:
+            if '/end_header' in line:
                 if not delim:
-                    print 'Error: No valid delimiter detected in file: ' + self.filename
+                    raise Exception('No valid /delimiter detected in file: {:}'.format(self.filename))
                     return
 
                 if not self.missing:
-                    print 'Error: No missing value detected in file: ' + self.filename
+                    raise Exception('No valid /missing value detected in file: {:}'.format(self.filename))
                     return
 
                 if not _vars:
-                    print 'Error: No fields detected in file: ' + self.filename
+                    raise Exception('No /fields detected in file: {:}'.format(self.filename))
                     return
 
-                if mask_above_detection_limit == 1 and not self.adl:
-                    print 'Warning: No above_detection_limit in file header. Use mask_above_detection_limit=0 to suppress this message.'
-                    print '         Unable to mask vales as NaNs for file: ' + self.filename
+                if self.optically_shallow and no_warn == 0:
+                    print 'Warning: optical_depth_warning flag is set to true in file: {:}. This file contains measurements in optically shallow conditions (i.e. where there may be bottom reflectance, etc). Use with caution, exclude if performing validation or algorithm development. Use no_warn=1 to suppress this message.'.format(self.filename)
 
-                if mask_below_detection_limit == 1 and not self.bdl:
-                    print 'Warning: No below_detection_limit in file header. Use mask_below_detection_limit=0 to suppress this message.'
-                    print '         Unable to mask vales as NaNs for file: ' + self.filename
+                if mask_above_detection_limit == 1 and no_warn == 0:
+                    if not self.adl:
+                        print 'Warning: No above_detection_limit in file: {:}. Unable to mask values as NaNs. Use no_warn=1 to suppress this message.'.format(self.filename)
+
+                if mask_below_detection_limit == 1 and no_warn == 0:
+                    if not self.bdl:
+                        print 'Warning: No below_detection_limit in file: {:}. Unable to mask values as NaNs. Use no_warn=1 to suppress this message.'.format(self.filename)
 
                 end_header = True
                 continue
 
             """ Extract data after headers """
-            if end_header and newline:
+            if end_header and line:
                 try:
-                    for var,dat in zip(_vars,re.split(delim,newline)):
+                    for var,dat in zip(_vars,re.split(delim,line)):
                         if is_number(dat):
                             if is_int(dat):
                                 dat = int(dat)
                             else:
                                 dat = float(dat)
+
                             if mask_above_detection_limit == 1 and self.adl != '':
                                 if dat == float(self.adl):
                                     dat = float('nan')
+
                             if mask_below_detection_limit == 1 and self.bdl != '':
                                 if dat == float(self.bdl):
                                     dat = float('nan')
+
                             if mask_missing == 1 and dat == self.missing:
                                 dat = float('nan')
+
                         self.data[var].append(dat)
+
+                    self.length = self.length + 1
+
                 except Exception, e:
-                    print('Exception: ', e)
-                    print 'Error: Unable to parse data from line in file: ' + self.filename
-                    print newline
+                    raise Exception('Unable to parse data from line in file: {:}. Error: {:}. In line: {:}'.format(self.filename,e,line))
                     return
 
         try:
             self.variables = OrderedDict(zip(_vars,zip(_vars,_units)))
+
         except:
-            #print 'Warning: No valid units were detected in the SeaBASS file header.'
+            if no_warn == 0:
+                print 'Warning: No valid units were detected in file: {:}. Use no_warn=1 to suppress this message.'.format(self.filename)
+
             self.variables = OrderedDict(zip(_vars,_vars))
+
+        return
+
+#==========================================================================================================================================
 
     def fd_datetime(self):
         """ Convert date and time information from the file's data to a Python list of datetime objects.
@@ -259,81 +336,161 @@ class readSB:
 
             Looks for these fields/keys:
                 date/time,
+                date/hour/minute/second,
                 year/month/day/hour/minute/second,
                 year/month/day/time,
-                date/hour/minute/second, OR
+                year/sdy/time, 
+                year/sdy/hour/minute/second, OR
                 date_time
             in the SELF.data OrderedDict Python structure.
         """
         dt = []
 
-        try:
-            for d,t in zip([str(d) for d in self.data['date']],self.data['time']):
+        if self.length == 0:
+            raise ValueError('readSB.data structure is missing for file: {:}'.format(self.filename))
+            return
+
+        if 'date'     in self.data and \
+           'time'     in self.data:
+
+            for d,t in zip([str(de) for de in self.data['date']],self.data['time']):
                 da = re.search("(\d{4})(\d{2})(\d{2})", d)
                 ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", t)
                 try:
                     dt.append(datetime(int(da.group(1)), \
-                            int(da.group(2)), \
-                            int(da.group(3)), \
-                            int(ti.group(1)), \
-                            int(ti.group(2)), \
-                            int(ti.group(3))))
-                except Exception, e:
-                    print('Exception: ', e)
-                    print 'Error: date/time fields not formatted correctly; unable to parse.'
-
-        except:
-            try:
-                for y,m,d,h,mn,s in zip(self.data['year'], self.data['month'], self.data['day'], self.data['hour'], self.data['minute'], self.data['second']):
-                    dt.append(datetime(int(y), int(m), int(d), int(h), int(mn), int(s)))
-
-            except:
-                try:
-                    for y,m,d,t in zip(self.data['year'], self.data['month'], self.data['day'], self.data['time']):
-                        ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", t)
-                        try:
-                            dt.append(datetime(int(y), \
-                                    int(m), \
-                                    int(d), \
-                                    int(ti.group(1)), \
-                                    int(ti.group(2)), \
-                                    int(ti.group(3))))
-                        except Exception, e:
-                            print('Exception: ', e)
-                            print 'Error: year/month/day/time fields not formatted correctly; unable to parse.'
-
+                                       int(da.group(2)), \
+                                       int(da.group(3)), \
+                                       int(ti.group(1)), \
+                                       int(ti.group(2)), \
+                                       int(ti.group(3))))
                 except:
-                    try:
-                        for d,h,mn,s in zip(self.data['date'], self.data['hour'], self.data['minute'], self.data['second']):
-                            da = re.search("(\d{4})(\d{2})(\d{2})", d)
-                            try:
-                                dt.append(datetime(int(da.group(1)), \
-                                        int(da.group(2)), \
-                                        int(da.group(3)), \
-                                        int(h), \
-                                        int(mn), \
-                                        int(s)))
-                            except Exception, e:
-                                print('Exception: ', e)
-                                print 'Error: date/hour/minute/second fields not formatted correctly; unable to parse.'
+                    raise ValueError('date/time fields not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
 
-                    except:
-                        try:
-                            for i in self.data('date_time'):
-                                da = re.search("(\d{4})-(\d{2})-(\d{2})\s(\d{1,2})\:(\d{2})\:(\d{2})", i)
-                                try:
-                                    dt.append(datetime(int(da.group(1)), \
-                                            int(da.group(2)), \
-                                            int(da.group(3)), \
-                                            int(da.group(4)), \
-                                            int(da.group(5)), \
-                                            int(da.group(6))))
-                                except Exception, e:
-                                    print('Exception: ', e)
-                                    print 'Error: date_time field not formatted correctly; unable to parse.'
+        elif 'year'   in self.data and \
+             'month'  in self.data and \
+             'day'    in self.data and \
+             'hour'   in self.data and \
+             'minute' in self.data and \
+             'second' in self.data:
 
-                        except:
-                            print 'Error: Missing fields in SeaBASS file.'
-                            print 'File must contain date/time, date/hour/minute/second, year/month/day/time, OR year/month/day/hour/minute/second'
+            for y,m,d,h,mn,s in zip(self.data['year'], self.data['month'], self.data['day'], self.data['hour'], self.data['minute'], self.data['second']):
+                try:
+                    dt.append(datetime(int(y), \
+                                       int(m), \
+                                       int(d), \
+                                       int(h), \
+                                       int(mn), \
+                                       int(s)))
+                except:
+                    raise ValueError('year/month/day/hour/minute/second fields not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        elif 'year'   in self.data and \
+             'month'  in self.data and \
+             'day'    in self.data and \
+             'time'   in self.data:
+
+            for y,m,d,t in zip(self.data['year'], self.data['month'], self.data['day'], self.data['time']):
+                ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", t)
+                try:
+                    dt.append(datetime(int(y), \
+                                       int(m), \
+                                       int(d), \
+                                       int(ti.group(1)), \
+                                       int(ti.group(2)), \
+                                       int(ti.group(3))))
+                except:
+                    raise ValueError('year/month/day/time fields not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        elif 'date'   in self.data and \
+             'hour'   in self.data and \
+             'minute' in self.data and \
+             'second' in self.data:
+
+            for d,h,mn,s in zip([str(de) for de in self.data['date']], self.data['hour'], self.data['minute'], self.data['second']):
+                da = re.search("(\d{4})(\d{2})(\d{2})", d)
+                try:
+                    dt.append(datetime(int(da.group(1)), \
+                                       int(da.group(2)), \
+                                       int(da.group(3)), \
+                                       int(h), \
+                                       int(mn), \
+                                       int(s)))
+                except:
+                    raise ValueError('date/hour/minute/second fields not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        elif 'date_time' in self.data:
+
+            for i in self.data('date_time'):
+                da = re.search("(\d{4})-(\d{2})-(\d{2})\s(\d{1,2})\:(\d{2})\:(\d{2})", i)
+                try:
+                    dt.append(datetime(int(da.group(1)), \
+                                       int(da.group(2)), \
+                                       int(da.group(3)), \
+                                       int(da.group(4)), \
+                                       int(da.group(5)), \
+                                       int(da.group(6))))
+                except:
+                    raise ValueError('date_time field not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        elif 'year'   in self.data and \
+             'sdy'    in self.data and \
+             'hour'   in self.data and \
+             'minute' in self.data and \
+             'second' in self.data:
+
+            for y,sdy,h,mn,s in zip(self.data['year'], self.data['sdy'], self.data['hour'], self.data['minute'], self.data['second']):
+                [m,d] = doy2mndy(y,sdy)
+                try:
+                    dt.append(datetime(int(y), \
+                                       int(m), \
+                                       int(d), \
+                                       int(h), \
+                                       int(mn), \
+                                       int(s)))
+                except:
+                    raise ValueError('year/sdy/hour/minute/second fields not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        elif 'year'   in self.data and \
+             'sdy'    in self.data and \
+             'time'   in self.data:
+
+            for y,sdy,t in zip(self.data['year'], self.data['sdy'], self.data['time']):
+                [m,d] = doy2mndy(y,sdy)
+                ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})", t)
+                try:
+                    dt.append(datetime(int(y), \
+                                       int(m), \
+                                       int(d), \
+                                       int(ti.group(1)), \
+                                       int(ti.group(2)), \
+                                       int(ti.group(3))))
+                except:
+                    raise ValueError('year/sdy/time fields not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        elif 'start_date' in self.headers and 'start_time' in self.headers:
+
+            da = re.search("(\d{4})(\d{2})(\d{2})", self.headers['start_date'])
+            ti = re.search("(\d{1,2})\:(\d{2})\:(\d{2})\[gmt\]", self.headers['start_time'])
+            for i in range(self.length):
+                try:
+                    dt.append(datetime(int(da.group(1)), \
+                                       int(da.group(2)), \
+                                       int(da.group(3)), \
+                                       int(ti.group(1)), \
+                                       int(ti.group(2)), \
+                                       int(ti.group(3))))
+                except:
+                    raise ValueError('/start_date and /start_time headers not formatted correctly; unable to parse in file: {:}'.format(self.filename))
+                    return
+
+        else:
+            print 'Warning: fd_datetime failed -- file must contain a valid combination of date/year/month/day/sdy and time/hour/minute/second as /fields.'
+
         return(dt)
-

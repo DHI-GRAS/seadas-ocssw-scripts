@@ -25,7 +25,7 @@ class extract:
         self.east = east
         # version-specific variables
         self.collection_id = '006'
-        self.pgeversion = '6.0.18'
+        self.pgeversion = '6.0.26'
         self.lutversion = None
 
         if self.parfile:
