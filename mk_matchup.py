@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 A Perl script to create and output satellite matchups from a SeaBASS file given an 
@@ -181,7 +181,11 @@ def main():
 
     # read and verify SeaBASS file and required fields
     if os.path.isfile(dict_args['seabass_file'][0]):
-        ds = readSB(filename=dict_args['seabass_file'][0], mask_missing=0, mask_above_detection_limit=0, mask_below_detection_limit=0, no_warn=1)
+        ds = readSB(filename=dict_args['seabass_file'][0], 
+                    mask_missing=False, 
+                    mask_above_detection_limit=False, 
+                    mask_below_detection_limit=False, 
+                    no_warn=True)
     else:
         parser.error('ERROR: invalid --seabass_file specified; does ' + dict_args['seabass_file'][0] + ' exist?')
 
@@ -493,9 +497,9 @@ def main():
 
         print('Satellite/in situ match-up(s) found')
         if dict_args['out_file']:
-            writeSBfile(ds,ds.datetime,parser, dict_args['out_file'][0])
+            ds.writeSBfile(dict_args['out_file'][0])
         else:
-            writeSBfile(ds,ds.datetime,parser, dict_args['seabass_file'][0])
+            ds.writeSBfile(dict_args['seabass_file'][0])
     else:
         print('No valid satellite match-ups found for any lat/lon/time pairs in',dict_args['seabass_file'][0])
 
@@ -607,30 +611,6 @@ def addDataToOutput(ds,row, var_name,units,var_value):
             ds.data[var_name][row] = var_value
 
     return(ds)
-
-
-def writeSBfile(dictSBdata,indepVar,parser, outfile):
-    print('Writing output to',outfile)
-    try:
-        fout = open(outfile,'w')
-        fout.write('/begin_header\n')
-        for header in dictSBdata.headers:
-            fout.write('/' + header + '=' + dictSBdata.headers[header] + '\n')
-        for comment in dictSBdata.comments:
-            fout.write('!' + comment + '\n')
-        fout.write('/end_header\n')
-        if 'comma' in dictSBdata.headers['delimiter']: delim = ','
-        if 'space' in dictSBdata.headers['delimiter']: delim = ' '
-        if 'tab'   in dictSBdata.headers['delimiter']: delim = '\t'
-        for i in range(0,len(indepVar)):
-            row_ls = []
-            for var in dictSBdata.data:
-                row_ls.append(str(dictSBdata.data[var][i]))
-            fout.write(delim.join(row_ls) + '\n')
-        fout.close()
-    except:
-        parser.error(' unable to open and write file ' + outfile)
-    return
 
 
 if __name__ == "__main__": main()

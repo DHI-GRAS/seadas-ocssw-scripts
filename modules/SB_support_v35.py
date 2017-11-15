@@ -1,24 +1,6 @@
 """ Module for manipulating data from NASA GSFC SeaBASS files.
 
-author: Joel Scott, SAIC / NASA GSFC Ocean Ecology Lab
-
-Module includes:
-
-class:    readSB is designed to open and read data files that are in a SeaBASS
-          format (http://seabass.gsfc.nasa.gov/), having passed FCHECK-verification.
-          syntax: dataset = readSB(filename)
-
-function: is_number determines if a given string is a number or not, uses complex()
-          returns True for int, float, long, or complex numbers, else False
-          syntax: is_number(str)
-
-function: is_int determines if a given string is an integer or not, uses int()
-          returns True for int numbers, else False
-          syntax: is_int(str)
-
-function: doy2mndy returns the month and day of month as integers
-          given year and julian day
-          syntax: [mn, dy] = doy2mndy(yr, doy)
+Author: Joel Scott, SAIC / NASA GSFC Ocean Ecology Lab
 
 Notes:
 * This module is designed to work with files that have been properly
@@ -33,7 +15,7 @@ Notes:
   header comments and/or documentation accompanying data files. Information 
   from those sources could impact your analysis.
 
-* Compatibility: This module was developed for Python 3.5, using Python 3.5.1
+* Compatibility: This module was developed for Python 3.6, using Python 3.6.3
 
 /*=====================================================================*/
                  NASA Goddard Space Flight Center (GSFC) 
@@ -49,18 +31,6 @@ Notes:
  WARRANTY. NEITHER NASA GSFC NOR THE U.S. GOVERNMENT SHALL BE LIABLE FOR
  ANY DAMAGE SUFFERED BY THE USER OF THIS SOFTWARE.
 /*=====================================================================*/
-
-
-Changelog:
-    created 2016/04/26, jscott, originally developed for Python 2.7
-    updated 2016/06/22, jscott, converted for Python 3.5
-    updated 2016/08/30, jscott, added support for files that lack units (i.e. - validation csv files)
-    updated 2016/09/20, jscott, removed sys module dependency and all sys.exit() calls, changed header to be returned as a OrderedDict
-    updated 2016/10/07, jscott, optimized testing for membership
-    updated 2016/11/29, jscott, updated handling of end_header and added try-except for fd_datetime function
-    updated 2016/12/21, jscott, removed numpy dependency
-    updated 2017/05/04, jscott, consolidated date time parser functions in a single function fd_datetime of class readSB
-    updated 2017/07/14, jscott, added grt_circ_dist function
 
 """
 
@@ -124,28 +94,31 @@ class readSB:
     """ Read an FCHECK-verified SeaBASS formatted data file.
 
         Returned data structures:
-        filename  = name of data file
-        headers   = dictionary of header entry and value, keyed by header entry
-        comments  = list of strings containing the comment lines from the header information
-        missing   = fill value as a float used for missing data, read from header
-        variables = dictionary of field name and unit, keyed by field name
-        data      = dictionary of data values, keyed by field name, returned as a list
-        length    = number of rows in the data matrix (i.e. the length of each list in data)
+        .filename  = name of data file
+        .headers   = dictionary of header entry and value, keyed by header entry
+        .comments  = list of strings containing the comment lines from the header information
+        .missing   = fill value as a float used for missing data, read from header
+        .variables = dictionary of field name and unit, keyed by field name
+        .data      = dictionary of data values, keyed by field name, returned as a list
+        .length    = number of rows in the data matrix (i.e. the length of each list in data)
+        .bdl       = fill value as a float used for below detection limit, read from header (empty if missing or N/A)
+        .adl       = fill value as a float used for above detection limit, read from header (empty if missing or N/A)
 
-        bdl       = fill value as a float used for below detection limit, read from header (empty if missing or N/A)
-        adl       = fill value as a float used for above detection limit, read from header (empty if missing or N/A)
+        Returned sub-functions:
+        .fd_datetime()      - Converts date and time information from the file's data matrix to a Python list of datetime objects
+        .writeSBfile(ofile) - Writes headers, comments, and data into a SeaBASS file specified by ofile
     """
 
-    def __init__(self, filename, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1, no_warn=0):
+    def __init__(self, filename, mask_missing=True, mask_above_detection_limit=True, mask_below_detection_limit=True, no_warn=False):
         """
         Required arguments:
         filename = name of SeaBASS input file (string)
 
         Optional arguments:
-        mask_missing               = flag to set missing values to NaN, default set to 1 (turned on)
-        mask_above_detection_limit = flag to set above_detection_limit values to NaN, default set to 1 (turned on)
-        mask_below_detection_limit = flag to set below_detection_limit values to NaN, default set to 1 (turned on)
-        no_warn                    = flag to suppress warnings, default set to 0 (turned off)
+        mask_missing               = flag to set missing values to NaN, default set to True
+        mask_above_detection_limit = flag to set above_detection_limit values to NaN, default set to True
+        mask_below_detection_limit = flag to set below_detection_limit values to NaN, default set to True
+        no_warn                    = flag to suppress warnings, default set to False
         """
         self.filename          = filename
         self.headers           = OrderedDict()
@@ -189,8 +162,8 @@ class readSB:
                     [h,v] = line.split('=', 1)
 
                 except:
-                    if no_warn == 0:
-                        print('Warning: Unable to parse header key/value pair in file: {:}. In line: {:} Use no_warn=1 to suppress this message.'.format(self.filename,line))
+                    if not no_warn:
+                        print('Warning: Unable to parse header key/value pair in file: {:}. In line: {:} Use no_warn=True to suppress this message.'.format(self.filename,line))
 
                 h = h[1:]
                 self.headers[h] = v
@@ -273,16 +246,16 @@ class readSB:
                     raise Exception('No /fields detected in file: {:}'.format(self.filename))
                     return
 
-                if self.optically_shallow == 1 and no_warn == 0:
-                    print('Warning: optical_depth_warning flag is set to true in file: {:}. This file contains measurements in optically shallow conditions (i.e. where there may be bottom reflectance, etc). Use with caution, exclude if performing validation or algorithm development. Use no_warn=1 to suppress this message.'.format(self.filename))
+                if self.optically_shallow == 1 and not no_warn:
+                    print('Warning: optical_depth_warning flag is set to true in file: {:}. This file contains measurements in optically shallow conditions (i.e. where there may be bottom reflectance, etc). Use with caution, exclude if performing validation or algorithm development. Use no_warn=True to suppress this message.'.format(self.filename))
 
-                if mask_above_detection_limit == 1 and no_warn == 0:
+                if mask_above_detection_limit and not no_warn:
                     if not self.adl:
-                        print('Warning: No above_detection_limit in file: {:}. Unable to mask values as NaNs. Use no_warn=1 to suppress this message.'.format(self.filename))
+                        print('Warning: No above_detection_limit in file: {:}. Unable to mask values as NaNs. Use no_warn=True to suppress this message.'.format(self.filename))
 
-                if mask_below_detection_limit == 1 and no_warn == 0:
+                if mask_below_detection_limit and not no_warn:
                     if not self.bdl:
-                        print('Warning: No below_detection_limit in file: {:}. Unable to mask values as NaNs. Use no_warn=1 to suppress this message.'.format(self.filename))
+                        print('Warning: No below_detection_limit in file: {:}. Unable to mask values as NaNs. Use no_warn=True to suppress this message.'.format(self.filename))
 
                 end_header = True
                 continue
@@ -297,15 +270,15 @@ class readSB:
                             else:
                                 dat = float(dat)
 
-                            if mask_above_detection_limit == 1 and self.adl != '':
+                            if mask_above_detection_limit and self.adl != '':
                                 if dat == float(self.adl):
                                     dat = float('nan')
 
-                            if mask_below_detection_limit == 1 and self.bdl != '':
+                            if mask_below_detection_limit and self.bdl != '':
                                 if dat == float(self.bdl):
                                     dat = float('nan')
 
-                            if mask_missing == 1 and dat == self.missing:
+                            if mask_missing and dat == self.missing:
                                 dat = float('nan')
 
                         self.data[var].append(dat)
@@ -320,8 +293,8 @@ class readSB:
             self.variables = OrderedDict(zip(_vars,zip(_vars,_units)))
 
         except:
-            if no_warn == 0:
-                print('Warning: No valid units were detected in file: {:}. Use no_warn=1 to suppress this message.'.format(self.filename))
+            if not no_warn:
+                print('Warning: No valid units were detected in file: {:}. Use no_warn=True to suppress this message.'.format(self.filename))
 
             self.variables = OrderedDict(zip(_vars,_vars))
 
@@ -495,3 +468,44 @@ class readSB:
             print('Warning: fd_datetime failed -- file must contain a valid combination of date/year/month/day/sdy and time/hour/minute/second as /fields.')
 
         return(dt)
+
+#==========================================================================================================================================
+
+    def writeSBfile(self, ofile):
+
+        """
+        writeSBfile writes out an SeaBASS file
+        given an output file name
+        syntax: SELF.writeSBfile(ofile)
+        """
+
+        fout = open(ofile,'w')
+
+        fout.write('/begin_header\n')
+
+        for header in self.headers:
+            fout.write('/' + header + '=' + self.headers[header] + '\n')
+
+        for comment in self.comments:
+            fout.write('!' + comment + '\n')
+
+        fout.write('/end_header\n')
+
+        if   'comma' in self.headers['delimiter']:
+            delim = ','
+        elif 'space' in self.headers['delimiter']:
+            delim = ' '
+        elif 'tab'   in self.headers['delimiter']:
+            delim = '\t'
+
+        for i in range(self.length):
+            row_ls = []
+
+            for var in self.data:
+                row_ls.append(str(self.data[var][i]))
+
+            fout.write(delim.join(row_ls) + '\n')
+
+        fout.close()
+
+        return

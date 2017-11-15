@@ -35,7 +35,6 @@ def getSensorDefs(instrument,platform):
         
     elif instrument == 'modis':
         sensorDef['wavelength'] = [412,443,469,488,531,547,555,645,667,678,748,859,869,1240,1640,2130]
-
         if platform == 'aqua':
             sensorDef['platform'] = 'Aqua'
         else:
@@ -160,6 +159,12 @@ def main():
 !   sena
 !   solz
 !   sola
+!   windspeed
+!   windangle
+!   pressure
+!   ozone
+!   relhumid
+!   watervapor
 !   
 !
 ! required fields are:
@@ -169,7 +174,7 @@ def main():
 ! optional fields
 !   scantime = unix time (double, secs since 1970), takes precedence over
 !              date,time.  If neither scantime nor date,time exist then
-!              start_date, start_time is used.
+!              start_date, start_time header is used.
 !   date = yyyymmdd
 !   time = hh:mm:ss
 !   lat
@@ -178,6 +183,12 @@ def main():
 !   sena
 !   solz
 !   sola
+!   windspeed
+!   windangle
+!   pressure
+!   ozone
+!   relhumid
+!   watervapor
 !
 /instrument=MODIS
 /platform=Aqua
@@ -220,8 +231,8 @@ def main():
     ifileName = dict_args['ifile'][0]
     ofileName = dict_args['ofile'][0]
 
-    ds = readSB(filename=ifileName, mask_missing=0, mask_above_detection_limit=0,
-                mask_below_detection_limit=0, no_warn=1)
+    ds = readSB(filename=ifileName, mask_missing=False, mask_above_detection_limit=False,
+                mask_below_detection_limit=False, no_warn=True)
 
     # make sure all of the required fields are in the header section
     if 'instrument' not in ds.headers:
@@ -310,6 +321,62 @@ def main():
     except:
         pass
 
+    windspeed = []
+    try:
+        windspeed = ds.data['windspeed']
+    except:
+        try:
+            windspeed = np.full((numLines, pixelsPerLine), ds.headers['windspeed'])
+        except:
+            pass
+
+    windangle = []
+    try:
+        windangle = ds.data['windangle']
+    except:
+        try:
+            windangle = np.full((numLines, pixelsPerLine), ds.headers['windangle'])
+        except:
+            pass
+
+    pressure = []
+    try:
+        pressure = ds.data['pressure']
+    except:
+        try:
+            pressure = np.full((numLines, pixelsPerLine), ds.headers['pressure'])
+        except:
+            pass
+
+    ozone = []
+    try:
+        ozone = ds.data['ozone']
+    except:
+        try:
+            ozone = np.full((numLines, pixelsPerLine), ds.headers['ozone'])
+        except:
+            pass
+
+    relhumid = []
+    try:
+        relhumid = ds.data['relhumid']
+    except:
+        try:
+            relhumid = np.full((numLines, pixelsPerLine), ds.headers['relhumid'])
+        except:
+            pass
+
+    watervapor = []
+    try:
+        watervapor = ds.data['watervapor']
+    except:
+        try:
+            watervapor = np.full((numLines, pixelsPerLine), ds.headers['watervapor'])
+        except:
+            pass
+
+
+    
     if os.path.exists(ofileName):
         os.remove(ofileName)
 
@@ -367,6 +434,41 @@ def main():
     if len(solz):
         navgrp.createVariable('solz', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
         navgrp.createVariable('sola', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+
+    # create ancillary data variables if they exist
+    if len(windspeed) or len(windangle) or len(pressure) or len(ozone) or len(relhumid) or len(watervapor):
+        ancillarygrp = ncfile.createGroup('ancillary_data')
+        if len(windspeed):
+            ancillarygrp.createVariable('windspeed', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+        if len(windangle):
+            ancillarygrp.createVariable('windangle', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+        if len(pressure):
+            ancillarygrp.createVariable('pressure', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+        if len(ozone):
+            ancillarygrp.createVariable('ozone', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+        if len(relhumid):
+            ancillarygrp.createVariable('relhumid', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+        if len(watervapor):
+            ancillarygrp.createVariable('watervapor', 'f', ('number_of_lines', 'pixels_per_line'), fill_value=-32767)
+
+
+    ####################################################
+    # done creating variables, now we can write the data
+    ####################################################
+
+    # fill ancillary data values
+    if len(windspeed):
+        ancillarygrp.variables['windspeed'][:] =  windspeed   
+    if len(windangle):
+        ancillarygrp.variables['windangle'][:] = windangle
+    if len(pressure):
+        ancillarygrp.variables['pressure'][:] = pressure   
+    if len(ozone):
+        ancillarygrp.variables['ozone'][:] = ozone   
+    if len(relhumid):
+        ancillarygrp.variables['relhumid'][:] = relhumid
+    if len(watervapor):
+        ancillarygrp.variables['watervapor'][:] = watervapor
 
     # fill data values
     sensorgrp.variables['wavelength'][:] = sensorWavelengths

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
+# coding: utf-8
 
 """
 A script to perform searches of the EarthData Common Metadata Repository (CMR)
@@ -338,7 +338,11 @@ def check_SBfile(parser, file_sb):
     from SB_support_v35 import readSB
 
     if os.path.isfile(file_sb):
-        ds = readSB(filename=file_sb, mask_missing=1, mask_above_detection_limit=1, mask_below_detection_limit=1, no_warn=1)
+        ds = readSB(filename=file_sb, 
+                    mask_missing=True, 
+                    mask_above_detection_limit=True, 
+                    mask_below_detection_limit=True, 
+                    no_warn=True)
     else:
         parser.error('ERROR: invalid --seabass_file specified. Does: ' + file_sb + ' exist?')
 
