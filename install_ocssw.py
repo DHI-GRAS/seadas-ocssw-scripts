@@ -443,6 +443,7 @@ if __name__ == "__main__":
         if os.getenv("OCSSWROOT") is None:
             installDir = os.path.abspath(os.path.join(os.getenv("HOME"), "ocssw"))
         else:
+
             installDir = os.path.abspath(os.getenv("OCSSWROOT"))
 
     # check if this is a development git repo
@@ -760,11 +761,12 @@ if __name__ == "__main__":
         
     # check that shared libc version will work
     if newDirStructure:
-        commandStr = os.path.join(installDir, 'opt', 'bin', 'hdp')
+        commandStr = os.path.join(installDir, 'scripts', 'ocssw_runner')
     else:
-        commandStr = os.path.join(installDir, 'run', 'bin3', arch, 'hdp')
+        commandStr = os.path.join(installDir, 'run', 'scripts', 'ocssw_runner')
 
-    commandStr += ' -H list > /dev/null'
+    commandStr += ' --ocsswroot ' +  installDir + '  hdp -H list > /dev/null'
+
     if verbose:
         print('Checking that an installed executable can run')
     retval = os.system(commandStr)

@@ -392,12 +392,12 @@ def main():
     navgrp = ncfile.createGroup('navigation_data')
 
     # global attributes
-    ncfile.title = sensorDef['instrument'] + ' Level-1B'
-    ncfile.instrument = sensorDef['instrument']
-    ncfile.platform = sensorDef['platform']
-    ncfile.processing_level = 'L1B'
-    ncfile.date_created = datetime.datetime.utcnow().isoformat()
-    ncfile.history = ' '.join(sys.argv)
+    ncfile.title = (sensorDef['instrument'] + ' Level-1B').encode("ascii")
+    ncfile.instrument = sensorDef['instrument'].encode("ascii")
+    ncfile.platform = sensorDef['platform'].encode("ascii")
+    ncfile.processing_level = 'L1B'.encode("ascii")
+    ncfile.date_created = (datetime.datetime.utcnow().isoformat()).encode("ascii")
+    ncfile.history = (' '.join(sys.argv)).encode("ascii")
 
     # create sensor group variables
     sensorgrp.createVariable('wavelength', 'i', ('number_of_bands'), fill_value=-32767)
