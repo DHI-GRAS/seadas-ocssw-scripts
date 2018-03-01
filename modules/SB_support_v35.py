@@ -45,8 +45,8 @@ from collections import OrderedDict
 def is_number(s):
 
     """
-    is_number determines if a given string is a number or not, uses complex()
-    returns True for int, float, long, or complex numbers, else False
+    is_number determines if a given string is a number or not, does not handle complex numbers
+    returns True for int, float, or long numbers, else False
     syntax: is_number(str)
     """
 
@@ -478,6 +478,7 @@ class readSB:
         given an output file name
         syntax: SELF.writeSBfile(ofile)
         """
+        from math import isnan
 
         fout = open(ofile,'w')
 
@@ -502,7 +503,16 @@ class readSB:
             row_ls = []
 
             for var in self.data:
-                row_ls.append(str(self.data[var][i]))
+                if is_number(self.data[var][i]):
+                    if float(self.data[var][i]) == float(self.missing) or isnan(float(self.data[var][i])):
+                        row_ls.append(str(self.missing))
+                    else:
+                        row_ls.append(str(self.data[var][i]))
+                else:
+                    if str(self.missing) in self.data[var][i] or 'nan' in self.data[var][i].lower():
+                        row_ls.append(str(self.missing))
+                    else:
+                        row_ls.append(str(self.data[var][i]))
 
             fout.write(delim.join(row_ls) + '\n')
 

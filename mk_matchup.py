@@ -153,8 +153,8 @@ def main():
         dict_args=vars(args)
 
     # input verification
-    if not dict_args['sat_file'][0] or not re.search('\.nc', dict_args['sat_file'][0]) or not re.search('L2', dict_args['sat_file'][0]):
-        parser.error("invalid --sat_file specified, must be a Level-2 (l2) OB.DAAC netCDF (nc) file")
+    if not dict_args['sat_file'][0] or not re.search('\.nc', dict_args['sat_file'][0].lower()) or not re.search('l2', dict_args['sat_file'][0].lower()):
+        parser.error("invalid --sat_file specified, must be a Level-2 (L2) OB.DAAC netCDF (nc) file")
     else:
         #set l2_flags to check for OC/IOP versus SST/SST4 product suites
         if re.search('SST', dict_args['sat_file'][0]):

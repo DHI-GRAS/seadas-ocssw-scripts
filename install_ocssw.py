@@ -307,11 +307,21 @@ def convertToNewDirStructure():
         # use scripts dir as the test
         if os.path.isdir(os.path.join(installDir, 'run', 'scripts')):
             print('Converting to new directory structure')
+
+            # need to delete Aqua Terra and VIIRS since those directories were reworked
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'hmodisa'), True)
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'hmodist'), True)
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'modis'), True)
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'modisa'), True)
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'modist'), True)
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'viirsn'), True)
+            
+            # now move around the rest
             shutil.move(os.path.join(installDir, 'run', 'bin', getArch()), os.path.join(installDir, 'bin'))
             shutil.move(os.path.join(installDir, 'run', 'data'), os.path.join(installDir, 'share'))
             shutil.move(os.path.join(installDir, 'run', 'scripts'), os.path.join(installDir, 'scripts'))
             shutil.move(os.path.join(installDir, 'run', 'var'), os.path.join(installDir, 'var'))
-            shutil.rmtree(os.path.join(installDir, 'run'))
+            shutil.rmtree(os.path.join(installDir, 'run'), True)
 
             if os.path.isdir(os.path.join(installDir, 'build')):
                 print('WARNING - old style build directory exists')
@@ -379,19 +389,17 @@ if __name__ == "__main__":
                       help="install OCTS files")
     parser.add_option("--oli", action="store_true", dest="oli", default=False,
                       help="install Landsat 8 OLI files")
-    parser.add_option("--olci", action="store_true", dest="olci", default=False,
-                      help="install Sentinel-3A OLCI files")
     parser.add_option("--osmi", action="store_true", dest="osmi", default=False,
                       help="install OSMI files")
     parser.add_option("--seawifs", action="store_true", dest="seawifs",
                       default=False, help="install SeaWiFS files")
     parser.add_option("--viirsn", action="store_true", dest="viirsn",
-                      default=False, help="install VIIRSN files")
+                      default=False, help="install VIIRS NPP files")
+    parser.add_option("--viirsj1", action="store_true", dest="viirsj1",
+                      default=False, help="install VIIRS JPSS1 files")
     parser.add_option("--direct-broadcast", action="store_true",
                       dest='direct_broadcast',
                       default=False, help="install direct broadcast files")
-    parser.add_option("--eval", action="store_true", dest="eval", default=False,
-                      help="install evaluation sensor files")
 
     (options, args) = parser.parse_args()
 
@@ -405,8 +413,15 @@ if __name__ == "__main__":
     gitBranch = options.git_branch
 
     # figure out if we are using the new directory structure
-    if float(gitBranch[1:]) < 7.5:
+    # anything before v7.5 is the old structure
+    newDirStructure = True
+    parts = gitBranch[1:].split('.')
+    if int(parts[0]) < 7:
         newDirStructure = False
+    else:
+        if int(parts[0]) == 7:
+            if int(parts[1]) < 5:
+                newDirStructure = False
 
     verbose = options.verbose
     doNotUpdateRepos = options.noUpdate
@@ -538,8 +553,6 @@ if __name__ == "__main__":
         numThings += 1     # avhrr
     if options.czcs:
         numThings += 1     # czcs
-    if options.eval:
-        numThings += 1     # eval
     if options.goci:
         numThings += 1     # goci
     if options.hico:
@@ -549,11 +562,11 @@ if __name__ == "__main__":
     if options.aqua or options.terra:
         numThings += 1     # modis
     if options.aqua:
-        numThings += 2     # modisa + hmodisa
+        numThings += 1     # modis/aqua
         if not doNotUpdateRepos:
             numThings += 1 # luts
     if options.terra:
-        numThings += 2     # modist + hmodist
+        numThings += 1     # modis/terra
         if not doNotUpdateRepos:
             numThings += 1 # luts
     if options.mos:
@@ -570,14 +583,18 @@ if __name__ == "__main__":
         numThings += 1     # osmi
     if options.oli:
         numThings += 1     # oli
-    if options.olci:
-        numThings += 1     # olci
     if options.seawifs:
         numThings += 1     # seawifs
         if not doNotUpdateRepos:
             numThings += 1 # luts
+    if options.viirsn or options.viirsj1:
+        numThings += 1     # viirs
     if options.viirsn:
-        numThings += 1     # viirsn
+        numThings += 1     # viirs/npp
+        if not doNotUpdateRepos:
+            numThings += 1 # luts
+    if options.viirsj1:
+        numThings += 1     # viirs/j1
         if not doNotUpdateRepos:
             numThings += 1 # luts
     numThings += 1         # bin
@@ -628,11 +645,6 @@ if __name__ == "__main__":
         printProgress('czcs')
         installGitRepo('czcs', shareDir + 'czcs')
 
-    # install share/eval
-    if options.eval:
-        printProgress('eval')
-        installGitRepo('eval', shareDir + 'eval')
-
     # install share/goci
     if options.goci:
         printProgress('goci')
@@ -653,19 +665,23 @@ if __name__ == "__main__":
         printProgress('modis')
         installGitRepo('modis', shareDir + 'modis')
 
-    # install share/aqua
+    # install share/modis/aqua
     if options.aqua:
-        printProgress('modisa')
-        installGitRepo('modisa', shareDir + 'modisa')
-        printProgress('hmodisa')
-        installGitRepo('hmodisa', shareDir + 'hmodisa')
+        printProgress('modis/aqua')
+        if newDirStructure:
+            installGitRepo('modisaqua', shareDir + 'modis/aqua')
+        else:
+            installGitRepo('modisa', shareDir + 'modisa')
+            installGitRepo('hmodisa', shareDir + 'hmodisa')
 
     # install share/terra
     if options.terra:
-        printProgress('modist')
-        installGitRepo('modist', shareDir + 'modist')
-        printProgress('hmodist')
-        installGitRepo('hmodist', shareDir + 'hmodist')
+        printProgress('modis/terra')
+        if newDirStructure:
+            installGitRepo('modisterra', shareDir + 'modis/terra')
+        else:
+            installGitRepo('modist', shareDir + 'modist')
+            installGitRepo('hmodist', shareDir + 'hmodist')
 
     # install share/mos
     if options.mos:
@@ -701,20 +717,34 @@ if __name__ == "__main__":
     if options.oli:
         printProgress('oli')
         installGitRepo('oli', shareDir + 'oli')
-    # install share/olci
-    if options.olci:
-        printProgress('olci')
-        installGitRepo('olci', shareDir + 'olci')
 
     # install share/seawifs
     if options.seawifs:
         printProgress('seawifs')
         installGitRepo('seawifs', shareDir + 'seawifs')
 
-    # install share/viirsn
+    # install share/viirs
+    if options.viirsn or options.viirsj1:
+        printProgress('viirs')
+        if newDirStructure:
+            installGitRepo('viirs', shareDir + 'viirs')
+
+    # install share/viirs/npp
     if options.viirsn:
-        printProgress('viirsn')
-        installGitRepo('viirsn', shareDir + 'viirsn')
+        printProgress('viirs/npp')
+        if newDirStructure:
+            installGitRepo('viirsnpp', shareDir + 'viirs/npp')
+        else:
+            installGitRepo('viirsn', shareDir + 'viirsn')
+
+    # install share/viirs/j1
+    if options.viirsj1:
+        printProgress('viirs/j1')
+        if newDirStructure:
+            installGitRepo('viirsj1', shareDir + 'viirs/j1')
+        else:
+            print("Error - Must install v7.5 or greater for VIIRS J1")
+            exit(1)
 
     # download bin dir
     printProgress('bin')
@@ -818,8 +848,15 @@ if __name__ == "__main__":
                 exit(1)
     
         if options.viirsn:
-            printProgress('viirsn-luts')
+            printProgress('viirsnpp-luts')
             retval = os.system(commandStr + 'viirsn')
+            if retval:
+                print('Error - Could not install luts for viirsn')
+                exit(1)
+    
+        if options.viirsj1:
+            printProgress('viirsj1-luts')
+            retval = os.system(commandStr + 'viirsj1')
             if retval:
                 print('Error - Could not install luts for viirsn')
                 exit(1)
