@@ -620,11 +620,8 @@ if __name__ == "__main__":
 
     # download OCSSW_bash.env
     printProgress('OCSSW_bash.env')
-    if newDirStructure:
-        installFile('OCSSW_bash.env.new', continueFlag=False)
-        os.rename(os.path.join(installDir, 'OCSSW_bash.env.new'), os.path.join(installDir, 'OCSSW_bash.env'))
-    else:
-        installFile('OCSSW_bash.env', continueFlag=False)
+    installFile('OCSSW_bash.env.' + gitBranch, continueFlag=False)
+    os.rename(os.path.join(installDir, 'OCSSW_bash.env.' + gitBranch), os.path.join(installDir, 'OCSSW_bash.env'))
     
     # install share/ocrvc
     printProgress('ocrvc')
