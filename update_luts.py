@@ -1,67 +1,71 @@
 #! /usr/bin/env python
-
 """
 update_luts.py
 
-Updates LUTS for the various sensors. 
+Updates LUTS for the various sensors.
 """
 
-import sys
-from modules.setupenv import env
-from optparse import OptionParser
-import modules.lut_utils as lu
+import argparse
+import modules.LutUtils as Lut
 
-if __name__ == "__main__":
-    mission = None
-    verbose = False
-    printlist = True
-    timeout=10.
 
-    msnlst = ['seawifs','aqua','terra','aquarius','viirsn']
-    version = "%prog 1.0"
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                      argparse.RawTextHelpFormatter):
+    pass
 
-    # Read commandline options...
-    usage = '''
-    %prog [OPTIONS] MISSION
 
-    MISSION is either seawifs, aqua, terra, aquarius, or viirsn'''
+if __name__ == '__main__':
 
-    parser = OptionParser(usage=usage, version=version)
+    # version = '2.0'
+    description = 'Retrieve latest lookup tables for specified sensor.'
+    sensors = ['seawifs', 'aquarius', 'modisa', 'modist', 'viirsn']  #, 'viirsj1']
+    platforms = ['aqua', 'terra', 'npp']  #, 'j1']
 
-    parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
-        default=False, help="print status messages")
-    parser.add_option("--timeout", dest='timeout',
-        metavar="TIMEOUT", help="set the network timeout in seconds",default=10)
+    # Define commandline options
 
-    (options, args) = parser.parse_args()
+    parser = argparse.ArgumentParser(formatter_class=CustomFormatter,
+                                     description=description, add_help=True)
 
-    if args:
-        mission = args[0]
-    if options.verbose:
-        verbose = options.verbose
-    if options.timeout:
-        timeout = float(options.timeout)
+    parser.add_argument('mission', metavar='MISSION',
+                        help='sensor or platform to process; one of:\n%(choices)s',
+                        choices=sensors + platforms)
 
-    if mission is None:
+    parser.add_argument('-e', '--eval', action='store_true', dest='evalluts',
+                        help='also download evaluation LUTs')
+
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='print status messages')
+
+    parser.add_argument('-n', '--dry-run', action='store_true', dest='dry_run',
+                        help='no action; preview files to be downloaded')
+
+    parser.add_argument('--timeout', type=float, default=10,
+                        help='network timeout in seconds')
+
+    # parser.add_argument('--version', action='version',
+    #                    version='%(prog)s ' + version)
+
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help=argparse.SUPPRESS) # hidden option
+
+    # Read options and take action
+    args = parser.parse_args()
+    if args.debug:
+        import logging
+        logging.basicConfig(level=logging.DEBUG,
+                            format='%(levelname)s:%(message)s')
+
+    luts = Lut.LutUtils(verbose=args.verbose,
+                        mission=args.mission.lower(),
+                        evalluts=args.evalluts,
+                        timeout=args.timeout,
+                        dry_run=args.dry_run)
+
+    valid_sensors = ['Aquarius', 'SeaWiFS', 'MODIS', 'VIIRS']
+    if (luts.sensor and luts.sensor['instrument'] in valid_sensors):
+        luts.get_luts()
+    else:
         parser.print_help()
-        sys.exit(0)
+        parser.exit(1)
 
-    if not (mission.lower() in msnlst):
-        print "Mission needs to be one of:"
-        for m in msnlst:
-            print m
-
-        sys.exit(0)
-
-    l=lu.lut_utils(verbose=verbose,mission=mission.lower(),timeout=timeout)
-    
-    env(l)
-
-    if mission.lower() == 'aquarius':
-        l.update_aquarius()
-    if mission.lower() == 'seawifs':
-        l.update_seawifs()
-    if mission.lower() in ['aqua','terra','viirsn']:
-        l.update_modis_viirsn()
-
-    exit(l.status)
+    parser.exit(luts.status)

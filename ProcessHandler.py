@@ -5,6 +5,7 @@
 __author__="sbailey"
 __date__ ="$Sep 27, 2010 3:29:48 PM$"
 
+from __future__ import print_function
 from optparse import OptionParser
 import os
 import sys
@@ -13,7 +14,6 @@ verbose = False
 
 from modules.ParamUtils import ParamProcessing
 from ProcessParFile import processParFile
-
 
 
 procmds = ['l1agen', 'l1aextract', 'l1brsgen', 'l1bgen', 'l1mapgen', 'l2gen',
@@ -40,11 +40,11 @@ if __name__ == "__main__":
     sensor = options.sensor
     verbose = options.verbose
 
-    print verbose
+    print (verbose)
     prog = 'main'
     OCSSWROOT = os.getenv('OCSSWROOT')
-    print OCSSWROOT
-    
+    print (OCSSWROOT)
+
     params = {prog:{}}
 
     if len(args) > 1:
@@ -60,15 +60,15 @@ if __name__ == "__main__":
     if parfile:
 
         if verbose:
-            print 'parfile :', parfile
-            print 'params: ', params
-            print 'test'
-            
+            print ('parfile :', parfile)
+            print ('params: ', params)
+            print ('test')
+
         p = ParamProcessing(params=params, parfile=parfile)
         p.parseParFile()
         filelst = p.params['main']['ocproc_ifile'].split(',')
         procs = p.params.keys()
-        print procs
+        print (procs)
         r = ParamProcessing(params=params)
 
         procpool = {}
@@ -76,9 +76,9 @@ if __name__ == "__main__":
             stat = 0
             try:
                 ix = procs.index(prog)
-                print filelst
+                print (filelst)
                 if ix >= 0:
-                    print prog
+                    print (prog)
 #                    try:
 #                        procpool[prog]
 #                    except:
@@ -94,16 +94,16 @@ if __name__ == "__main__":
                         r.params[prog]['ifile'] = ifile
                         r.genOutputFilename(prog)
                         ofile = r.params[prog]['ofile']
-                        print ifile, ofile
+                        print (ifile, ofile)
                         stat = processParFile(phash=r,params=params, processor=prog, sensor=sensor,verbose=verbose)
                         filelst.remove(ifile)
                         filelst.append(ofile)
-                        print 'O',stat
+                        print ('O',stat)
 
             except Exception:
                 pass
             if stat > 0:
                 sys.exit(1)
     else:
-        print parser.print_help()
+        print (parser.print_help())
         sys.exit(1)

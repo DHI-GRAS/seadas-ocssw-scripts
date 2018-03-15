@@ -1,7 +1,8 @@
- #! /usr/bin/env python
+# ! /usr/bin/env python
 
 import ProcUtils
 from modules.ParamUtils import ParamProcessing
+
 
 class modis_geo:
 
@@ -25,7 +26,6 @@ class modis_geo:
                  log=False,
                  verbose=False,
                  timeout=10.0):
-
 
         # defaults
         self.file = file
@@ -58,9 +58,9 @@ class modis_geo:
         self.timeout = timeout
 
         # version-specific variables
-        self.collection_id = '006'
-        self.pgeversion = '6.0.26'
-#        self.lutversion = '0'
+        self.collection_id = '061'
+        self.pgeversion = '6.1.1'
+        #        self.lutversion = '0'
 
         if self.parfile:
             print self.parfile
@@ -117,40 +117,27 @@ class modis_geo:
 
     def utcleap(self):
         """
-        Check date of utcpole.dat and leapsec.dat. Download if older than
-        14 days.
+        Check date of utcpole.dat and leapsec.dat.
+        Download if older than 14 days.
         """
         import os
-        from ProcUtils import ctime
-        import lut_utils as lu
-        from setupenv import env
-        l = lu.lut_utils(verbose=self.verbose, mission=self.sat_name)
-        #quiet down a bit...
-        resetVerbose = 0
-        if l.verbose:
-            resetVerbose = 1
-            l.verbose = False
+        from ProcUtils import mtime
+        import LutUtils as lu
+        lut = lu.LutUtils(verbose=self.verbose, mission=self.sat_name)
+        utcpole = os.path.join(self.dirs['var'], 'modis', 'utcpole.dat')
+        leapsec = os.path.join(self.dirs['var'], 'modis', 'leapsec.dat')
 
-        env(l)
-        if resetVerbose:
-            l.verbose = True
+        if not (os.path.exists(utcpole) and os.path.exists(leapsec)):
+            if self.verbose:
+                print "** Files utcpole.dat/leapsec.dat are not present on hard disk."
+                print "** Running update_luts.py to download the missing files..."
+            lut.get_luts()
 
-        if not os.path.exists(os.path.join(self.dirs['var'], "modis", "utcpole.dat")) \
-            or not os.path.exists(os.path.join(self.dirs['var'], "modis", "leapsec.dat")):
-                if self.verbose:
-                    print "** Files utcpole.dat/leapsec.dat are not present on hard disk."
-                    print "** Running update_luts.py to download the missing files..."
-                l.update_modis_viirsn()
-        else:
-            utc_age = ctime(os.path.join(self.dirs['var'], "modis",
-                                         "utcpole.dat"))
-            leap_age = ctime(os.path.join(self.dirs['var'], "modis",
-                                          "leapsec.dat"))
-            if leap_age > 14 or utc_age > 14:
-                if self.verbose:
-                    print "** Files utcpole.dat/leapsec.dat are more than 2w old"
-                    print "** Running update_luts to update files..."
-                l.update_modis_viirsn()
+        elif (mtime(utcpole) > 14) or (mtime(leapsec) > 14):
+            if self.verbose:
+                print "** Files utcpole.dat/leapsec.dat are more than 2 weeks old."
+                print "** Running update_luts.py to update files..."
+            lut.get_luts()
 
     def atteph(self):
         """
@@ -213,7 +200,7 @@ class modis_geo:
                             verbose=self.verbose,
                             timeout=self.timeout)
 
-            #quiet down a bit...
+            # quiet down a bit...
             resetVerbose = 0
             if get.verbose:
                 resetVerbose = 1
@@ -231,7 +218,6 @@ class modis_geo:
 
             get.locate()
             get.cleanup()
-
 
             self.db_status = get.db_status
             # DB return status bitwise values:

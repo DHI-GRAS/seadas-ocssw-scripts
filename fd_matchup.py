@@ -207,10 +207,10 @@ def main():
                                                str(dict_args['elon'][0]) + ',' + str(dict_args['elat'][0]) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
-                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
-                            '&options[entry_title][pattern]=true' + \
+                            '&short_name=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[short_name][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                            '&sort_key=entry_title'
+                            '&sort_key=short_name'
 
                 content = send_CMRreq(url)
                 [hits, granlinks] = process_CMRreq(content, hits, granlinks)
@@ -229,10 +229,10 @@ def main():
                             '&point=' + str(dict_args['slon'][0]) + ',' + str(dict_args['slat'][0]) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
-                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
-                            '&options[entry_title][pattern]=true' + \
+                            '&short_name=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[short_name][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                            '&sort_key=entry_title'
+                            '&sort_key=short_name'
 
                 content = send_CMRreq(url)
                 [hits, granlinks] = process_CMRreq(content, hits, granlinks)
@@ -254,10 +254,10 @@ def main():
                             '&point=' + str(lon) + ',' + str(lat) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
-                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
-                            '&options[entry_title][pattern]=true' + \
+                            '&short_name=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[short_name][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                            '&sort_key=entry_title'
+                            '&sort_key=short_name'
 
                 content = send_CMRreq(url)
                 [hits, granlinks] = process_CMRreq(content, hits, granlinks)
@@ -293,10 +293,10 @@ def main():
                             '&point=' + str(dict_args['slon'][0]) + ',' + str(dict_args['slat'][0]) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
-                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
-                            '&options[entry_title][pattern]=true' + \
+                            '&short_name=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[short_name][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                            '&sort_key=entry_title'
+                            '&sort_key=short_name'
 
             content = send_CMRreq(url)
 
@@ -316,10 +316,10 @@ def main():
                                                    str(dict_args['elon'][0]) + ',' + str(dict_args['elat'][0]) + \
                             '&instrument=' + dict_plat[sat][0] + \
                             '&platform=' + dict_plat[sat][1] + \
-                            '&entry_title=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
-                            '&options[entry_title][pattern]=true' + \
+                            '&short_name=' + dict_plat[sat][2] + dict_args['data_type'][0] + \
+                            '&options[short_name][pattern]=true' + \
                             '&temporal=' + tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ',' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ') + \
-                            '&sort_key=entry_title'
+                            '&sort_key=short_name'
 
             content = send_CMRreq(url)
 

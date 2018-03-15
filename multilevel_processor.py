@@ -10,6 +10,7 @@ __version__ = '1.0.5'
 __author__ = 'melliott'
 
 #import modis_processor
+from __future__ import print_function
 
 import ConfigParser
 import datetime
@@ -91,10 +92,10 @@ class ProcessorConfig(object):
                                                        'par_file_age').\
                                     split(' ', 2)[0])
             except ConfigParser.NoSectionError, nse:
-                print 'nse: ' + str(nse)
-                print 'sys.exc_info(): '
+                print ('nse: ' + str(nse))
+                print ('sys.exc_info(): ')
                 for msg in sys.exc_info():
-                    print '  ' +  str(msg)
+                    print ('  ' +  str(msg))
                 log_and_exit('Error!  Configuration file has no "main" ' +
                              'section.')
             except ConfigParser.NoOptionError:
@@ -382,7 +383,7 @@ def clean_files(delete_list):
     Delete unwanted files created during processing.
     """
     if cfg_data.verbose:
-        print "Cleaning up files"
+        print ("Cleaning up files")
         sys.stdout.flush()
     files_deleted = 0
     # Delete any files in the delete list.  This contain "interemediate" files
@@ -390,7 +391,7 @@ def clean_files(delete_list):
     # requested as output targets.
     for filepath in delete_list:
         if cfg_data.verbose:
-            print 'Deleting {0}'.format(filepath)
+            print ('Deleting {0}'.format(filepath))
             sys.stdout.flush()
         os.remove(filepath)
         files_deleted += 1
@@ -402,19 +403,19 @@ def clean_files(delete_list):
         file_age = round(time.time()) - os.path.getmtime(par_path)
         if file_age > cfg_data.max_file_age:
             if cfg_data.verbose:
-                print 'Deleting {0}'.format(par_path)
+                print ('Deleting {0}'.format(par_path))
                 sys.stdout.flush()
             os.remove(par_path)
             files_deleted += 1
     if cfg_data.verbose:
         if not files_deleted:
-            print 'No files were found for deletion.'
+            print ('No files were found for deletion.')
             sys.stdout.flush()
         elif files_deleted == 1:
-            print 'One file was deleted.'
+            print ('One file was deleted.')
             sys.stdout.flush()
         else:
-            print 'A total of {0} files were deleted.'.format(files_deleted)
+            print ('A total of {0} files were deleted.'.format(files_deleted))
             sys.stdout.flush()
 
 def create_levels_list(rules_sets):
@@ -584,9 +585,9 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     if cfg_data.tar_filename:
         tar_file = tarfile.open(cfg_data.tar_filename, 'w')
     proc_name_list = ', '.join([p.target_type for p in processors])
-    print '{0}: {1} processors to run: {2}'.format(cfg_data.prog_name,
+    print ('{0}: {1} processors to run: {2}'.format(cfg_data.prog_name,
                                                    len(processors),
-                                                   proc_name_list)
+                                                   proc_name_list))
     if 'geofile' in par_contnts['main']:
         for proc in processors:
             proc.geo_file = par_contnts['main']['geofile']
@@ -664,10 +665,10 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                 proc_timer.end()
                 timing_msg = 'Time for {0} process: {1}'.format(
                     proc.target_type, proc_timer.get_total_time_str())
-                print timing_msg
+                print (timing_msg)
                 logging.info(timing_msg)
-            print '{0}: processor {1} of {2} complete.'.format(
-                cfg_data.prog_name, ndx + 1, len(processors))
+            print ('{0}: processor {1} of {2} complete.'.format(
+                cfg_data.prog_name, ndx + 1, len(processors)))
             sys.stdout.flush()
             logging.debug('Processing complete for "%s".', proc.target_type)
     except Exception:
@@ -686,7 +687,7 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
         # whether files_to_delete contains anything.
         clean_files(files_to_delete)
     if cfg_data.verbose:
-        print "Processing complete."
+        print ("Processing complete.")
         sys.stdout.flush()
     logging.debug("Processing complete.")
     return
@@ -697,8 +698,8 @@ def execute_command(command):
     files and the console, as appropriate.
     """
     if DEBUG:
-        print "Entering execute_command, cfg_data.verbose =", \
-               cfg_data.verbose
+        print ("Entering execute_command, cfg_data.verbose =",
+               cfg_data.verbose)
         log_msg = 'Executing command:\n  {0}'.format(command)
         logging.debug(log_msg)
     subproc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
@@ -708,7 +709,7 @@ def execute_command(command):
     logging.info(std_out)
     logging.info(err_out)
     if cfg_data.verbose:
-        print std_out
+        print (std_out)
     return status
 
 def extract_par_section(par_contents, section):
@@ -925,7 +926,7 @@ def get_input_files_type_data(input_files_list):
 
         #     input_file_type_data[inp_file] = ('unknown', 'unknown')
             warn_msg = "Warning: Unable to determine a type for file {0}.  It will not be processed.".format(inp_file)
-            print warn_msg
+            print (warn_msg)
             logging.info(warn_msg)
     return input_file_type_data
 
@@ -1096,7 +1097,7 @@ def get_par_file_contents(par_file, acceptable_single_keys):
         'main' : 'main'
     }
     if cfg_data.verbose:
-        print "Processing %s" % par_file
+        print ("Processing %s" % par_file)
     par_reader = uber_par_file_reader.ParReader(par_file,
                                                 acceptable_single_keys,
                                                 acceptable_par_keys)
@@ -1307,7 +1308,7 @@ def main():
     (options, args) = process_command_line(cl_parser)
 
     if len(args) < 1:
-        print "\nError! No file specified for processing.\n"
+        print ("\nError! No file specified for processing.\n")
         cl_parser.print_help()
     else:
         if options.debug:
@@ -1332,7 +1333,7 @@ def main():
                     main_timer.end()
                     timing_msg = 'Total processing time: {0}'.format(
                         str(main_timer.get_total_time_str()))
-                    print timing_msg
+                    print (timing_msg)
                     logging.info(timing_msg)
                 else:
                     if options.ifile:
@@ -1583,15 +1584,15 @@ def run_l2bin(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'l2bin')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".\
-              format(proc.rule_set.rules[proc.target_type].action)
+        print ("Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action))
     args = 'infile=' + proc.input_file
     args += ' ofile=' + proc.output_file
     args += ' ' + get_options(proc.par_data)
     cmd = ' '.join([prog, args])
     logging.debug('Running l2bin cmd: ' + cmd)
     if cfg_data.verbose:
-        print 'l2bin cmd: ' + cmd
+        print ('l2bin cmd: ' + cmd)
     ret_val = execute_command(cmd)
     if ret_val != 0:
         if os.path.exists(proc.output_file):
@@ -1650,11 +1651,11 @@ def run_l2gen(proc):
         execute_command(getanc_cmd)
     l2gen_prog = os.path.join(proc.ocssw_bin, 'l2gen')
     if not os.path.exists(l2gen_prog):
-        print "Error!  Cannot find executable needed for {0}".\
-              format(proc.rule_set.rules[proc.target_type].action)
+        print ("Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action))
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
-    print 'L2GEN_FILE=' + proc.output_file
+    print ('L2GEN_FILE=' + proc.output_file)
     with open('_mp_l2gen_file.out', 'wt') as tmp_file:
         tmp_file.write(proc.output_file)
 
@@ -1729,8 +1730,8 @@ def run_l3bin(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'l3bin')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".\
-              format(proc.rule_set.rules[proc.target_type].action)
+        print ("Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action))
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
         if not (key.lower() in FILE_USE_OPTS):
@@ -1759,8 +1760,8 @@ def run_l3mapgen(proc):
     """
     prog = os.path.join(proc.ocssw_bin, 'l3mapgen')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".\
-              format(proc.rule_set.rules[proc.target_type].action)
+        print ("Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action))
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
         if not (key.lower() in FILE_USE_OPTS):
@@ -1844,7 +1845,7 @@ def run_nonbatch_processor(ndx, processors, file_set):
     output_file = os.path.join(processors[ndx].out_directory,
                                name_finder.get_next_level_name())
     if DEBUG:
-        print 'in run_nonbatch_processor, output_file = ' + output_file
+        print ('in run_nonbatch_processor, output_file = ' + output_file)
     processors[ndx].input_file = input_file
     processors[ndx].output_file = output_file
     processors[ndx].geo_file = geo_file
@@ -1853,8 +1854,8 @@ def run_nonbatch_processor(ndx, processors, file_set):
             processors[ndx].keepfiles = True
     if (not os.path.exists(output_file)) or cfg_data.overwrite:
         if cfg_data.verbose:
-            print
-            print '\nRunning ' + str(processors[ndx])
+            print ()
+            print ('\nRunning ' + str(processors[ndx]))
             sys.stdout.flush()
         proc_status = processors[ndx].execute()
 
@@ -1890,8 +1891,8 @@ def run_smigen(proc):
     status = None
     prog = os.path.join(proc.ocssw_bin, 'smigen')
     if not os.path.exists(prog):
-        print "Error!  Cannot find executable needed for {0}".\
-              format(proc.rule_set.rules[proc.target_type].action)
+        print ("Error!  Cannot find executable needed for {0}".\
+              format(proc.rule_set.rules[proc.target_type].action))
     if 'prod' in proc.par_data:
         args = 'ifile=' + proc.input_file + ' ofile=' + proc.output_file + \
                ' prod=' + proc.par_data['prod']
@@ -1971,7 +1972,7 @@ input_file_data = {}
 
 if os.environ['OCSSWROOT']:
     OCSSWROOT_DIR = os.environ['OCSSWROOT']
-    print 'OCSSWROOT -> {0}'.format(OCSSWROOT_DIR)
+    print ('OCSSWROOT -> {0}'.format(OCSSWROOT_DIR))
 else:
     sys.exit('Error! Cannot find OCSSWROOT environment variable.')
 

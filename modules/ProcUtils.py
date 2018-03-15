@@ -6,6 +6,7 @@ SeaDAS library for commonly used functions within other python scripts
 
 import sys
 
+
 def get_url_file_name(openUrl, request):
     """
     get filename from URL - use content-disposition if provided
@@ -21,6 +22,34 @@ def get_url_file_name(openUrl, request):
         return os.path.basename(request)
 
 
+def httpinit(url, timeout=10, urlConn=None):
+    """
+    initialize HTTP network connection
+    """
+    import httplib
+    import os
+    from urlparse import urlparse
+
+    proxy = None
+    proxy_set = os.environ.get('https_proxy')
+    if proxy_set is None:
+        proxy_set = os.environ.get('http_proxy')
+    if proxy_set:
+        proxy = urlparse(proxy_set)
+
+    if urlConn is None:
+        if proxy is None:
+            urlConn = httplib.HTTPSConnection(url, timeout=timeout)
+        elif proxy.scheme == 'https':
+            urlConn = httplib.HTTPSConnection(proxy.hostname,
+                                              proxy.port, timeout=timeout)
+        else:
+            urlConn = httplib.HTTPConnection(proxy.hostname,
+                                             proxy.port, timeout=timeout)
+
+    return urlConn, proxy
+
+
 def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
            uncompress=False, timeout=10., reqHeaders={}, verbose=False,
            reuseConn=False, urlConn=None):
@@ -29,7 +58,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
     Inputs:
         url - URL to retrieve
         localpath - path to place downloaded file
-        outputfilename - name to give retreived file (default: URL basename)
+        outputfilename - name to give retrieved file (default: URL basename)
         ntries - number to retry attempts
         uncompress - uncompress the downloaded file, if necessary (boolean, default False)
         timeout - sets the connection timeout (seconds)
@@ -39,11 +68,9 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
         verbose - get chatty about connection issues (boolean, default False)
     """
     global ofile
-    import httplib
     import os
     import re
     import socket
-    from urlparse import urlparse
 
     from time import sleep
 
@@ -53,22 +80,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
         os.umask(002)
         os.makedirs(localpath, mode=02775)
 
-    proxy = None
-    proxy_set = os.environ.get('https_proxy')
-    if proxy_set is None:
-       proxy_set = os.environ.get('http_proxy')
-    if proxy_set:
-        proxy = urlparse(proxy_set)
-
-    if urlConn is None:
-        if proxy is None:
-            urlConn = httplib.HTTPSConnection(url, timeout=timeout)
-        elif proxy.scheme == 'https':
-            urlConn = httplib.HTTPSConnection(proxy.hostname, proxy.port,
-                                             timeout=timeout)
-        else:
-            urlConn = httplib.HTTPConnection(proxy.hostname, proxy.port,
-                                             timeout=timeout)
+    urlConn, proxy = httpinit(url, timeout=timeout, urlConn=urlConn)
 
     if proxy is None:
         full_request = request
@@ -113,8 +125,8 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             if response:
                 urlConn.close()
             if verbose:
-                print 'Connection error, retrying up to {0} more time(s)'.\
-                      format(ntries)
+                print 'Connection error, retrying up to {0} more time(s)'. \
+                    format(ntries)
             sleep(sleepytime)
             status = httpdl(url, request, localpath=localpath,
                             outputfilename=outputfilename, ntries=ntries - 1,
@@ -128,7 +140,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             status = 500
     except:
         if response:
-            print 'Well, the server did not like this...reports: {0}'.\
+            print 'Well, the server did not like this...reports: {0}'. \
                 format(response.reason)
             status = response.status
         else:
@@ -136,7 +148,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                                  'Please check your network connections and try again later.'])
             sys.exit(err_msg)
     else:
-        if response.status == 200  or response.status == 206:
+        if response.status == 200 or response.status == 206:
             if outputfilename:
                 ofile = os.path.join(localpath, outputfilename)
             else:
@@ -161,7 +173,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                 actualLength = os.stat(filename).st_size
 
                 if expectedLength != actualLength:
-                    #continuation - attempt again where it left off...
+                    # continuation - attempt again where it left off...
                     bytestr = "bytes=%s-" % (actualLength)
                     reqHeader = {'Range': bytestr}
                     print bytestr, sleepytime
@@ -188,6 +200,7 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                 urlConn.close()
 
     return status
+
 
 def uncompressFile(compressed_file):
     """
@@ -260,11 +273,11 @@ def date_convert(datetime_i, in_datetype=None, out_datetype=None):
 
     # define commonly used date formats
     date_time_format = {
-        'd': "%Y%m%d", # YYYYMMDD
-        'j': "%Y%j%H%M%S", # Julian    YYYYDDDHHMMSS
-        'g': "%Y%m%d%H%M%S", # Gregorian YYYYMMDDHHMMSS
-        't': "%Y-%m-%dT%H:%M:%S.%fZ", # TAI YYYY-MM-DDTHH:MM:SS.uuuuuuZ
-        'h': "%Y-%m-%d %H:%M:%S.%f", # HDF-EOS YYYY-MM-DD HH:MM:SS.uuuuuu
+        'd': "%Y%m%d",  # YYYYMMDD
+        'j': "%Y%j%H%M%S",  # Julian    YYYYDDDHHMMSS
+        'g': "%Y%m%d%H%M%S",  # Gregorian YYYYMMDDHHMMSS
+        't': "%Y-%m-%dT%H:%M:%S.%fZ",  # TAI YYYY-MM-DDTHH:MM:SS.uuuuuuZ
+        'h': "%Y-%m-%d %H:%M:%S.%f",  # HDF-EOS YYYY-MM-DD HH:MM:SS.uuuuuu
     }
     if in_datetype is None:
         dateobj = datetime_i
@@ -305,7 +318,7 @@ def remove(file_to_delete):
 
 def ctime(the_file):
     """
-    returns creation time of file
+    returns days since file creation
     """
     import datetime
     import os
@@ -315,6 +328,20 @@ def ctime(the_file):
     utc_create = time.localtime(os.path.getctime(the_file))
 
     return today - datetime.date(utc_create.tm_year, utc_create.tm_mon, utc_create.tm_mday).toordinal()
+
+
+def mtime(the_file):
+    """
+    returns days since last file modification
+    """
+    import datetime
+    import os
+    import time
+
+    today = datetime.date.today().toordinal()
+    utc_mtime = time.localtime(os.path.getmtime(the_file))
+
+    return today - datetime.date(utc_mtime.tm_year, utc_mtime.tm_mon, utc_mtime.tm_mday).toordinal()
 
 
 def cat(file_to_print):
@@ -343,7 +370,7 @@ def check_sensor(inp_file):
               'Ocean Scanning Multi-Spectral Imager (OSMI)': 'osmi',
               'Ocean   Color   Monitor   OCM-2': 'ocm2',
               'MOS': 'mos', 'VIIRS': 'viirs', 'Aquarius': 'aquarius',
-              'hico':'hico'}
+              'hico': 'hico'}
 
     from modules.MetaUtils import readMetadata
     import re

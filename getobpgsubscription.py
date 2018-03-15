@@ -1,13 +1,12 @@
 #! /usr/bin/env python
 # Retrieve files from an OBPG data subscription
 
-
+from __future__ import print_function
 from optparse import OptionParser
 import os
 import sys
 from modules.ProcUtils import httpdl
 import ftplib
-
 
 if __name__ == "__main__":
 
@@ -20,7 +19,7 @@ if __name__ == "__main__":
             from sqlite3 import *
             pass
     else:
-        print '''Your python interpreter is too old.
+        print ('''Your python interpreter is too old.)
 This script requires at least version 2.5.
 Please consider upgrading.'''
         sys.exit(1)
@@ -73,7 +72,7 @@ Please consider upgrading.'''
         subscriptionID = args[0]
 
     if options.verbose:
-        verbose = options.verbose 
+        verbose = options.verbose
     if options.initiate:
         initiate = options.initiate
     if options.regetdate:
@@ -90,19 +89,19 @@ Please consider upgrading.'''
     if initiate:
         try:
             if verbose:
-                print "Removing %s database" % database
+                print ("Removing %s database" % database)
                 os.remove(database)
         except Exception:
             pass
 
 
     if subscriptionID is None:
-        print "Subscription ID required!\nExiting..."
+        print ("Subscription ID required!\nExiting...")
         exit(1)
 
     suburl = '/'.join(['subscriptions', subscriptionID, ''])
     if verbose:
-        print "Searching %s for new files..." % suburl
+        print ("Searching %s for new files..." % suburl)
 
     ftp = ftplib.FTP(ftpurl)
     ftp.login()
@@ -112,7 +111,7 @@ Please consider upgrading.'''
         files = ftp.nlst(suburl)
     except ftplib.error_perm, resp:
         if str(resp) == "550 No files found":
-            print "no files in this directory"
+            print ("no files in this directory")
             exit(1)
         else:
             raise
@@ -121,12 +120,12 @@ Please consider upgrading.'''
         conn = connect(database)
         curs = conn.cursor()
         if verbose:
-            print "Using database: %s" % database
+            print ("Using database: %s" % database)
     else:
         conn = connect(database)
         curs = conn.cursor()
         if verbose:
-            print "creating database %s..." % database
+            print ("creating database %s..." % database)
         curs.execute('''create table ftpFiles
                     (createDate datetime,
                      filename text)''')
@@ -136,7 +135,7 @@ Please consider upgrading.'''
         curs.execute('delete from ftpFiles where createDate >= ?', [regetdate])
         conn.commit()
         if verbose:
-            print "deleted records retrieved after %s" % regetdate
+            print ("deleted records retrieved after %s" % regetdate)
 
     for file in files:
         dt = datetime.datetime.utcnow()
@@ -157,11 +156,11 @@ Please consider upgrading.'''
                 curs.execute('delete from ftpFiles where filename = ?', [filestr])
                 conn.commit()
                 if verbose:
-                    print "Trouble retrieving %s" % url
+                    print ("Trouble retrieving %s" % url)
             else:
                 if verbose:
-                    print "Sucessfully retrieved %s" % url
+                    print ("Sucessfully retrieved %s" % url)
         else:
             if verbose:
-                print "Duplicate file, skipping download: %s" % filestr
+                print ("Duplicate file, skipping download: %s" % filestr)
     conn.close()

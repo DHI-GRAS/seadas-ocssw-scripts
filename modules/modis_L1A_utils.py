@@ -44,8 +44,8 @@ class modis_l1a:
         self.dirs = {}
 
         # version-specific variables
-        self.collection_id = '006'
-        self.pgeversion = '6.0.26'
+        self.collection_id = '061'
+        self.pgeversion = '6.1.1'
 #        self.lutversion = '0'
 
         if self.parfile:

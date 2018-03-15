@@ -3,7 +3,7 @@
 """
 Wrapper program to produce MODIS GEO files.
 """
-
+from __future__ import print_function
 import modules.anc_utils as anc_utils
 from modules.modis_utils import buildpcf, modis_env
 
@@ -177,7 +177,7 @@ def main():
         try:
             m.atteph()
         except SystemExit:
-            print "Cannot create geolocation from %s; exiting." % l1a_file
+            print ("Cannot create geolocation from %s; exiting." % l1a_file)
             raise
     buildpcf(m)
     m.run()

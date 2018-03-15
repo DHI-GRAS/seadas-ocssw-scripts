@@ -198,7 +198,7 @@ def readMetadata(filename):
     # Kept an exit here (instead of making it a return) as already
     # existing programs assume the output from this function is good.
     if text is None or text == '' or text == []:
-        sys.exit()
+        sys.exit("Error!  dump_metadata failed.")
 
     attrs = None
 

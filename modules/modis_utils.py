@@ -5,7 +5,6 @@ Utility functions for MODIS processing programs.
 from exceptions import ValueError
 from MetaUtils import readMetadata
 import get_obpg_file_type
-import lut_utils
 import next_level_name_finder
 import obpg_data_file
 import os
@@ -14,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+
 
 def buildpcf(self):
     """
@@ -121,7 +121,7 @@ def buildpcf(self):
             line = line.replace('QA_LUT', self.qa_lut)
             line = line.replace('LUTVERSION', self.lutversion)
 
-        if  re.search('(GEO|L1B)', self.proctype):
+        if re.search('(GEO|L1B)', self.proctype):
             line = line.replace("GEODIR",
                                 os.path.abspath(os.path.dirname(self.geofile)))
             line = line.replace("GEOFILE", os.path.basename(self.geofile))
@@ -154,9 +154,10 @@ def modis_timestamp(arg):
     # at this point datetimes are formatted as YYYY-MM-DD HH:MM:SS.uuuuuu
 
     # return values formatted as YYYYDDDHHMMSS
-    return(ProcUtils.date_convert(start_time, 'h', 'j'),
-           ProcUtils.date_convert(end_time, 'h', 'j'),
-           sat_name)
+    return (ProcUtils.date_convert(start_time, 'h', 'j'),
+            ProcUtils.date_convert(end_time, 'h', 'j'),
+            sat_name)
+
 
 def getversion(file_name):
     """
@@ -262,39 +263,36 @@ def modis_env(self):
         # Determine pass start time and platform
         self.start, self.stop, self.sat_name = modis_timestamp(self.file)
 
-
     # set sensor specific variables
     if self.sat_name == 'aqua':
         self.sensor = 'modisa'
         self.sat_inst = 'PM1M'
         self.prefix = 'MYD'
         if self.proctype == 'modisL1B':
-            self.pgeversion = "6.1.37_obpg"
+            self.pgeversion = "6.2.1_obpg"
     elif self.sat_name == 'terra':
         self.sensor = 'modist'
         self.sat_inst = 'AM1M'
         self.prefix = 'MOD'
         if self.proctype == 'modisL1B':
-            self.pgeversion = "6.1.26_obpg"
+            self.pgeversion = "6.2.2_obpg"
 
     else:
         print "ERROR: Unable to determine platform type for", self.file
         sys.exit(1)
 
-
     # Static input directories
-    self.dirs['cal'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'cal')
-    self.dirs['mcf'] = os.path.join(os.getenv("OCDATAROOT"), self.sensor, 'mcf')
-    self.dirs['static'] = os.path.join(os.getenv("OCDATAROOT"),
-                                       'modis', 'static')
+    self.dirs['cal'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', self.sat_name, 'cal')
+    self.dirs['mcf'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', self.sat_name, 'mcf')
+    self.dirs['static'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'static')
     self.dirs['dem'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'dem')
     if not os.path.exists(self.dirs['dem']):
         self.dirs['dem'] = self.dirs['static']
+    self.dirs['pcf'] = os.path.join(os.getenv("OCDATAROOT"), 'modis', 'pcf')
 
     # MODIS L1A
     if self.proctype == "modisL1A":
-        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"),
-                                         'modis', 'pcf', 'L1A_template.pcf')
+        self.pcf_template = os.path.join(self.dirs['pcf'], 'L1A_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find the L1A PCF template: " + self.pcf_template
             sys.exit(1)
@@ -308,8 +306,7 @@ def modis_env(self):
 
     # MODIS GEO
     if self.proctype == "modisGEO":
-        self.pcf_template = os.path.join(os.getenv("OCDATAROOT"),
-                                         'modis', 'pcf', 'GEO_template.pcf')
+        self.pcf_template = os.path.join(self.dirs['pcf'], 'GEO_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find GEO PCF template " + self.pcf_template
             sys.exit(1)
@@ -359,47 +356,32 @@ def modis_env(self):
                                                                 ftype, sensor,
                                                                 stime, etime)])
             name_finder = next_level_name_finder.ModisNextLevelNameFinder(
-                            data_files_list, 'geo')
+                data_files_list, 'geo')
             self.geofile = name_finder.get_next_level_name()
 
     # MODIS L1B
     if self.proctype == "modisL1B":
-        self.pcf_template = os.path.join(os.getenv('OCDATAROOT'), 'modis',
-                                         'pcf', 'L1B_template.pcf')
+        self.pcf_template = os.path.join(self.dirs['pcf'], 'L1B_template.pcf')
         if not os.path.exists(self.pcf_template):
             print "ERROR: Could not find the L1B PCF template", self.pcf_template
             sys.exit(1)
 
         # Search LUTDIR for lut names
-        if self.lutdir:
-            if self.lutversion:
-                self.refl_lut = self.prefix + '02_Reflective_LUTs.V' + self.lutversion + '.hdf'
-                self.emis_lut = self.prefix + '02_Emissive_LUTs.V' + self.lutversion + '.hdf'
-                self.qa_lut = self.prefix + '02_QA_LUTs.V' + self.lutversion + '.hdf'
-            else:
-                print "Missing LUTVER. LUTVER needs to be defined if LUTDIR is set"
-                sys.exit(1)
-        else:
-            if self.lutversion:
-                print "Missing LUTDIR. LUTDIR needs to be defined if LUTVER is set"
-                sys.exit(1)
+        if not self.lutdir:
             self.lutdir = os.path.join(self.dirs['var'], self.sensor, 'cal', 'OPER')
-            lut_dir_contents = os.listdir(self.lutdir)
-            lutlist = [f for f in lut_dir_contents if f.endswith('.hdf')]
-            # Testing found that using just the compare_lut_names sort didn't
-            # get the LUT's into verion # order if the LUT names were grouped
-            # by the type of LUT. Grouping is handled by sorted(lutlist).
-            sorted_lut_list = sorted(sorted(lutlist), lut_utils.compare_lut_names)
-            for lut in sorted_lut_list:
-                if lut.find('Refl') > 0:
-                    self.refl_lut = lut
-                if lut.find('Emis') > 0:
-                    self.emis_lut = lut
-                if lut.find('QA') > 0:
-                    self.qa_lut = lut
 
-            self.lutversion = re.sub('V', '',
-                                     '.'.join(self.refl_lut.split('.')[1:5]))
+        if not self.lutversion:
+            try:
+                from LutUtils import lut_version
+                versions = [lut_version(f) for f in os.listdir(self.lutdir) if f.endswith('.hdf')]
+                self.lutversion = sorted(versions)[-1][1:]  # highest version number
+            except:
+                print "ERROR: Could not find LUTs in".self.lutdir
+                sys.exit(1)
+
+        self.refl_lut = self.prefix + '02_Reflective_LUTs.V' + self.lutversion + '.hdf'
+        self.emis_lut = self.prefix + '02_Emissive_LUTs.V' + self.lutversion + '.hdf'
+        self.qa_lut = self.prefix + '02_QA_LUTs.V' + self.lutversion + '.hdf'
 
         if self.verbose:
             print ""
@@ -410,8 +392,6 @@ def modis_env(self):
             print "QA LUT: %s" % self.qa_lut
             print ""
 
-        self.dirs['mcf'] = os.path.join(os.getenv('OCDATAROOT'),
-                                        self.sensor, 'mcf')
         self.qkm_mcf = ''.join([self.prefix, '02QKM_',
                                 self.collection_id, '.mcf'])
         self.hkm_mcf = ''.join([self.prefix, '02HKM_',
@@ -455,9 +435,9 @@ def modis_env(self):
             else:
                 self.obc = '.'.join([self.base, 'L1B_OBC'])
 
-        if not os.path.exists(os.path.join(self.lutdir, self.refl_lut))\
-           or not os.path.exists(os.path.join(self.lutdir, self.emis_lut))\
-        or not os.path.exists(os.path.join(self.lutdir, self.qa_lut)):
+        if not os.path.exists(os.path.join(self.lutdir, self.refl_lut)) \
+                or not os.path.exists(os.path.join(self.lutdir, self.emis_lut)) \
+                or not os.path.exists(os.path.join(self.lutdir, self.qa_lut)):
             print "ERROR: One or more of the required LUTs does not exist in %s:" % self.lutdir
             print ""
             print "Reflective LUT:", self.refl_lut

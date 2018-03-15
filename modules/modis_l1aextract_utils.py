@@ -24,8 +24,8 @@ class extract:
         self.west = west
         self.east = east
         # version-specific variables
-        self.collection_id = '006'
-        self.pgeversion = '6.0.26'
+        self.collection_id = '061'
+        self.pgeversion = '6.1.1'
         self.lutversion = None
 
         if self.parfile:

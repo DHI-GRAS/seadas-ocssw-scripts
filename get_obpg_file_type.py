@@ -7,6 +7,7 @@ __version__ = '1.2.2-2017-07-15'
 
 __author__ = 'melliott'
 
+from __future__ import print_function
 import calendar
 import datetime
 import modules.MetaUtils
@@ -167,7 +168,7 @@ class ObpgFileTyper(object):
         except:
             exc_info = sys.exc_info()
             for item in exc_info:
-                print str(item)
+                print(str(item))
 
     def get_attributes(self):
         return self.attributes
@@ -879,9 +880,9 @@ def main():
                     output += ': {0} : {1}'.format(start_time, end_time)
                 else:
                     output += ': unable to determine file start and end times'
-            print output
+            print(output)
     else:
-        print '\nError!  No file specified for type identification.\n'
+        print('\nError!  No file specified for type identification.\n')
         cl_parser.print_help()
     return 0
 

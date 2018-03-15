@@ -12,7 +12,11 @@
 __author__ = "Sean Bailey, Futuretech Corporation"
 __date__ = "$Oct 8, 2010 02:00:00 PM$"
 
+
+
 # TODO Error checking!
+
+from __future__ import print_function
 
 import sys
 
@@ -21,6 +25,7 @@ import os
 from modules.ParamUtils import ParamProcessing
 from ProcessWrapper import ProcWrap
 import subprocess
+
 
 ver = sys.version
 
@@ -52,7 +57,7 @@ proc_cmd = {
         },
     }
 
-nonpar = ['l1agen_seawifs', 'l1agen_czcs', 'l1aextract_seawifs', 
+nonpar = ['l1agen_seawifs', 'l1agen_czcs', 'l1aextract_seawifs',
     'l1aextract_modis', 'l2extract', 'l2brsgen', 'smitoppm']
 
 def processParFile(parfile=None, params=None, processor=None, sensor=None,
@@ -75,11 +80,11 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
                 if len(pkeys) == 1:
                     processor = pkeys[0]
                 else:
-                    print "Error! More than 1 processor found.... "
+                    print ("Error! More than 1 processor found.... ")
 #                    sys.exit(1)
                     status = 1
             except Exception:
-                print "Error! Need to know what process to run.... Exiting"
+                print ("Error! Need to know what process to run.... Exiting")
 #                sys.exit(1)
                 status = 1
 
@@ -108,7 +113,7 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
     # Run getanc if necessary...
     if processor in ('l2gen') and getanc:
         if verbose:
-            print "Retrieving ancillary files..."
+            print ("Retrieving ancillary files...")
         fcmd = ''.join(['--file=', phash.params[processor]['ifile']])
         anccmd = ['/Users/Shared/seadas7/trunk/python/getanc.py', fcmd]
         ancstat = subprocess.call(anccmd)
@@ -116,11 +121,11 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
             ancparfile = phash.params[processor]['ifile'] + '.anc'
             phash.parseParFile(ancparfile)
         else:
-            print "Ancillary file retreival failed. Exiting..."
+            print ("Ancillary file retreival failed. Exiting...")
             status = 1
 #            sys.exit(1)
 
-    print phash.params[processor]
+    print (phash.params[processor])
     # Set up process command
     if nonparcode >= 0:
         w = ProcWrap(phash.params[processor])
@@ -132,13 +137,13 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
         phash.buildParameterFile(processor)
         cmd = ['/Users/Shared/OCSSW/run/bin/' + runproc, 'par=' + parfilename]
 
-    print cmd
-    print 'V',verbose
+    print (cmd)
+    print ('V',verbose)
     if verbose:
 #        print p.parstr
         rstr = ' '.join(cmd)
-        print "Running:\n  ", rstr
-        print phash.params[processor]
+        print ("Running:\n  ", rstr)
+        print (phash.params[processor])
     # Create output and error log files
     try:
         ix = cmd.index('>')
@@ -149,7 +154,7 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
         outlog = phash.params[processor]['ifile'] + '.log'
         outFile = os.path.join(os.curdir, outlog)
 
-    print outlog
+    print (outlog)
     errlog = phash.params[processor]['ifile'] + '.err'
     errFile = os.path.join(os.curdir,errlog)
     outptr = open(outFile, 'w')
@@ -157,20 +162,20 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
 
     # Call the subprocess using convenience method
     status = subprocess.call(cmd, 0, None, None, outptr, errptr)
-    print 'S', status
+    print ('S', status)
     # Close log handles
     outptr.close()
     errptr.close()
-    
+
 
     statptr = open(errFile, 'r')
     statData = statptr.read()
     statptr.close()
     # Check the process exit code
     if not status == 0:
-        print 'Error (%s) executing command:\n' % status
-        print '\t', ' '. join(cmd)
-        print '\n' + statData
+        print ('Error (%s) executing command:\n' % status)
+        print ('\t', ' '. join(cmd))
+        print ('\n' + statData)
         sys.exit(1)
     else:
         if verbose:
@@ -221,12 +226,11 @@ if __name__ == "__main__":
     if parfile:
 
         if verbose:
-            print 'parfile :', parfile
-            print 'params: ', params
+            print ('parfile :', parfile)
+            print ('params: ', params)
 
         processParFile(parfile, params=params, processor=processor, sensor=sensor)
 
     else:
-        print parser.print_help()
+        print (parser.print_help())
         sys.exit(1)
-

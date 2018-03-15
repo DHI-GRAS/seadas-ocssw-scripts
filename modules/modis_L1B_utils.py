@@ -58,7 +58,7 @@ class ModisL1B:
         self.prefix = None
 
         # version specific variables
-        self.collection_id = '006'
+        self.collection_id = '061'
 
         if self.parfile:
             if self.verbose:

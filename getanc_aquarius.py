@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 from modules import ProcUtils
 from modules.ProcUtils import date_convert, addsecs
 from modules.aquarius_utils import aquarius_timestamp
@@ -9,6 +10,7 @@ from optparse import OptionParser
 import subprocess
 import os
 import tarfile
+
 
 class getanc_aquarius:
     """
@@ -75,8 +77,8 @@ class getanc_aquarius:
     # Make the yancfile
 
         if self.verbose:
-            print ""
-            print "Creating Aquarius yancfile%s %s..." % (count,yancfilename)
+            print("")
+            print ("Creating Aquarius yancfile%s %s..." % (count,yancfilename))
         mk_anc = os.path.join(self.dirs['bin'], 'mk_aquarius_ancillary_data')
 
         mk_anc_cmd = ' '.join([mk_anc,
@@ -89,16 +91,16 @@ class getanc_aquarius:
                                self.ancfiles['sssfile1'],
                                self.ancfiles['sssfile2'],
                                sdt, edt])
-        print mk_anc_cmd
+        print (mk_anc_cmd)
         status = subprocess.call(mk_anc_cmd, shell=True)
 
         if status:
             if self.verbose:
-                print "mk_aquarius_ancillary_data returned with exit status: " + str(status)
+                print ("mk_aquarius_ancillary_data returned with exit status: " + str(status))
             return None
         else:
             if self.verbose:
-                print "mk_aquarius_ancillary_data created yancfile %s successfully!" % yancfilename
+                print ("mk_aquarius_ancillary_data created yancfile %s successfully!" % yancfilename)
             return yancfilename
 
 
@@ -228,7 +230,7 @@ if __name__ == "__main__":
     status = subprocess.call(getanc_cmd, shell=True)
 
     if status:
-        print status
+        print (status)
 
     if file is None:
         anc_filelist = start + ".anc"
@@ -259,5 +261,3 @@ if __name__ == "__main__":
     g.write_anc(anc_filelist)
     if verbose or printlist:
         ProcUtils.cat(anc_filelist)
-
-

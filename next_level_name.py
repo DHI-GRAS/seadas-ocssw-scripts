@@ -6,6 +6,7 @@ the input file name.
 """
 
 __version__ = '1.0.4-2016-04-28'
+from __future__ import print_function
 
 #import datetime
 import aquarius_next_level_name_finder
@@ -104,15 +105,15 @@ def get_command_line_data():
     #                      type='string', help='product type (for smigen)')
     (clopts, clargs) = cl_parser.parse_args()
     if len(clargs) == 0:
-        print "\nError! No input file or target program specified.\n"
+        print ("\nError! No input file or target program specified.\n")
         cl_parser.print_help()
         sys.exit(0)
     elif len(clargs) == 1:
-        print "\nError! No target program specified.\n"
+        print ("\nError! No target program specified.\n")
         cl_parser.print_help()
         sys.exit(0)
     elif len(clargs) > 2:
-        print '\nError!  Too many arguments specified on the command line.'
+        print ('\nError!  Too many arguments specified on the command line.')
         cl_parser.print_help()
         sys.exit(0)
     else:
@@ -153,7 +154,7 @@ def handle_unexpected_exception(exc_info):
     exc_parts = exc_info
     err_type = str(exc_parts[0]).split('.')[1][0:-2]
     err_msg = 'Error!  Encountered {0}:'.format(str(err_type))
-    print err_msg
+    print (err_msg)
     if DEBUG:
         traceback.print_exc()
     sys.exit(1)
@@ -197,7 +198,7 @@ def main():
                                                         stime, etime,
                                                         file_metadata)
                 next_level_name = get_1_file_name(data_file, targ_prog, clopts)
-            print 'Output Name: ' + next_level_name
+            print ('Output Name: ' + next_level_name)
         except SystemExit, sys_ex:
             # The intention here is to catch exit exceptions we throw in other
             # parts of the program and continue with the exit, outputting

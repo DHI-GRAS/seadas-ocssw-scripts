@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 
 import sys
 from modis_utils import modis_env
@@ -30,8 +31,8 @@ if __name__ == "__main__":
     if args:
         geofile = args[0]
         if not os.path.exists(geofile):
-            print "*** ERROR: Provided geolocation file does not exist."
-            print "*** Validation test failed for geolocation file:", geofile
+            print ("*** ERROR: Provided geolocation file does not exist.")
+            print ("*** Validation test failed for geolocation file:", geofile)
             sys.exit(1)
 
     else:
