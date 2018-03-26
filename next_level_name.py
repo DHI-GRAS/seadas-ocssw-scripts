@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 """
 Program to return the name of the next level file that would be created from
@@ -6,7 +7,6 @@ the input file name.
 """
 
 __version__ = '1.0.4-2016-04-28'
-from __future__ import print_function
 
 #import datetime
 import aquarius_next_level_name_finder

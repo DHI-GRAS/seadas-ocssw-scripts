@@ -1,9 +1,9 @@
 #! /usr/bin/env python
+from __future__ import print_function
 
 """
 Wrapper program to produce MODIS GEO files.
 """
-from __future__ import print_function
 import modules.anc_utils as anc_utils
 from modules.modis_utils import buildpcf, modis_env
 

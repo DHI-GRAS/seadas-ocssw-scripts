@@ -1,11 +1,11 @@
 #! /usr/bin/python
+from __future__ import print_function
 
 # Processing control script
 
 __author__="sbailey"
 __date__ ="$Sep 27, 2010 3:29:48 PM$"
 
-from __future__ import print_function
 from optparse import OptionParser
 import os
 import sys

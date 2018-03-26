@@ -1,3 +1,4 @@
+from __future__ import generators
 """Beautiful Soup
 Elixir and Tonic
 "The Screen-Scraper's Friend"
@@ -76,7 +77,6 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE, DAMMIT.
 
 """
-from __future__ import generators
 
 __author__ = "Leonard Richardson (leonardr@segfault.org)"
 __version__ = "3.2.0"

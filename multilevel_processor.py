@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 """
 Program to perform multilevel processing (previously known as the
@@ -10,7 +11,6 @@ __version__ = '1.0.5'
 __author__ = 'melliott'
 
 #import modis_processor
-from __future__ import print_function
 
 import ConfigParser
 import datetime

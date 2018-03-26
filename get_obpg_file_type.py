@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 """
 A class for determining the OBPG type of a file.
 """
@@ -7,7 +9,6 @@ __version__ = '1.2.2-2017-07-15'
 
 __author__ = 'melliott'
 
-from __future__ import print_function
 import calendar
 import datetime
 import modules.MetaUtils

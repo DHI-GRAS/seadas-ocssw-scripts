@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 ################################################################################
 # script for spawning OCSSW processing commands
@@ -16,7 +17,6 @@ __date__ = "$Oct 8, 2010 02:00:00 PM$"
 
 # TODO Error checking!
 
-from __future__ import print_function
 
 import sys
 
