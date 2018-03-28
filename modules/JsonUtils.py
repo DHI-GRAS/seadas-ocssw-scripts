@@ -147,6 +147,7 @@ class SessionUtils:
         self.verbose = verbose
         self.clobber = clobber
         self.session = None
+        self.status = 0
 
     def open_url(self, url, ntries=None, get=False):
         """
@@ -171,10 +172,13 @@ class SessionUtils:
                 self.session.request('HEAD', path)
             response = self.session.getresponse()
 
-        except httplib.CannotSendRequest as e:
+        except httplib.HTTPException as h:
+            self.status = 1
+            print('Networking problem: %s: %s' % (h.__class__, str(h)))
+
+        except Exception as e:
+            self.status = 1
             print('Exception: {:}'.format(e))
-            if self.session:
-                self.session.close()
 
         try:
             # return response if okay
@@ -182,20 +186,24 @@ class SessionUtils:
                 pass
 
             # retry if server is busy
-            elif (response.status > 499) and (ntries > 0):
+            elif response and (response.status > 499) and (ntries > 0):
                 if self.verbose:
                     print('Server busy; will retry {}'.format(url))
                 response = retry(self.open_url, url, ntries=ntries, get=get)
 
             # give up if too many tries
             elif ntries == 0:
+                self.status = 1
                 print('FAILED after {} tries: {}'.format(ntries, url))
 
             # give up if bad response
             else:
-                print('Bad response for {}: {}  {}'.format(url, response.status, response.reason))
+                self.status = 1
+                print('Bad response for {}: {}  {}'.
+                      format(url, response.status, response.reason))
 
         except Exception as e:
+            self.status = 1
             print('Exception: {:}'.format(e))
 
         finally:
@@ -205,11 +213,15 @@ class SessionUtils:
         try:
             parts = urlsplit(url)
             outputdir = os.path.dirname(filepath)
-            httpdl(parts.netloc, parts.path,
-                   localpath=outputdir, timeout=self.timeout,
-                   reuseConn=True, urlConn=self.session,
-                   verbose=self.verbose)
+            status = httpdl(parts.netloc, parts.path,
+                            localpath=outputdir, timeout=self.timeout,
+                            reuseConn=True, urlConn=self.session,
+                            verbose=self.verbose)
+            if status:
+                self.status = 1
+                print('Error downloading {}.format(filepath)')
         except Exception as e:
+            self.status = 1
             print('Exception: {:}'.format(e))
         return
 
@@ -220,9 +232,10 @@ class SessionUtils:
         default is to list only links starting with url.
         """
         response = self.open_url(url, get=True)
+        content = response.read()
 
         if is_json(response):
-            linklist = getlinks_json(response.read())
+            linklist = getlinks_json(content)
         else:
             return []
 

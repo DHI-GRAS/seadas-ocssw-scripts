@@ -163,7 +163,8 @@ class ancDB:
         """
 
         statchk = {'atm':1,'met': 1, 'ozone': 2, 'sstfile': 4, 'no2file': 8, 'icefile': 16, 'sssfile': 32,
-                   'xrayfile': 64, 'att': 1, 'eph': 2, 'scat': 128}
+                   'xrayfile': 64, 'att': 1, 'eph': 2, 'scat': 128, 'tecfile': 256, 'swhfile':512, 'frozenfile':1024,
+                   'geosfile': 2048, 'argosfile': 4096}
 
         if re.search("\d$", anctype):
             anctype = anctype[0:len(anctype) - 1]

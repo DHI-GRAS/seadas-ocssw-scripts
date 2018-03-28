@@ -125,12 +125,16 @@ class LutUtils:
                 url, dirpath,
                 dry_run=self.dry_run, clobber=self.clobber,
                 regex='^((?!\d+).)*' + suffix, check_times=True)
+            if self.session.status:
+                self.status = 1
 
             # check only filesize for others
             new2 = self.session.download_allfiles(
                 url, dirpath,
                 dry_run=self.dry_run, clobber=self.clobber,
                 regex=suffix, check_times=False)
+            if self.session.status:
+                self.status = 1
 
             newfiles = new1 + new2
             if len(newfiles) == 0:
@@ -143,7 +147,6 @@ class LutUtils:
                 if 'OPER' in d:
                     purge_luts(newfiles, verbose=self.verbose)
 
-        self.status = len(downloaded) == 0  # True = 1
         return downloaded
 
 # end of class LutUtils
