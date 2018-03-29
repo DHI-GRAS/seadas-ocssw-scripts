@@ -762,14 +762,16 @@ if __name__ == "__main__":
     if options.src:
         printProgress('src')
         if newDirStructure:
-            installGitRepo('ocssw-src', 'build')
+            installGitRepo('ocssw-src', 'ocssw-src')
             printProgress('opt-src')
-            installFile('opt_src.tar')
-            commandStr = 'cd ' +  os.path.join(installDir, 'opt') + '; tar xf ../opt_src.tar'
+            srcFileName = 'opt-src-' + gitBranch + '.tar'
+            installFile(srcFileName)
+            commandStr = 'cd ' +  os.path.join(installDir, 'opt') + '; tar xf ../' + srcFileName
             retval = os.system(commandStr)
             if retval:
                 print('Error - Can not expand opt/src directory')
                 exit(1)
+            deleteFile(srcFileName)
         else:
             installGitRepo('build', 'build')
 
