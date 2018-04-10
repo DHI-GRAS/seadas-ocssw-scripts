@@ -1,23 +1,23 @@
 #! /usr/bin/env python
 from __future__ import print_function
-from modules import ProcUtils
-from modules.ProcUtils import date_convert, addsecs
-from modules.aquarius_utils import aquarius_timestamp
 
-from modules.setupenv import env
-from modules.ParamUtils import ParamProcessing
-from optparse import OptionParser
-import subprocess
 import os
+import subprocess
 import tarfile
+from optparse import OptionParser
+
+from modules.ParamUtils import ParamProcessing
+from modules.ProcUtils import date_convert, addsecs, cat
+from modules.aquarius_utils import aquarius_timestamp
+from modules.setupenv import env
 
 
-class getanc_aquarius:
+class GetAncAquarius:
     """
     utilities for Aquarius ancillary data
     """
 
-    def __init__(self, file=None,
+    def __init__(self, filename=None,
                  start=None,
                  stop=None,
                  ancdir=None,
@@ -28,7 +28,7 @@ class getanc_aquarius:
                  download=True,
                  refreshDB=False):
 
-        self.file = file
+        self.filename = filename
         self.start = start
         self.stop = stop
         self.printlist = printlist
@@ -41,16 +41,15 @@ class getanc_aquarius:
         self.dirs = {}
         self.ancfiles = {}
 
-    def parse_anc(self,anc_filelist):
+    def parse_anc(self, anc_filelist):
         anc = ParamProcessing(parfile=anc_filelist)
         anc.parseParFile()
         self.ancfiles = anc.params['main']
 
-    def write_anc(self,anc_filelist):
+    def write_anc(self, anc_filelist):
         anc = ParamProcessing(parfile=anc_filelist)
         anc.params['main'] = self.ancfiles
         anc.buildParameterFile('main')
-
 
     def run_mk_anc(self, count):
         """
@@ -68,45 +67,56 @@ class getanc_aquarius:
 
         hour = os.path.basename(self.ancfiles[met])[8:10]
 
-        sdt = date_convert(dt,'j','d')
-        edt = date_convert(addsecs(dt,86500,'j'),'j','d')
+        sdt = date_convert(dt, 'j', 'd')
+        edt = date_convert(addsecs(dt, 86500, 'j'), 'j', 'd')
 
-        yancfilename = ''.join(['y',sdt,hour,'.h5'])
+        yancfilename = ''.join(['y', sdt, hour, '.h5'])
 
-
-    # Make the yancfile
-
+        # Make the yancfile
         if self.verbose:
             print("")
-            print ("Creating Aquarius yancfile%s %s..." % (count,yancfilename))
+            print("Creating Aquarius yancfile%s %s..." % (count, yancfilename))
         mk_anc = os.path.join(self.dirs['bin'], 'mk_aquarius_ancillary_data')
-
         mk_anc_cmd = ' '.join([mk_anc,
                                self.ancfiles['sstfile1'],
                                self.ancfiles['sstfile2'],
                                self.ancfiles[atm],
                                self.ancfiles[met],
+                               self.ancfiles['swhfile'],
+                               self.ancfiles['frozenfile'],
                                self.ancfiles['icefile1'],
                                self.ancfiles['icefile2'],
                                self.ancfiles['sssfile1'],
                                self.ancfiles['sssfile2'],
+                               self.ancfiles['argosfile1'],
+                               self.ancfiles['argosfile2'],
                                sdt, edt])
-        print (mk_anc_cmd)
         status = subprocess.call(mk_anc_cmd, shell=True)
-
         if status:
             if self.verbose:
-                print ("mk_aquarius_ancillary_data returned with exit status: " + str(status))
+                print("mk_aquarius_ancillary_data returned with exit status: "
+                      + str(status))
+                print('command: ' + mk_anc_cmd)
             return None
-        else:
-            if self.verbose:
-                print ("mk_aquarius_ancillary_data created yancfile %s successfully!" % yancfilename)
-            return yancfilename
 
+        # add info from MERRA file
+        geos = os.path.join(self.dirs['bin'], 'geos')
+        geos_cmd = ' '.join([geos, yancfilename, self.ancfiles['geosfile']])
+        status = subprocess.call(geos_cmd, shell=True)
+        if status:
+            if self.verbose:
+                print('geos returned with exit status: ' + str(status))
+                print('command: ' + geos_cmd)
+            return None
+
+        # success!
+        if self.verbose:
+            print("yancfile %s created successfully!" % yancfilename)
+        return yancfilename
 
 
 if __name__ == "__main__":
-    file = None
+    filename = None
     start = None
     stop = None
     ancdir = None
@@ -140,33 +150,33 @@ if __name__ == "__main__":
     parser = OptionParser(usage=usage, version=version)
 
     parser.add_option("-s", "--start", dest='start',
-        help="Start time of the orbit (if used, no input file is required)", metavar="START")
+                      help="Start time of the orbit (if used, no input file is required)", metavar="START")
     parser.add_option("-e", "--stop", dest='stop',
-        help="Stop time of the orbit", metavar="STOP")
+                      help="Stop time of the orbit", metavar="STOP")
     parser.add_option("--ancdir", dest='ancdir',
-        help="Use a custom directory tree for ancillary files", metavar="ANCDIR")
+                      help="Use a custom directory tree for ancillary files", metavar="ANCDIR")
     parser.add_option("--ancdb", dest='ancdb',
-        help="Use a custom file for ancillary database. If full path not given, ANCDB is assumed to "\
-             "exist (or will be created) under $OCSSWROOT/log/. If $OCSSWROOT/log/ does not exist,  "\
-             "ANCDB is assumed (or will be created) under the current working directory", metavar="ANCDB")
+                      help="Use a custom file for ancillary database. If full path not given, ANCDB is assumed to "
+                           "exist (or will be created) under $OCSSWROOT/log/. If $OCSSWROOT/log/ does not exist, "
+                           "ANCDB is assumed (or will be created) under the current working directory", metavar="ANCDB")
     parser.add_option("-c", "--curdir", action="store_true", dest='curdir',
-        default=False, help="Download ancillary files directly into current working directory")
+                      default=False, help="Download ancillary files directly into current working directory")
     parser.add_option("-d", "--disable-download", action="store_false", dest='download',
-        default=True, help="Disable download of ancillary files not found on hard disk")
+                      default=True, help="Disable download of ancillary files not found on hard disk")
     parser.add_option("-f", "--force-download", action="store_true", dest='force',
-        default=False, help="Force download of ancillary files, even if found on hard disk")
+                      default=False, help="Force download of ancillary files, even if found on hard disk")
     parser.add_option("-r", "--refreshDB", action="store_true", dest='refreshDB',
-        default=False, help="Remove existing database records and re-query for ancillary files")
+                      default=False, help="Remove existing database records and re-query for ancillary files")
 
     parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
-        default=False, help="print status messages")
+                      default=False, help="print status messages")
     parser.add_option("--noprint", action="store_false", dest='printlist',
-        default=True, help="Supress printing the resulting list of files to the screen")
+                      default=True, help="Supress printing the resulting list of files to the screen")
 
     (options, args) = parser.parse_args()
 
     if args:
-        file = args[0]
+        filename = args[0]
     if options.verbose:
         verbose = options.verbose
     if options.start:
@@ -193,29 +203,27 @@ if __name__ == "__main__":
         parser.print_help()
         exit(0)
 
-    g = getanc_aquarius(file=file,
-        start=start,
-        stop=stop,
-        curdir=curdir,
-        ancdir=ancdir,
-        ancdb=ancdb,
-        verbose=verbose,
-        printlist=printlist,
-        download=download,
-        refreshDB=refreshDB)
+    g = GetAncAquarius(filename=filename,
+                       start=start,
+                       stop=stop,
+                       curdir=curdir,
+                       ancdir=ancdir,
+                       ancdb=ancdb,
+                       verbose=verbose,
+                       printlist=printlist,
+                       download=download,
+                       refreshDB=refreshDB)
 
     env(g)
     if not g.start:
-        (g.start,g.stop,sensor) =  aquarius_timestamp(file)
+        (g.start, g.stop, sensor) = aquarius_timestamp(filename)
 
     # Run getanc.py
     getanc = os.path.join(g.dirs['scripts'], 'getanc.py')
-#    getanc = './getanc.py'
-    if file:
-        getanc_cmd = ' '.join([getanc, file, '--noprint'])
-
+    if filename:
+        getanc_cmd = ' '.join([getanc, '--mission=aquarius --noprint', filename])
     else:
-        getanc_cmd = ' '.join([getanc, '--mission=aquarius', '-s', start, '--noprint'])
+        getanc_cmd = ' '.join([getanc, '--mission=aquarius --noprint', '-s', start])
         if stop:
             getanc_cmd += ' -e ' + stop
 
@@ -226,38 +234,44 @@ if __name__ == "__main__":
     if force:
         getanc_cmd += ' --force'
 
-#    print getanc_cmd
+    # print(getanc_cmd)
     status = subprocess.call(getanc_cmd, shell=True)
 
-    if status:
-        print (status)
+    if status and self.verbose:
+        print('getanc returned with exit status: ' + str(status))
+        print('command: ' + getanc_cmd)
 
-    if file is None:
+    if filename is None:
         anc_filelist = start + ".anc"
     else:
-        anc_filelist = '.'.join([os.path.basename(file), 'anc'])
+        anc_filelist = '.'.join([os.path.basename(filename), 'anc'])
 
     g.parse_anc(anc_filelist)
     anclist = g.ancfiles.keys()
 
-    #create yancfiles
-    yancfile1 = g.run_mk_anc(1)
-    g.ancfiles['yancfile1'] = yancfile1
+    # create yancfiles
+    g.ancfiles['yancfile1'] = g.run_mk_anc(1)
+    g.ancfiles['yancfile2'] = g.run_mk_anc(2)
+    if not (g.ancfiles['yancfile1'] and g.ancfiles['yancfile2']):
+        print('ERROR in making yancfiles!')
+        exit(1)
 
-    yancfile2 = g.run_mk_anc(2)
-    g.ancfiles['yancfile2'] = yancfile2
-
+    # extract scatterometer files
     if 'scat' in g.ancfiles:
         tar = tarfile.open(g.ancfiles['scat'])
         tar.extractall()
         tar.close()
 
-    #clean up anc_filelist to remove files contained in the yancfiles
+    # clean up anc_filelist to remove files contained in the yancfiles
     for key in anclist:
-        if key.startswith('xray'):
-            continue
-        del(g.ancfiles[key])
-    #write out the cleaned .anc file
+        if key not in ('xrayfile1', 'xrayfile2',
+                       'l2_uncertainties_file', 'sif_file'):
+            del (g.ancfiles[key])
+
+    # save original
+    os.rename(anc_filelist, anc_filelist + '.orig')
+
+    # write out the cleaned .anc file
     g.write_anc(anc_filelist)
     if verbose or printlist:
-        ProcUtils.cat(anc_filelist)
+        cat(anc_filelist)

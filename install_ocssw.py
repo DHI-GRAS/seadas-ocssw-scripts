@@ -387,6 +387,8 @@ if __name__ == "__main__":
                       help="install OCM2 files")
     parser.add_option("--octs", action="store_true", dest="octs", default=False,
                       help="install OCTS files")
+    parser.add_option("--olcis3a", action="store_true", dest="olcis3a", default=False,
+                      help="install OLCI Sentinel 3A files")
     parser.add_option("--oli", action="store_true", dest="oli", default=False,
                       help="install Landsat 8 OLI files")
     parser.add_option("--osmi", action="store_true", dest="osmi", default=False,
@@ -579,6 +581,8 @@ if __name__ == "__main__":
         numThings += 1     # ocm2
     if options.octs:
         numThings += 1     # octs
+    if options.olcis3a:
+        numThings += 1     # olci s3a
     if options.osmi:
         numThings += 1     # osmi
     if options.oli:
@@ -704,6 +708,11 @@ if __name__ == "__main__":
     if options.octs:
         printProgress('octs')
         installGitRepo('octs', shareDir + 'octs')
+
+    # install share/olci
+    if options.olcis3a:
+        printProgress('olcis3a')
+        installGitRepo('olci', shareDir + 'olci')
 
     # install share/osmi
     if options.osmi:

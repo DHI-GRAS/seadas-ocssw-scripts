@@ -1,5 +1,7 @@
+from __future__ import print_function
+
 from MetaUtils import readMetadata
-import ProcUtils
+
 
 def aquarius_timestamp(arg):
     """
@@ -12,11 +14,17 @@ def aquarius_timestamp(arg):
     stime = meta['Orbit Start Time'][0:13]
     etime = meta['Orbit Stop Time'][0:13]
 
-    return ( stime,
-             etime,
-             sat_name )
-             
+    return (stime,
+            etime,
+            sat_name)
+
+
 if __name__ == "__main__":
-    file = "/Users/Shared/testing/Q2012300002900.L1A_SCI"
-    start, stop, sensor = aquarius_timestamp(file)
-    print start, stop, sensor
+    import sys
+
+    if len(sys.argv) > 1:
+        filename = sys.argv[1]
+    else:
+        filename = "/Users/Shared/testing/Q2012300002900.L1A_SCI"
+    start, stop, sensor = aquarius_timestamp(filename)
+    print(start, stop, sensor)

@@ -503,6 +503,10 @@ class readSB:
             row_ls = []
 
             for var in self.data:
+                if '_l2fname' in var.lower():
+                    row_ls.append(str(self.data[var][i]))
+                    continue
+
                 if is_number(self.data[var][i]):
                     if float(self.data[var][i]) == float(self.missing) or isnan(float(self.data[var][i])):
                         row_ls.append(str(self.missing))

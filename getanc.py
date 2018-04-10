@@ -5,9 +5,10 @@ Program to check for updated ancillary data files and download them
 as appropriate.
 """
 
+from optparse import OptionParser
+
 import modules.anc_utils as ga
 from modules.setupenv import env
-from optparse import OptionParser
 
 if __name__ == "__main__":
     filename = None
@@ -16,7 +17,7 @@ if __name__ == "__main__":
     ancdir = None
     ancdb = 'ancillary_data.db'
     curdir = False
-    opt_flag = 5 #defaults to retrieving met, ozone, sst, and ice data
+    opt_flag = 5  # defaults to retrieving met, ozone, sst, and ice data
     download = True
     force = False
     refreshDB = False
@@ -78,12 +79,12 @@ if __name__ == "__main__":
                       help="Use a custom directory tree for ancillary files",
                       metavar="ANCDIR")
 
-    ancdb_help_text = "Use a custom file for ancillary database. If full "\
-                      "path not given, ANCDB is assumed to exist (or "\
+    ancdb_help_text = "Use a custom file for ancillary database. If full " \
+                      "path not given, ANCDB is assumed to exist (or " \
                       "will be created) under " + ga.DEFAULT_ANC_DIR_TEXT + \
-                      "/log/. If " + ga.DEFAULT_ANC_DIR_TEXT + "/log/ does "\
-                      "not exist, ANCDB is assumed (or will be created) "\
-                      " under the current working directory"
+                      "/log/. If " + ga.DEFAULT_ANC_DIR_TEXT + "/log/ does " \
+                                                               "not exist, ANCDB is assumed (or will be created) " \
+                                                               " under the current working directory"
 
     parser.add_option("--ancdb", dest='ancdb',
                       help=ancdb_help_text, metavar="ANCDB")
@@ -115,7 +116,7 @@ if __name__ == "__main__":
                       default=False, help="print status messages")
     parser.add_option("--noprint", action="store_false", dest='printlist',
                       default=True,
-                      help="Supress printing the resulting list of files to the screen")
+                      help="Suppress printing the resulting list of files to the screen")
     parser.add_option("--timeout", dest='timeout', metavar="TIMEOUT",
                       help="set the network timeout in seconds")
 
@@ -175,14 +176,11 @@ if __name__ == "__main__":
 
     env(g)
     g.chk()
-
-
     if filename and g.finddb():
         g.setup()
     else:
         g.setup()
         g.findweb()
-
     g.locate(forcedl=force)
     g.write_anc_par()
     g.cleanup()

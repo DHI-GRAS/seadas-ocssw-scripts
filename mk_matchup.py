@@ -430,13 +430,13 @@ def main():
         write_flag = 1 #only write out (write_flag == true), if matchups found
 
         #save L2_fname
-        L2file_varname = inst + '_' + plat + '_L2fname'
-        ds = addDataToOutput(ds,row, L2file_varname,'none',os.path.basename(dict_args['sat_file'][0]))
+        L2file_varname = inst + '_' + plat + '_l2fname'
+        ds = addDataToOutput(ds,row, L2file_varname.lower(),'none',os.path.basename(dict_args['sat_file'][0]))
 
         #save rrsaot_cv
         if cvs:
             rrscv_varname = inst + '_' + plat + '_rrsaot_cv'
-            ds = addDataToOutput(ds,row, rrscv_varname,'unitless',median(cvs))
+            ds = addDataToOutput(ds,row, rrscv_varname.lower(),'unitless',median(cvs))
 
         # save extract-variables
         for var in file_ls:
@@ -445,22 +445,22 @@ def main():
 
                 #save mean qual_sst value
                 var_name = inst + '_' + plat + '_' + var.lower() + '_mean'
-                ds = addDataToOutput(ds,row, var_name,'none',fmean)
+                ds = addDataToOutput(ds,row, var_name.lower(),'none',fmean)
 
                 #save max qual_sst value
                 var_name = inst + '_' + plat + '_' + var.lower() + '_max'
-                ds = addDataToOutput(ds,row, var_name,'none',fmax)
+                ds = addDataToOutput(ds,row, var_name.lower(),'none',fmax)
 
             else:
                 [fmean, fstdev, units] = readValEfile(file_ls[var], parser)
 
                 #save filtered_mean for each var in file_lis
                 var_name = inst + '_' + plat + '_' + var.lower()
-                ds = addDataToOutput(ds,row, var_name,units,fmean)
+                ds = addDataToOutput(ds,row, var_name.lower(),units,fmean)
 
                 #save filtered_stddev for each var in file_lis
                 var_name = inst + '_' + plat + '_' + var.lower() + '_sd'
-                ds = addDataToOutput(ds,row, var_name,units,fstdev)
+                ds = addDataToOutput(ds,row, var_name.lower(),units,fstdev)
 
         clean_file_lis(file_del)
 

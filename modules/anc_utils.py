@@ -1,12 +1,14 @@
-#! /usr/bin/env python
-from operator import sub
+from __future__ import print_function
+
 import gc
+import xml.etree.ElementTree as ElementTree
+from operator import sub
+
 import modules.MetaUtils as MetaUtils
 import modules.ProcUtils as ProcUtils
-import xml.dom.minidom as minidom
-import xml.etree.ElementTree as ElementTree
 
 DEFAULT_ANC_DIR_TEXT = "$OCVARROOT"
+
 
 class getanc:
     """
@@ -52,7 +54,6 @@ class getanc:
         self.query_site = "oceandata.sci.gsfc.nasa.gov"
         self.data_site = "oceandata.sci.gsfc.nasa.gov"
 
-
     def chk(self):
         """
         Check validity of inputs to
@@ -60,34 +61,35 @@ class getanc:
         import sys
 
         if self.start is None and self.file is None:
-            print "ERROR: No L1A_or_L1B_file or start time specified!"
+            print("ERROR: No L1A_or_L1B_file or start time specified!")
             sys.exit(1)
 
         if self.atteph:
             if self.sensor is None and self.file is None:
-                print "ERROR: No FILE or MISSION specified."
+                print("ERROR: No FILE or MISSION specified.")
                 sys.exit(1)
-            if self.sensor is not None and self.sensor != "modisa" and self.sensor != "modist"\
-               and self.sensor.lower() != "aqua" and self.sensor.lower() != "terra":
-                print "ERROR: Mission must be 'aqua', 'modisa', 'terra', or 'modist' "
+            if self.sensor is not None and self.sensor != "modisa" and self.sensor != "modist" \
+                    and self.sensor.lower() != "aqua" and self.sensor.lower() != "terra":
+                print("ERROR: Mission must be 'aqua', 'modisa', 'terra', or 'modist' ")
                 sys.exit(1)
 
         if self.curdir is True and self.ancdir is not None:
-            print "ERROR: The '--use-current' and '--ancdir' arguments cannot be used together."
-            print "       Please use only one of these options."
+            print("ERROR: The '--use-current' and '--ancdir' arguments cannot be used together.")
+            print("       Please use only one of these options.")
             sys.exit(1)
 
         if self.start is not None:
             if len(self.start) != 13 or int(self.start[0:4]) < 1978 or int(self.start[0:4]) > 2030:
-                print "ERROR: Start time must be in YYYYDDDHHMMSS format and YYYY is between 1978 and 2030."
+                print("ERROR: Start time must be in YYYYDDDHHMMSS format and YYYY is between 1978 and 2030.")
                 sys.exit(1)
 
         if self.stop is not None:
             if len(self.stop) != 13 or int(self.stop[0:4]) < 1978 or int(self.stop[0:4]) > 2030:
-                print "ERROR: End time must be in YYYYDDDHHMMSS format and YYYY is between 1978 and 2030."
+                print("ERROR: End time must be in YYYYDDDHHMMSS format and YYYY is between 1978 and 2030.")
                 sys.exit(1)
 
-    def get_start_end_info(self, info):
+    @staticmethod
+    def get_start_end_info(info):
         """
         Extracts and returns the start time, start date, end time, and end date
         from info. Returns a None value for any item not found.
@@ -107,18 +109,20 @@ class getanc:
                 stopdate = line.split('=')[1]
         return starttime, startdate, stoptime, stopdate
 
-    def get_goci_time(self, goci_time_str):
+    @staticmethod
+    def get_goci_time(goci_time_str):
         month_dict = {'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
                       'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
                       'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'}
         time_str = goci_time_str[8:12] + '-' + \
                    month_dict[goci_time_str[4:7]] + '-' + \
                    goci_time_str[1:3] + 'T' + goci_time_str[13:15] + ':' + \
-                   goci_time_str[16:18] + ':' + goci_time_str[19:21]  + '.' \
-                   + goci_time_str[22:25] + 'Z'
+                   goci_time_str[16:18] + ':' + goci_time_str[19:21] + '.' + \
+                   goci_time_str[22:25] + 'Z'
         return time_str
 
-    def get_time_coverage_xml(self, elem):
+    @staticmethod
+    def get_time_coverage_xml(elem):
         data_elem = elem.find('Data')
         value_elem = data_elem.find('DataFromFile')
         return value_elem.text.strip()
@@ -130,32 +134,29 @@ class getanc:
         found.
         """
 
-        start = None
-        stop = None
         xml_root = ElementTree.fromstring(raw_xml)
-        # xml_root = minidom.parseString(raw_xml)
 
         time_start_list = xml_root.findall('.//Attribute[@Name="time_coverage_start"]')
         if len(time_start_list) > 0:
             if len(time_start_list) > 1:
-                print "Encountered more than 1 time_coverage_start tag. Using 1st value."
+                print("Encountered more than 1 time_coverage_start tag. Using 1st value.")
             start = self.get_time_coverage_xml(time_start_list[0])
         else:
             time_start_list = xml_root.findall('.//Attribute[@Name="Scene Start time"]')
             if len(time_start_list) > 1:
-                print "Encountered more than 1 Scene Start time tag. Using 1st value."
+                print("Encountered more than 1 Scene Start time tag. Using 1st value.")
             start_str = self.get_time_coverage_xml(time_start_list[0])
             start = self.get_goci_time(start_str)
 
         time_end_list = xml_root.findall('.//Attribute[@Name="time_coverage_end"]')
         if len(time_end_list) > 0:
             if len(time_end_list) > 1:
-                print "Encountered more than 1 time_coverage_end tag. Using 1st value."
+                print("Encountered more than 1 time_coverage_end tag. Using 1st value.")
             stop = self.get_time_coverage_xml(time_end_list[0])
         else:
             time_end_list = xml_root.findall('.//Attribute[@Name="Scene end time"]')
             if len(time_end_list) > 1:
-                print "Encountered more than 1 Scene end time tag. Using 1st value."
+                print("Encountered more than 1 Scene end time tag. Using 1st value.")
             stop_str = self.get_time_coverage_xml(time_end_list[0])
             stop = self.get_goci_time(stop_str)
         return start, stop
@@ -203,31 +204,31 @@ class getanc:
                 # instead an OBPG formatted filename that indicates the start time.
                 if not os.path.exists(self.file):
                     if self.sensor:
-                        print "*** WARNING: Input file doesn't exist! Parsing filename for start time and setting"
-                        print "*** end time to 5 minutes later for MODIS and 15 minutes later for other sensors."
+                        print("*** WARNING: Input file doesn't exist! Parsing filename for start time and setting")
+                        print("*** end time to 5 minutes later for MODIS and 15 minutes later for other sensors.")
                         if len(self.base) < 14 or int(self.base[1:5]) < 1978 or int(self.base[1:5]) > 2030:
-                            print "ERROR: Filename must be in XYYYYDDDHHMMSS format where X is the"
-                            print "sensor letter and YYYY is between 1978 and 2030."
+                            print("ERROR: Filename must be in XYYYYDDDHHMMSS format where X is the")
+                            print("sensor letter and YYYY is between 1978 and 2030.")
                             sys.exit(1)
                         else:
                             self.start = self.base[1:14]
                     else:
-                        print "*** ERROR: Input file doesn't exist and mission not set...bailing out..."
+                        print("*** ERROR: Input file doesn't exist and mission not set...bailing out...")
                         sys.exit(1)
 
                 else:
                     # Determine start/end times from HDF file
                     # for l1info subsample every 250 lines
                     if self.verbose:
-                        print "Determining pass start and end times..."
+                        print("Determining pass start and end times...")
                     senchk = ProcUtils.check_sensor(self.file)
 
-                    if (re.search('(Aqua|Terra)', senchk)):
-                    #   if self.mission == "A" or self.mission == "T":
+                    if re.search('(Aqua|Terra)', senchk):
+                        #   if self.mission == "A" or self.mission == "T":
                         self.start, self.stop, self.sensor = modis_timestamp(self.file)
-                    elif (senchk.find("viirs") == 0):
+                    elif senchk.find("viirs") == 0:
                         self.start, self.stop, self.sensor = viirs_timestamp(self.file)
-                    elif (senchk.find("aquarius") == 0):
+                    elif senchk.find("aquarius") == 0:
                         self.start, self.stop, self.sensor = aquarius_timestamp(self.file)
                     else:
                         if self.sensor is None:
@@ -274,22 +275,22 @@ class getanc:
                                     else:
                                         err_msg = err_msg + ' stop date'
                                 err_msg = err_msg + '. Exiting.'
-                                print err_msg
+                                print(err_msg)
                                 if info[1]:
-                                    print "l1info reported the following error:"
-                                    print '    {0}'.format(info[1])
+                                    print("l1info reported the following error:")
+                                    print('    {0}'.format(info[1]))
                                 sys.exit(1)
                             else:
                                 self.start = ProcUtils.date_convert(startdate + ' ' + starttime, 'h', 'j')
                                 self.stop = ProcUtils.date_convert(stopdate + ' ' + stoptime, 'h', 'j')
 
         if self.verbose:
-            print ""
-            print "Input file: " + str(self.file)
-            print "Start time: " + str(self.start)
-            print "End time: " + str(self.stop)
-            print ""
-
+            print()
+            print("Input file: " + str(self.file))
+            print("Sensor    : " + str(self.sensor))
+            print("Start time: " + str(self.start))
+            print("End time  : " + str(self.stop))
+            print()
 
     def set_opt_flag(self, key, off=False):
         """
@@ -307,14 +308,13 @@ class getanc:
         else:
             self.opt_flag = self.opt_flag + optkey[key]
 
-
     def finddb(self):
         """
         Checks local db for anc files.
         """
         import os
         import modules.ancDB as db
-#        import modules.ancDBmysql as db
+        #        import modules.ancDBmysql as db
 
         if len(os.path.dirname(self.ancdb)):
             self.dirs['log'] = os.path.dirname(self.ancdb)
@@ -322,8 +322,8 @@ class getanc:
 
         if not os.path.exists(self.dirs['log']):
             self.ancdb = os.path.basename(self.ancdb)
-            print '''Directory %s does not exist.
-Using current working directory for storing the ancillary database file: %s''' % (self.dirs['log'], self.ancdb)
+            print('''Directory %s does not exist.
+Using current working directory for storing the ancillary database file: %s''' % (self.dirs['log'], self.ancdb))
             self.dirs['log'] = self.dirs['run']
 
         self.ancdb = os.path.join(self.dirs['log'], self.ancdb)
@@ -334,13 +334,13 @@ Using current working directory for storing the ancillary database file: %s''' %
         ancdatabase = db.ancDB(dbfile=self.ancdb)
         if not os.path.getsize(self.ancdb):
             if self.verbose:
-                print "Creating database: %s " % self.ancdb
+                print("Creating database: %s " % self.ancdb)
             ancdatabase.openDB()
             ancdatabase.create_db()
         else:
             ancdatabase.openDB()
             if self.verbose:
-                print "Searching database: %s " % self.ancdb
+                print("Searching database: %s " % self.ancdb)
 
         filekey = os.path.basename(self.file)
         status = ancdatabase.check_file(filekey)
@@ -360,8 +360,8 @@ Using current working directory for storing the ancillary database file: %s''' %
         if status and not self.db_status < 0:
             if not self.refreshDB:
                 if self.db_status > 0:
-                    print "Warning! Non-optimal data exist in local repository."
-                    print "Consider re-running with the --refreshDB option to check for optimal ancillary files"
+                    print("Warning! Non-optimal data exist in local repository.")
+                    print("Consider re-running with the --refreshDB option to check for optimal ancillary files")
                 return 1
             else:
                 return 0
@@ -373,19 +373,16 @@ Using current working directory for storing the ancillary database file: %s''' %
         Execute the display_ancillary_files search and populate the locate cache database
         """
         import os
-        import re
         import sys
-        import httplib
         import modules.ancDB as db
         import json
 
-#        import modules.ancDBmysql as db
+        #        import modules.ancDBmysql as db
 
-        #dlstat = 0
-
+        # dlstat = 0
 
         msn = {"modisa": "A", "modist": "T", "aqua": "A", "terra": "T", "meris": "M", "seawifs": "S", "octs": "O",
-               "czcs": "C", "aquarius":"Q", "viirs":"V"}
+               "czcs": "C", "aquarius": "Q", "viirs": "V"}
 
         ProcUtils.remove(self.server_file)
 
@@ -400,27 +397,28 @@ Using current working directory for storing the ancillary database file: %s''' %
             opt_flag = ''
 
         msnchar = 'A'
-        if msn.has_key(str(self.sensor).lower()):
+        if str(self.sensor).lower() in msn:
             msnchar = msn[str(self.sensor).lower()]
 
         if self.stop is None:
-            dlstat = ProcUtils.httpdl(self.query_site,'/'.join(['/api',anctype,msnchar,self.start,'', opt_flag]),
-                                        os.path.abspath(os.path.dirname(self.server_file)),
-                                        outputfilename=self.server_file,
-                                        timeout=self.timeout,
-                                        verbose=self.verbose
-            )
+            dlstat = ProcUtils.httpdl(self.query_site, '/'.join(['/api', anctype, msnchar, self.start, '', opt_flag]),
+                                      os.path.abspath(os.path.dirname(self.server_file)),
+                                      outputfilename=self.server_file,
+                                      timeout=self.timeout,
+                                      verbose=self.verbose
+                                      )
         else:
-            dlstat = ProcUtils.httpdl(self.query_site,'/'.join(['/api',anctype,msnchar,self.start,self.stop,opt_flag]),
-                                        os.path.abspath(os.path.dirname(self.server_file)),
-                                        outputfilename=self.server_file,
-                                        timeout=self.timeout,
-                                        verbose=self.verbose
-            )
+            dlstat = ProcUtils.httpdl(self.query_site,
+                                      '/'.join(['/api', anctype, msnchar, self.start, self.stop, opt_flag]),
+                                      os.path.abspath(os.path.dirname(self.server_file)),
+                                      outputfilename=self.server_file,
+                                      timeout=self.timeout,
+                                      verbose=self.verbose
+                                      )
         gc.collect()
 
         if dlstat:
-            print "Error retrieving ancillary file list"
+            print("Error retrieving ancillary file list")
             sys.exit(dlstat)
 
         with open(self.server_file, 'r') as data_file:
@@ -457,22 +455,22 @@ Using current working directory for storing the ancillary database file: %s''' %
         # 16 - invalid mission
 
         if self.server_status == 1 or dlstat or self.db_status is None:
-            print "ERROR: The display_ancillary_files.cgi script encountered an error and returned the following text:"
-            print ""
+            print("ERROR: The display_ancillary_files.cgi script encountered an error and returned the following text:")
+            print()
             ProcUtils.cat(self.server_file)
             sys.exit(99)
 
         if self.db_status == 31:
             ProcUtils.remove(self.anc_file)
-            print "No ancillary files currently exist that correspond to the start time " + self.start
-            print "No parameter file created (l2gen defaults to the climatologies)."
+            print("No ancillary files currently exist that correspond to the start time " + self.start)
+            print("No parameter file created (l2gen defaults to the climatologies).")
             ProcUtils.remove(self.server_file)
             sys.exit(31)
 
         # extra checks
         for f in (self.files.keys()):
             if not len(self.files[f]):
-                print "ERROR: display_ancillary_files.cgi script returned blank entry for %s. Exiting." % f
+                print("ERROR: display_ancillary_files.cgi script returned blank entry for %s. Exiting." % f)
                 sys.exit(99)
 
         ancdatabase = db.ancDB(dbfile=self.ancdb)
@@ -490,26 +488,36 @@ Using current working directory for storing the ancillary database file: %s''' %
                 missing.append(anctype)
                 continue
             if self.file and self.dl:
-                year = self.files[anctype][1:5]
-                day = self.files[anctype][5:8]
                 path = self.dirs['anc']
-
-                if self.atteph and not re.search(".(att|eph)$", self.files[anctype]):
-                    year = self.files[anctype].split('.')[1][1:5]
-                    day = self.files[anctype].split('.')[1][5:8]
-
-                if self.curdir is False:
+                if not self.curdir:
+                    year, day = self.yearday(self.files[anctype])
                     path = os.path.join(path, year, day)
 
                 filekey = os.path.basename(self.file)
                 ancdatabase.insert_record(satfile=filekey, starttime=self.start, stoptime=self.stop, anctype=anctype,
-                    ancfile=self.files[anctype], ancpath=path, dbstat=self.db_status,
-                    atteph=self.atteph)
+                                          ancfile=self.files[anctype], ancpath=path, dbstat=self.db_status,
+                                          atteph=self.atteph)
 
         ancdatabase.closeDB()
-        #remove missing items
+        # remove missing items
         for anctype in missing:
             self.files.__delitem__(anctype)
+
+    def yearday(self, ancfile):
+        import re
+        if ancfile.startswith('MERRA'):
+            from datetime import datetime
+            ymd = ancfile.split('.')[4]
+            dt = datetime.strptime(ymd, '%Y%m%d')
+            year = dt.strftime('%Y')
+            day = dt.strftime('%j')
+        elif self.atteph and not re.search(".(att|eph)$", ancfile):
+            year = ancfile.split('.')[1][1:5]
+            day = ancfile.split('.')[1][5:8]
+        else:
+            year = ancfile[1:5]
+            day = ancfile[5:8]
+        return year, day
 
     def locate(self, forcedl=False):
         """
@@ -518,8 +526,6 @@ Using current working directory for storing the ancillary database file: %s''' %
         import os
         import re
         import sys
-        import httplib
-        from urlparse import urlparse
 
         FILES = []
         for f in (self.files.keys()):
@@ -533,31 +539,19 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         dl_msg = 1
 
-        proxy=None
-        proxy_set = os.environ.get('http_proxy')
-        if proxy_set:
-            proxy = urlparse(proxy_set)
-
-        if proxy is None:
-            urlConn = httplib.HTTPSConnection(self.data_site,timeout=self.timeout)
-        else:
-            urlConn = httplib.HTTPSConnection(proxy.hostname,proxy.port,timeout=self.timeout)
+        urlConn, proxy = ProcUtils.httpinit(self.data_site, timeout=self.timeout)
 
         for FILE in FILES:
-            year = FILE[1:5]
-            day = FILE[5:8]
-            if self.atteph and not re.search(".(att|eph)$", FILE):
-                year = FILE.split('.')[1][1:5]
-                day = FILE.split('.')[1][5:8]
+            year, day = self.yearday(FILE)
 
             # First check hard disk...unless forcedl is set
 
             if self.curdir:
-                self.dirs['path'] = '.' #self.dirs['anc']
+                self.dirs['path'] = '.'  # self.dirs['anc']
                 if os.path.exists(FILE) and forcedl is False:
                     download = 0
                     if self.verbose:
-                        print "  Found: %s" % FILE
+                        print("  Found: %s" % FILE)
                 else:
                     download = 1
             else:
@@ -567,7 +561,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                 if os.path.exists(os.path.join(ancdir, year, day, FILE)) and forcedl is False:
                     download = 0
                     if self.verbose:
-                        print "  Found: %s/%s" % (self.dirs['path'], FILE)
+                        print("  Found: %s/%s" % (self.dirs['path'], FILE))
                 else:
                     download = 1
 
@@ -577,26 +571,26 @@ Using current working directory for storing the ancillary database file: %s''' %
                 if self.dl is False:
                     if dl_msg == 1:
                         if self.verbose:
-                            print "Downloads disabled. The following missing file(s) will not be downloaded:"
+                            print("Downloads disabled. The following missing file(s) will not be downloaded:")
                         dl_msg = 0
                     if self.verbose:
-                        print "  " + FILE
+                        print("  " + FILE)
                 else:
 
                     if self.verbose:
-                        print "Downloading '" + FILE + "' to " + self.dirs['path']
+                        print("Downloading '" + FILE + "' to " + self.dirs['path'])
                     status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
-                            self.dirs['path'],timeout=self.timeout, uncompress=True,
-                            reuseConn=True, urlConn=urlConn, verbose=self.verbose)
+                                              self.dirs['path'], timeout=self.timeout, uncompress=True,
+                                              reuseConn=True, urlConn=urlConn, verbose=self.verbose)
                     gc.collect()
                     if status:
-                        print "*** ERROR: The HTTP transfer failed with status code " + str(status) + "."
-                        print "*** Please check your network connection and for the existence of the remote file:"
-                        print "*** " + '/'.join([self.data_site, 'cgi/getfile', FILE])
-                        print "***"
-                        print "*** Also check to make sure you have write permissions under the directory:"
-                        print "*** " + self.dirs['path']
-                        print ""
+                        print("*** ERROR: The HTTP transfer failed with status code " + str(status) + ".")
+                        print("*** Please check your network connection and for the existence of the remote file:")
+                        print("*** " + '/'.join([self.data_site, 'cgi/getfile', FILE]))
+                        print("***")
+                        print("*** Also check to make sure you have write permissions under the directory:")
+                        print("*** " + self.dirs['path'])
+                        print()
                         ProcUtils.remove(os.path.join(self.dirs['path'], FILE))
                         ProcUtils.remove(self.server_file)
                         sys.exit(1)
@@ -613,7 +607,6 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         urlConn.close()
 
-
     def write_anc_par(self):
         """
         create the .anc parameter file
@@ -626,84 +619,93 @@ Using current working directory for storing the ancillary database file: %s''' %
                 if self.db_status & 1:
                     NONOPT = " ".join([NONOPT, 'MET'])
                 else:
-                    for key in (['met1', 'met2','atm1','atm2']):
-                        if self.files.has_key(key):
-                            continue
-                        else:
+                    for key in (['met1', 'met2', 'atm1', 'atm2']):
+                        if key not in self.files:
                             NONOPT = " ".join([NONOPT, 'MET'])
-                            print '*** WARNING: No optimal {0} files found.'.\
-                                format(key)
+                            print('*** WARNING: No optimal {0} files found.'.format(key))
                             break
 
                 for key in (['sstfile1', 'sstfile2']):
-                    if self.files.has_key(key)and (not self.db_status & 4):
-                        continue
-                    else:
+                    if key not in self.files or (self.db_status & 4):
                         NONOPT = " ".join([NONOPT, 'SST'])
-                        print "*** WARNING: No optimal %s files found." % key
+                        print("*** WARNING: No optimal %s files found." % key)
                         break
 
                 for key in (['icefile1', 'icefile2']):
-                    if self.files.has_key(key)and (not self.db_status & 16):
-                        continue
-                    else:
+                    if key not in self.files or (self.db_status & 16):
                         NONOPT = " ".join([NONOPT, 'Sea Ice'])
-                        print "*** WARNING: No optimal %s files found." % key
+                        print("*** WARNING: No optimal %s files found." % key)
                         break
 
                 for key in (['sssfile1', 'sssfile2']):
-                    if self.files.has_key(key)and (not self.db_status & 32):
-                        continue
-                    else:
+                    if key not in self.files or (self.db_status & 32):
                         NONOPT = " ".join([NONOPT, 'SSS'])
-                        print "*** WARNING: No optimal %s files found." % key
+                        print("*** WARNING: No optimal %s files found." % key)
                         break
 
                 for key in (['xrayfile1', 'xrayfile2']):
-                    if self.files.has_key(key)and (not self.db_status & 64):
-                        continue
-                    else:
+                    if key not in self.files or (self.db_status & 64):
                         NONOPT = " ".join([NONOPT, 'X-ray'])
-                        print "*** WARNING: No optimal %s files found." % key
+                        print("*** WARNING: No optimal %s files found." % key)
                         break
-                if self.files.has_key('scat') and (self.db_status & 128):
+
+                if 'scat' not in self.files or (self.db_status & 128):
                     NONOPT = " ".join([NONOPT, 'SCAT'])
-                    print "*** WARNING: No scatterometer file found."
+                    print("*** WARNING: No scatterometer file found.")
+
+                if 'tecfile' not in self.files or (self.db_status & 256):
+                    NONOPT = " ".join([NONOPT, 'TEC'])
+                    print("*** WARNING: No TEC file found.")
+
+                if 'swhfile' not in self.files or (self.db_status & 512):
+                    NONOPT = " ".join([NONOPT, 'SWH'])
+                    print("*** WARNING: No Significant Wave Height file found.")
+
+                if 'frozenfile' not in self.files or (self.db_status & 1024):
+                    NONOPT = " ".join([NONOPT, 'Frozen'])
+                    print("*** WARNING: No Frozen file found.")
+
+                if 'geosfile' not in self.files or (self.db_status & 2048):
+                    NONOPT = " ".join([NONOPT, 'GEOS'])
+                    print("*** WARNING: No GEOS file found.")
+
+                for key in (['argosfile1', 'argosfile2']):
+                    if key not in self.files or (self.db_status & 4096):
+                        NONOPT = " ".join([NONOPT, 'ARGOS'])
+                        print("*** WARNING: No optimal %s files found." % key)
+                        break
+
             else:
 
                 if self.db_status & 1:
                     NONOPT = " ".join([NONOPT, 'MET'])
                 else:
                     for key in (['met1', 'met2', 'met3']):
-                        if self.files.has_key(key):
-                            continue
-                        else:
+                        if key not in self.files:
                             NONOPT = " ".join([NONOPT, 'MET'])
-                            print "*** WARNING: No optimal MET files found."
+                            print("*** WARNING: No optimal MET files found.")
                             break
 
                 if self.db_status & 2:
                     NONOPT = " ".join([NONOPT, 'OZONE'])
                 else:
                     for key in (['ozone1', 'ozone2', 'ozone3']):
-                        if self.files.has_key(key):
-                            continue
-                        else:
+                        if key not in self.files:
                             NONOPT = " ".join([NONOPT, 'OZONE'])
-                            print "*** WARNING: No optimal MET files found."
+                            print("*** WARNING: No optimal OZONE files found.")
                             break
 
-                if self.opt_flag & 1 and (not self.files.has_key('sstfile') or (self.db_status & 4)):
+                if self.opt_flag & 1 and ('sstfile' not in self.files or (self.db_status & 4)):
                     NONOPT = " ".join([NONOPT, 'SST'])
-                    print "*** WARNING: No optimal SST files found."
+                    print("*** WARNING: No optimal SST files found.")
 
-                if self.opt_flag & 2 and (not self.files.has_key('no2file') or (self.db_status & 8)):
+                if self.opt_flag & 2 and ('no2file' not in self.files or (self.db_status & 8)):
                     NONOPT = " ".join([NONOPT, 'NO2'])
-                    print "*** WARNING: No optimal NO2 files found."
+                    print("*** WARNING: No optimal NO2 files found.")
 
-                if self.opt_flag & 4 and (not self.files.has_key('icefile') or (self.db_status & 16)):
+                if self.opt_flag & 4 and ('icefile' not in self.files or (self.db_status & 16)):
                     NONOPT = " ".join([NONOPT, 'Sea Ice'])
-                    print "*** WARNING: No optimal ICE files found."
+                    print("*** WARNING: No optimal ICE files found.")
 
         ancpar = open(self.anc_file, 'w')
 
@@ -714,40 +716,40 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         if self.verbose:
             if self.atteph:
-                print "All required attitude and ephemeris files successfully determined and downloaded."
+                print("All required attitude and ephemeris files successfully determined and downloaded.")
             else:
-                print ""
-                print "Created '" + self.anc_file + "' l2gen parameter text file:\n"
+                print()
+                print("Created '" + self.anc_file + "' l2gen parameter text file:\n")
 
         if self.verbose or self.printlist:
             ProcUtils.cat(self.anc_file)
 
         if len(NONOPT):
             if self.db_status == 31:
-                print "No optimal ancillary files were found."
-                print "No parameter file was created (l2gen defaults to the climatological ancillary data)."
-                print "Exiting."
+                print("No optimal ancillary files were found.")
+                print("No parameter file was created (l2gen defaults to the climatological ancillary data).")
+                print("Exiting.")
                 ProcUtils.remove(self.server_file)
             else:
-                print ""
-                print "*** WARNING: The following ancillary data types were missing or are not optimal: " + NONOPT
+                print()
+                print("*** WARNING: The following ancillary data types were missing or are not optimal: " + NONOPT)
                 if self.db_status & 3:
-                    print "*** Beware that certain MET and OZONE files just chosen by this program are not optimal."
-                    print"*** For near real-time processing the remaining files may become available soon."
+                    print("*** Beware that certain MET and OZONE files just chosen by this program are not optimal.")
+                    print("*** For near real-time processing the remaining files may become available soon.")
                 elif self.db_status & 1:
-                    print "*** Beware that certain MET files just chosen by this program are not optimal."
-                    print "*** For near real-time processing the remaining files may become available soon."
+                    print("*** Beware that certain MET files just chosen by this program are not optimal.")
+                    print("*** For near real-time processing the remaining files may become available soon.")
                 elif self.db_status & 2:
-                    print "*** Beware that certain OZONE files just chosen by this program are not optimal."
-                    print "*** For near real-time processing the remaining files may become available soon."
+                    print("*** Beware that certain OZONE files just chosen by this program are not optimal.")
+                    print("*** For near real-time processing the remaining files may become available soon.")
         else:
             if self.verbose:
                 if self.dl:
-                    print ""
-                    print "- All optimal ancillary data files were determined and downloaded. -"
+                    print()
+                    print("- All optimal ancillary data files were determined and downloaded. -")
                 else:
-                    print ""
-                    print "- All optimal ancillary data files were determined. -"
+                    print()
+                    print("- All optimal ancillary data files were determined. -")
 
     def cleanup(self):
         """
@@ -756,7 +758,7 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         ProcUtils.remove(self.server_file)
 
-        # if an anc type was turned off but it's db_status bit was on, turn off the
+        # if an anc type was turned off but its db_status bit was on, turn off the
         # status bit so the user (and GUI) won't think anything's wrong
         if not self.atteph:
             if self.db_status & 4 and self.opt_flag & 1:

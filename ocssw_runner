@@ -15,7 +15,9 @@ fi
 
 source $OCSSWROOT/OCSSW_bash.env
 if [ "$OCSSW_ARCH" = "linux" -o "$OCSSW_ARCH" = "linux_64" ] ; then
+  if [ "x`uname -r | grep Microsoft`" == "x" ]; then
     ulimit -s unlimited
+  fi
 fi
 
 $*
