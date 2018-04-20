@@ -21,6 +21,7 @@ local = None
 doNotUpdateRepos = False
 FNULL = open(os.devnull, 'w')
 newDirStructure = True
+saveDir = None
 
 # globals for progress display
 numThings = 1
@@ -109,7 +110,10 @@ def deleteFile(fileName):
     Delete file from the install dir
     """
     try:
-        os.remove(os.path.join(installDir, fileName))
+        if saveDir:
+            shutil.move(os.path.join(installDir, fileName), saveDir)
+        else:
+            os.remove(os.path.join(installDir, fileName))
     except Exception:
         pass
 
@@ -359,6 +363,8 @@ if __name__ == "__main__":
                       default=False, help="use curl for download instead of wget")
     parser.add_option("--no-update", action="store_true", dest='noUpdate', 
                       default=False, help="do not update the git repositories or luts")
+    parser.add_option("--save-dir", action="store", dest="save_dir",
+                      help="destination directory to save all of the install files.")
 
     # add missions
     parser.add_option("--aquarius", action="store_true", dest="aquarius",
@@ -482,6 +488,14 @@ if __name__ == "__main__":
         options.aqua = True
         options.terra = True
 
+    # set the save directory
+    if options.save_dir:
+        saveDir = options.save_dir
+        if not os.path.isdir(saveDir):
+            if verbose:
+                print('Creating directory', saveDir)
+            os.makedirs(saveDir)
+    
     # print out info if in verbose mode
     if verbose:
         print('\ngitBase     =', gitBase)
@@ -624,8 +638,12 @@ if __name__ == "__main__":
 
     # download OCSSW_bash.env
     printProgress('OCSSW_bash.env')
-    installFile('OCSSW_bash.env.' + gitBranch, continueFlag=False)
-    os.rename(os.path.join(installDir, 'OCSSW_bash.env.' + gitBranch), os.path.join(installDir, 'OCSSW_bash.env'))
+    tmpFile = 'OCSSW_bash.env.' + gitBranch
+    installFile(tmpFile, continueFlag=False)
+    tmpFile = os.path.join(installDir, tmpFile)
+    if saveDir:
+        shutil.copy2(tmpFile, saveDir)
+    os.rename(tmpFile, os.path.join(installDir, 'OCSSW_bash.env'))
     
     # install share/ocrvc
     printProgress('ocrvc')

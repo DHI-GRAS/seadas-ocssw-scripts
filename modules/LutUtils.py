@@ -109,7 +109,8 @@ class LutUtils:
     def get_luts(self):
 
         # regex for all valid suffixes
-        suffix = '\.(hdf|h5|nc|dat|txt)$'
+        # suffix = '\.(hdf|h5|nc|dat|txt)$'
+        suffix = ''  # take whatever's there
         query = '?format=json'
 
         downloaded = []
