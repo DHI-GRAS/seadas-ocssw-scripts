@@ -27,9 +27,9 @@ def main():
         The argument-list is a set of --keyword value pairs.
 
       Example usage calls:
-         fd_matchup.py --sat=modist --slat=23.0 --slon=170.0 --stime=2015-11-16T09:00:00Z --time_window=8
+         fd_matchup.py --sat=modist --slat=23.0 --slon=170.0 --stime=2015-11-16T09:00:00Z --max_time_diff=8
          fd_matchup.py --sat=modist --stime=2015-11-15T09:00:00Z --etime=2015-11-17T09:00:00Z --slat=23.0 --elat=25.0 --slon=170.0 --elon=175.0
-         fd_matchup.py --sat=modist --time_window=4 --seabass_file=[your SB file name].sb
+         fd_matchup.py --sat=modist --max_time_diff=4 --seabass_file=[your SB file name].sb
 
       Caveats:
         * This script is designed to work with files that have been properly
@@ -115,15 +115,16 @@ def main():
 
     parser.add_argument('--stime', nargs=1, type=str, help='''\
       Time (point) of interest in UTC
-      Default behavior: returns matches within 90 minutes before and 90 minutes after this given time
+      Default behavior: returns matches within +/- MAX_TIME_DIFF (default +/-3 hours) about this given time
+      If used with ETIME, this creates a search time window, between STIME and ETIME.
       Valid format: string of the form: yyyy-mm-ddThh:mm:ssZ
-      OPTIONALLY: Use with --time_window or --etime
+      OPTIONALLY: Use with --max_time_diff or --etime
       ''')
 
-    parser.add_argument('--time_window', nargs=1, type=int, default=([3]), help=('''\
-      Hour time window about given time(s)
-      OPTIONAL: default value 3 hours (i.e. - 90 minutes before and 90 minutes after given time)
-      Valid values: integer hours (1-11)
+    parser.add_argument('--max_time_diff', nargs=1, type=int, default=([3]), help=('''\
+      Maximum time difference between satellite and in situ point
+      OPTIONAL: default value +/-3 hours
+      Valid values: integer hours (1-36)
       Use with --seabass_file OR --stime
       '''))
 
@@ -170,13 +171,13 @@ def main():
         if not dict_args['get_data'][0] or not os.path.exists(dict_args['get_data'][0]):
             parser.error('invalid --get_data target download directory provided. Do not use any trailing slash or backslash characters.')
 
-    if dict_args['time_window'][0] < 0 or dict_args['time_window'][0] > 11:
-        parser.error('invalid --time_window value provided. Please specify an integer between 0 and 11 hours. Received --time_window = ' + str(dict_args['time_window'][0]))
+    if dict_args['max_time_diff'][0] < 0 or dict_args['max_time_diff'][0] > 36:
+        parser.error('invalid --max_time_diff value provided. Please specify an integer between 0 and 36 hours. Received --max_time_diff = ' + str(dict_args['max_time_diff'][0]))
     else:
-        twin_Hmin = -1 * int(dict_args['time_window'][0] / 2)
-        twin_Mmin = -60 * int((dict_args['time_window'][0] / 2) - int(dict_args['time_window'][0] / 2))
-        twin_Hmax = 1 * int(dict_args['time_window'][0] / 2)
-        twin_Mmax = 60 * ((dict_args['time_window'][0] / 2) - int(dict_args['time_window'][0] / 2));
+        twin_Hmin = -1 * int(dict_args['max_time_diff'][0])
+        twin_Mmin = -60 * int((dict_args['max_time_diff'][0]) - int(dict_args['max_time_diff'][0]))
+        twin_Hmax = 1 * int(dict_args['max_time_diff'][0])
+        twin_Mmax = 60 * ((dict_args['max_time_diff'][0]) - int(dict_args['max_time_diff'][0]));
 
     granlinks = OrderedDict()
 
@@ -531,7 +532,7 @@ def processANDprint_CMRreq(content, granlinks, plat_ls, args, dict_args, tim_min
     except:
         print('WARNING: No matching granules found for ' + plat_ls[1] + '/' + plat_ls[0] + \
               ' containing the requested lat/lon area during the ' + \
-              str(dict_args['time_window'][0]) + '-hr window of ' + \
+              str(dict_args['max_time_diff'][0]) + '-hr window of ' + \
               tim_min.strftime('%Y-%m-%dT%H:%M:%SZ') + ' to ' + tim_max.strftime('%Y-%m-%dT%H:%M:%SZ'))
 
     return
