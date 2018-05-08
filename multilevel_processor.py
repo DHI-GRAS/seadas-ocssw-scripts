@@ -594,6 +594,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     sys.stdout.flush()
     try:
         for ndx, proc in enumerate(processors):
+            print ('Running {0}: processor {1} of {2}.'.format(
+                 proc.target_type, ndx + 1, len(processors)))
             logging.debug('')
             log_msg = 'Processing for {0}:'.format(proc.target_type)
             logging.debug(log_msg)
@@ -667,8 +669,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                     proc.target_type, proc_timer.get_total_time_str())
                 print (timing_msg)
                 logging.info(timing_msg)
-            print ('{0}: processor {1} of {2} complete.'.format(
-                cfg_data.prog_name, ndx + 1, len(processors)))
+#             print ('{0}: processor {1} of {2} complete.'.format(
+#                 cfg_data.prog_name, ndx + 1, len(processors)))
             sys.stdout.flush()
             logging.debug('Processing complete for "%s".', proc.target_type)
     except Exception:
@@ -1655,7 +1657,7 @@ def run_l2gen(proc):
               format(proc.rule_set.rules[proc.target_type].action))
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
-    print ('L2GEN_FILE=' + proc.output_file)
+    logging.debug('L2GEN_FILE=' + proc.output_file)
     with open('_mp_l2gen_file.out', 'wt') as tmp_file:
         tmp_file.write(proc.output_file)
 
@@ -1972,7 +1974,7 @@ input_file_data = {}
 
 if os.environ['OCSSWROOT']:
     OCSSWROOT_DIR = os.environ['OCSSWROOT']
-    print ('OCSSWROOT -> {0}'.format(OCSSWROOT_DIR))
+    logging.debug('OCSSWROOT -> {0}'.format(OCSSWROOT_DIR))
 else:
     sys.exit('Error! Cannot find OCSSWROOT environment variable.')
 
