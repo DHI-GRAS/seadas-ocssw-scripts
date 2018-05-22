@@ -312,13 +312,14 @@ def convertToNewDirStructure():
         if os.path.isdir(os.path.join(installDir, 'run', 'scripts')):
             print('Converting to new directory structure')
 
-            # need to delete Aqua Terra and VIIRS since those directories were reworked
+            # need to delete Aqua Terra VIIRS and MSI since those directories were reworked
             shutil.rmtree(os.path.join(installDir, 'run', 'data', 'hmodisa'), True)
             shutil.rmtree(os.path.join(installDir, 'run', 'data', 'hmodist'), True)
             shutil.rmtree(os.path.join(installDir, 'run', 'data', 'modis'), True)
             shutil.rmtree(os.path.join(installDir, 'run', 'data', 'modisa'), True)
             shutil.rmtree(os.path.join(installDir, 'run', 'data', 'modist'), True)
             shutil.rmtree(os.path.join(installDir, 'run', 'data', 'viirsn'), True)
+            shutil.rmtree(os.path.join(installDir, 'run', 'data', 'msi'), True)
             
             # now move around the rest
             shutil.move(os.path.join(installDir, 'run', 'bin', getArch()), os.path.join(installDir, 'bin'))
@@ -385,8 +386,10 @@ if __name__ == "__main__":
                       default=False, help="install MODIS Terra files")
     parser.add_option("--mos", action="store_true", dest="mos", default=False,
                       help="install MOS files")
-    parser.add_option("--msi", action="store_true", dest="msi", default=False,
-                      help="install MSI files")
+    parser.add_option("--msis2a", action="store_true", dest="msis2a", default=False,
+                      help="install MSI S2A files")
+    parser.add_option("--msis2b", action="store_true", dest="msis2b", default=False,
+                      help="install MSI S2B files")
     parser.add_option("--ocm1", action="store_true", dest="ocm1", default=False,
                       help="install OCM1 files")
     parser.add_option("--ocm2", action="store_true", dest="ocm2", default=False,
@@ -587,8 +590,12 @@ if __name__ == "__main__":
             numThings += 1 # luts
     if options.mos:
         numThings += 1     # mos
-    if options.msi:
+    if options.msis2a or options.msis2b:
         numThings += 1     # msi
+    if options.msis2a:
+        numThings += 1     # msis2a
+    if options.msis2b:
+        numThings += 1     # msis2b
     if options.ocm1:
         numThings += 1     # ocm1
     if options.ocm2:
@@ -708,9 +715,27 @@ if __name__ == "__main__":
         installGitRepo('mos', shareDir + 'mos')
 
     # install share/msi
-    if options.msi:
+    if options.msis2a or options.msis2b:
         printProgress('msi')
-        installGitRepo('msi', shareDir + 'msi')
+        if newDirStructure:
+            installGitRepo('msis2', shareDir + 'msi')
+
+    # install share/msis2a
+    if options.msis2a:
+        printProgress('msis2a')
+        if newDirStructure:
+            installGitRepo('msis2a', shareDir + 'msi/s2a')
+        else:
+            installGitRepo('msi', shareDir + 'msi')
+
+    # install share/msis2b
+    if options.msis2b:
+        printProgress('msis2b')
+        if newDirStructure:
+            installGitRepo('msis2b', shareDir + 'msi/s2b')
+        else:
+            print("Error - Must install v7.5 or greater for MSI S2B")
+            exit(1)
 
     # install share/ocm1
     if options.ocm1:
