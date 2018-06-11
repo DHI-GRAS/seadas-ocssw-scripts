@@ -149,22 +149,40 @@ class ancDB:
             all bits off means all is well in the world
             value of -1 means have not checked for ancfiles yet
             Ancillary:
-                bit 1 - missing one or more MET
-                bit 2 - missing one or more OZONE
-                bit 3 - missing SST
-                bit 4 - missing NO2
-                bit 5 - missing ICE
+                bit 0 - missing one or more MET
+                bit 1 - missing one or more OZONE
+                bit 2 - missing SST
+                bit 3 - missing NO2
+                bit 4 - missing ICE
             Attitude-Ephemeris
-                bit 1 - predicted attitude selected
-                bit 2 - predicted ephemeris selected
-                bit 4 - no attitude found
-                bit 8 - no ephemeris found
-                bit 16 - invalid mission
+                bit 0 - predicted attitude selected
+                bit 1 - predicted ephemeris selected
+                bit 2 - no attitude found
+                bit 3 - no ephemeris found
+                bit 4 - invalid mission
         """
 
-        statchk = {'atm':1,'met': 1, 'ozone': 2, 'sstfile': 4, 'no2file': 8, 'icefile': 16, 'sssfile': 32,
-                   'xrayfile': 64, 'att': 1, 'eph': 2, 'scat': 128, 'tecfile': 256, 'swhfile':512, 'frozenfile':1024,
-                   'geosfile': 2048, 'argosfile': 4096}
+        statchk = {'atm': 1, 'met': 1,  # bit 0
+                   'ozone': 2,
+                   'sstfile': 4,
+                   'no2file': 8,
+                   'icefile': 16,    # bit 4
+                   # atteph
+                   'att': 1,
+                   'eph': 2,
+                   # aquarius
+                   'sssfile': 32,
+                   'xrayfile': 64,
+                   'scat': 128,
+                   'tecfile': 256,
+                   'swhfile': 512,
+                   'frozenfile': 1024,
+                   'geosfile': 2048,
+                   'argosfile': 4096,
+                   'sif': 8192,  # sif_file
+                   'pert': 16384, # l2_uncertainties_file
+                   'sssmatchup': 32768, # sss_matchup_file
+                   'rim_file': 65536 }
 
         if re.search("\d$", anctype):
             anctype = anctype[0:len(anctype) - 1]

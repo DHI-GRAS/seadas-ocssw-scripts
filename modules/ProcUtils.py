@@ -50,9 +50,9 @@ def httpinit(url, timeout=10, urlConn=None):
     return urlConn, proxy
 
 
-def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
-           uncompress=False, timeout=10., reqHeaders={}, verbose=False,
-           reuseConn=False, urlConn=None):
+def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
+            uncompress=False, timeout=30., reqHeaders={}, verbose=False,
+            reuseConn=False, urlConn=None):
     """
     Copy the contents of a file from a given URL to a local file
     Inputs:
@@ -102,16 +102,16 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
         if response.status in (400, 401, 403, 404, 416):
             status = response.status
         elif response.status not in (200, 206):
+            urlConn.close()
             if ntries > 0:
-                urlConn.close()
                 if verbose:
                     print "Connection interrupted, retrying up to %d more time(s)" % ntries
                 sleep(sleepytime)
-                status = httpdl(url, request, localpath=localpath,
-                                outputfilename=outputfilename,
-                                ntries=ntries - 1, timeout=timeout,
-                                uncompress=uncompress, reuseConn=reuseConn,
-                                urlConn=None, verbose=verbose)
+                urlConn, status = _httpdl(url, request, localpath=localpath,
+                                          outputfilename=outputfilename,
+                                          ntries=ntries - 1, timeout=timeout,
+                                          uncompress=uncompress, reuseConn=reuseConn,
+                                          urlConn=None, verbose=verbose)
             else:
                 print 'We failed to reach a server.'
                 print 'Please retry this request at a later time.'
@@ -119,25 +119,27 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                 print 'HTTP Error: {0} - {1}'.format(response.status,
                                                      response.reason)
                 status = response.status
+                urlConn = None
 
     except socket.error as socmsg:
+        if response:
+            urlConn.close()
         if ntries > 0:
-            if response:
-                urlConn.close()
             if verbose:
                 print 'Connection error, retrying up to {0} more time(s)'. \
                     format(ntries)
             sleep(sleepytime)
-            status = httpdl(url, request, localpath=localpath,
-                            outputfilename=outputfilename, ntries=ntries - 1,
-                            timeout=timeout, uncompress=uncompress,
-                            reuseConn=reuseConn, urlConn=None, verbose=verbose)
+            urlConn, status = _httpdl(url, request, localpath=localpath,
+                                      outputfilename=outputfilename, ntries=ntries - 1,
+                                      timeout=timeout, uncompress=uncompress,
+                                      reuseConn=reuseConn, urlConn=None, verbose=verbose)
         else:
             print 'URL attempted: %s' % url
             print 'Well, this is embarrassing...an error occurred that we just cannot get past...'
             print 'Here is what we know: %s' % socmsg
             print 'Please retry this request at a later time.'
             status = 500
+            urlConn = None
     except:
         if response:
             print 'Well, the server did not like this...reports: {0}'. \
@@ -179,11 +181,11 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                     print bytestr, sleepytime
                     urlConn.close()
                     sleep(sleepytime)
-                    status = httpdl(url, request, localpath=localpath,
-                                    outputfilename=outputfilename,
-                                    timeout=timeout, uncompress=uncompress,
-                                    reqHeaders=reqHeader, reuseConn=reuseConn,
-                                    urlConn=None, verbose=verbose)
+                    urlConn, status = _httpdl(url, request, localpath=localpath,
+                                              outputfilename=outputfilename,
+                                              timeout=timeout, uncompress=uncompress,
+                                              reqHeaders=reqHeader, reuseConn=reuseConn,
+                                              urlConn=None, verbose=verbose)
 
             if not reuseConn:
                 urlConn.close()
@@ -199,7 +201,19 @@ def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             if not reuseConn:
                 urlConn.close()
 
-    return status
+    return (urlConn, status)
+
+
+def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
+           uncompress=False, timeout=30., reqHeaders={}, verbose=False,
+           reuseConn=False, urlConn=None):
+    urlConn, status = _httpdl(url, request, localpath, outputfilename, ntries,
+                              uncompress, timeout, reqHeaders, verbose,
+                              reuseConn, urlConn)
+    if reuseConn:
+        return (urlConn, status)
+    else:
+        return status
 
 
 def uncompressFile(compressed_file):

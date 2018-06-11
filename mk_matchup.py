@@ -110,7 +110,7 @@ def main():
 
     parser.add_argument('--max_time_diff', nargs=1, default=([3.0]), type=float, help=('''\
       OPTIONAL: maximum time difference between satellite and in situ point
-      Valid value: (1 - 36 hours), default = 3
+      Valid value: (1 - 4 hours), default = 3
       '''))
 
     parser.add_argument('--max_coeff_variation', nargs=1, default=([0.15]), type=float, help=('''\
@@ -142,14 +142,6 @@ def main():
       Valid values: (-180,180E)
       '''))
 
-    parser.add_argument('--verbose', default=False, action='store_true', help=('''\
-      OPTIONAL: Displays reason for failed matchup for each in situ target called.
-      '''))
-
-    parser.add_argument('--no_header_comment', default=False, action='store_true', help=('''\
-      OPTIONAL: Flag to NOT append exclusion criteria to the OFILE header. Useful when running script repeatedly. 
-      '''))
-
     # Exclusion criteria; defaults from:
     # S.W. Bailey and P.J. Werdell, "A multi-sensor approach for the on-orbit validation of ocean color satellite data products", Rem. Sens. Environ. 102, 12-23 (2006).
     # with one exception: The maximum allowed solar zenith angle used here is 70-deg vs the paper's recommended 75-deg.
@@ -178,8 +170,8 @@ def main():
     if (dict_args["min_valid_sat_pix"][0] > 100.0) or (dict_args["min_valid_sat_pix"][0] < 0.0):
         parser.error("invalid --min_valid_sat_pix specified, must be a percentage expressed as a floating point number between 0.0 and 100.0")
 
-    if (dict_args["max_time_diff"][0] > 36) or (dict_args["max_time_diff"][0] < 1):
-        parser.error("invalid --max_time_diff specified, must be a value between 1 and 36")
+    if (dict_args["max_time_diff"][0] > 4) or (dict_args["max_time_diff"][0] < 1):
+        parser.error("invalid --max_time_diff specified, must be a value between 1 and 4")
     else:
         twin_min = -1.0 * dict_args["max_time_diff"][0];
         twin_max =  1.0 * dict_args["max_time_diff"][0];
@@ -248,8 +240,6 @@ def main():
 
             pid = subprocess.run(sys_call_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if pid.returncode == 99:
-                if dict_args['verbose']:
-                    print('No matchup: in situ target not in granule')
                 continue #no valid matchup
             elif pid.returncode == 101 or pid.returncode == 102:
                 parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. ' + \
@@ -281,8 +271,6 @@ def main():
 
             pid = subprocess.run(sys_call_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if pid.returncode == 99:
-                if dict_args['verbose']:
-                    print('No matchup: in situ target not in granule')
                 continue #no valid matchup
             elif pid.returncode == 101 or pid.returncode == 102:
                 parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. ' + \
@@ -324,8 +312,6 @@ def main():
 
             pid = subprocess.run(sys_call_str, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if pid.returncode == 99:
-                #if dict_args['verbose']:
-                    #print('No matchup: in situ target not in granule.')
                 continue #no valid matchup
             elif pid.returncode == 101 or pid.returncode == 102:
                 parser.error('val_extract failed -- only accepts Level-2 (L2) satellite files. ' + \
@@ -403,28 +389,16 @@ def main():
         # compute and evaluate the max time diff test
         if tim_sat > tim_max or tim_sat < tim_min:
             clean_file_lis(file_del)
-            if dict_args['verbose']:
-                print('No matchup: failed MAX_TIME_DIFF, required =',dict_args["max_time_diff"][0],'Exclusion level = 1, Matrix row =',row)
             continue #no valid matchup
 
         # compute and evaluate the min valid sat pix test
-        if (pix_ct - fpix_ct) != 0:
-            if upix_ct >= dict_args['box_size'][0]:
-                pix_thresh = 100.0 * (upix_ct / (pix_ct - fpix_ct))
-                if pix_thresh < dict_args['min_valid_sat_pix'][0]:
-                    clean_file_lis(file_del)
-                    if dict_args['verbose']:
-                        print('No matchup: failed MIN_VALID_SAT_PIX, required =',dict_args['min_valid_sat_pix'][0],'found =',pix_thresh,'Exclusion level = 4, Matrix row =',row)
-                    continue #no valid matchup
-            else:
+        if (pix_ct - fpix_ct) != 0 and upix_ct >= dict_args['box_size'][0]:
+            pix_thresh = 100.0 * (upix_ct / (pix_ct - fpix_ct))
+            if pix_thresh < dict_args['min_valid_sat_pix'][0]:
                 clean_file_lis(file_del)
-                if dict_args['verbose']:
-                    print('No matchup: failed MIN_VALID_SAT_PIX, extracted satellite pixels less than box size, required =',dict_args['box_size'][0],'found =',upix_ct,'Exclusion level = 3, Matrix row =',row)
                 continue #no valid matchup
         else:
             clean_file_lis(file_del)
-            if dict_args['verbose']:
-                print('No matchup: failed MIN_VALID_SAT_PIX, division by zero when deriving pix_thresh due to required L2FLAG criteria, Exclusion level = 2, Data row =',row)
             continue #no valid matchup
 
         # compute and evaluate the CV test
@@ -451,8 +425,6 @@ def main():
         if cvs: #handles non-OC files, which don't have vars for CV test
             if median(cvs) > dict_args['max_coeff_variation'][0]:
                 clean_file_lis(file_del)
-                if dict_args['verbose']:
-                    print('No matchup: failed MAX_COEF_OF_VARIATION, required =',dict_args['max_coeff_variation'][0],'found =',median(cvs),'Exclusion level = 5, Data row =',row)
                 continue #no valid matchup
 
         write_flag = 1 #only write out (write_flag == true), if matchups found
@@ -493,36 +465,35 @@ def main():
         clean_file_lis(file_del)
 
     if write_flag == 1:
-        if not dict_args['no_header_comment']:
-            ds.comments.append(' ')
-            ds.comments.append(' File ammended by OCSSW match-up maker script: mk_matchup.py on ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ',')
-            ds.comments.append(' using satellite data from ' + inst + ' ' + plat + ' granule: ' + dict_args['sat_file'][0])
-            ds.comments.append(' WARNINGS: This script does NOT adjust in situ data to water-leaving values')
-            ds.comments.append('           This script does NOT account for potential oversampling by the in situ data in time or space.')
-            ds.comments.append('           If successive calls to this script are made for a single in situ file AND multiple-valid-overpasses exist,')
-            ds.comments.append('               only the data from the last successive call will be saved to the output file. This may NOT be the best')
-            ds.comments.append('               quality satellite data in space and time.')
-            ds.comments.append(' Default exclusion criteria are obtained from: S.W. Bailey and P.J. Werdell, "A multi-sensor approach')
-            ds.comments.append(' for the on-orbit validation of ocean color satellite data products", Rem. Sens. Environ. 102, 12-23 (2006).')
-            ds.comments.append(' NOTE: The coefficient of variation is computed using all available Rrs between 405nm and 570nm and AOT between 860nm and 900nm,')
-            ds.comments.append('       with the exception of MODIS Rrs land bands at 469nm and 555nm')
-            ds.comments.append(' EXCLUSION CRITERIA applied to this satellite file:')
-            ds.comments.append('     Box size of satellite extract = ' + str(dict_args['box_size'][0]) + ' pixels by ' + str(dict_args['box_size'][0]) + ' pixels')
-            ds.comments.append('     Minimum percent valid satellite pixels = ' + str(dict_args['min_valid_sat_pix'][0]))
-            ds.comments.append('     Maximum solar zenith angle = 70 degrees')
-            ds.comments.append('     Maximum satellite zenith angel = 60 degrees')
-            ds.comments.append('     Maximum time difference between satellite and in situ = ' + str(dict_args['max_time_diff'][0]) + ' hours')
-            ds.comments.append('     Maximum coefficient of variation of satellite pixels = ' + str(dict_args['max_coeff_variation'][0]))
-            ds.comments.append(' EXCEPTIONS to Bailey and Werdell (2006):')
-            ds.comments.append('     1. User defined values given to mk_matchup.py will override recommended defaults.')
-            ds.comments.append('     2. The maximum allowed solar zenith angle used here is 70-deg vs the paper-recommended 75-deg.')
-            ds.comments.append('     3. Rrs and AOT data are only in the OC L2 satellite product suite.')
-            ds.comments.append('        Other file_types (SST, SST4, IOP, etc) will not evaluate any maximum coefficient of variation threshhold.')
-            ds.comments.append('     4. For all SST file_types, the qual_sst_max or qual_sst_mean fields should be used to screen the sst value quality.')
-            ds.comments.append('        The qual_sst value varies between 0 (best) and 4 (worst).')
-            ds.comments.append('        The qual_sst_mean (qual_sst_max) is the mean (max) of the ' + \
-                               str(dict_args['box_size'][0]) + ' by ' + str(dict_args['box_size'][0]) + ' pixel satellite extract.')
-            ds.comments.append(' ')
+        ds.comments.append(' ')
+        ds.comments.append(' File ammended by OCSSW match-up maker script: mk_matchup.py on ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ',')
+        ds.comments.append(' using satellite data from ' + inst + ' ' + plat + ' granule: ' + dict_args['sat_file'][0])
+        ds.comments.append(' WARNINGS: This script does NOT adjust in situ data to water-leaving values')
+        ds.comments.append('           This script does NOT account for potential oversampling by the in situ data in time or space.')
+        ds.comments.append('           If successive calls to this script are made for a single in situ file AND multiple-valid-overpasses exist,')
+        ds.comments.append('               only the data from the last successive call will be saved to the output file. This may NOT be the best')
+        ds.comments.append('               quality satellite data in space and time.')
+        ds.comments.append(' Default exclusion criteria are obtained from: S.W. Bailey and P.J. Werdell, "A multi-sensor approach')
+        ds.comments.append(' for the on-orbit validation of ocean color satellite data products", Rem. Sens. Environ. 102, 12-23 (2006).')
+        ds.comments.append(' NOTE: The coefficient of variation is computed using all available Rrs between 405nm and 570nm and AOT between 860nm and 900nm,')
+        ds.comments.append('       with the exception of MODIS Rrs land bands at 469nm and 555nm')
+        ds.comments.append(' EXCLUSION CRITERIA applied to this satellite file:')
+        ds.comments.append('     Box size of satellite extract = ' + str(dict_args['box_size'][0]) + ' pixels by ' + str(dict_args['box_size'][0]) + ' pixels')
+        ds.comments.append('     Minimum percent valid satellite pixels = ' + str(dict_args['min_valid_sat_pix'][0]))
+        ds.comments.append('     Maximum solar zenith angle = 70 degrees')
+        ds.comments.append('     Maximum satellite zenith angel = 60 degrees')
+        ds.comments.append('     Maximum time difference between satellite and in situ = ' + str(dict_args['max_time_diff'][0]) + ' hours')
+        ds.comments.append('     Maximum coefficient of variation of satellite pixels = ' + str(dict_args['max_coeff_variation'][0]))
+        ds.comments.append(' EXCEPTIONS to Bailey and Werdell (2006):')
+        ds.comments.append('     1. User defined values given to mk_matchup.py will override recommended defaults.')
+        ds.comments.append('     2. The maximum allowed solar zenith angle used here is 70-deg vs the paper-recommended 75-deg.')
+        ds.comments.append('     3. Rrs and AOT data are only in the OC L2 satellite product suite.')
+        ds.comments.append('        Other file_types (SST, SST4, IOP, etc) will not evaluate any maximum coefficient of variation threshhold.')
+        ds.comments.append('     4. For all SST file_types, the qual_sst_max or qual_sst_mean fields should be used to screen the sst value quality.')
+        ds.comments.append('        The qual_sst value varies between 0 (best) and 4 (worst).')
+        ds.comments.append('        The qual_sst_mean (qual_sst_max) is the mean (max) of the ' + \
+                           str(dict_args['box_size'][0]) + ' by ' + str(dict_args['box_size'][0]) + ' pixel satellite extract.')
+        ds.comments.append(' ')
 
         print('Satellite/in situ match-up(s) found')
         if dict_args['out_file']:

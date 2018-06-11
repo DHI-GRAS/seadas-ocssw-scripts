@@ -505,18 +505,37 @@ Using current working directory for storing the ancillary database file: %s''' %
 
     def yearday(self, ancfile):
         import re
+        if ancfile.startswith('RIM_'):
+            from datetime import datetime
+            ymd = ancfile.split('_')[2]
+            dt = datetime.strptime(ymd, '%Y%m%d')
+            year = dt.strftime('%Y')
+            day = dt.strftime('%j')
+            return year, day
+
         if ancfile.startswith('MERRA'):
             from datetime import datetime
             ymd = ancfile.split('.')[4]
             dt = datetime.strptime(ymd, '%Y%m%d')
             year = dt.strftime('%Y')
             day = dt.strftime('%j')
+            return year, day
+
+        if ancfile.startswith('SIF'):
+            yyyyddd = ancfile.split('.')[0]
+            offset = 3
+        elif ancfile.startswith('PERT_'):
+            yyyyddd = ancfile.split('_')[2]
+            offset = 0
         elif self.atteph and not re.search(".(att|eph)$", ancfile):
-            year = ancfile.split('.')[1][1:5]
-            day = ancfile.split('.')[1][5:8]
+            yyyyddd = ancfile.split('.')[1]
+            offset = 1
         else:
-            year = ancfile[1:5]
-            day = ancfile[5:8]
+            yyyyddd = ancfile
+            offset = 1  # skip only 1st char
+
+        year = yyyyddd[offset:offset + 4]
+        day = yyyyddd[offset + 4:offset + 7]
         return year, day
 
     def locate(self, forcedl=False):
@@ -579,9 +598,9 @@ Using current working directory for storing the ancillary database file: %s''' %
 
                     if self.verbose:
                         print("Downloading '" + FILE + "' to " + self.dirs['path'])
-                    status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
-                                              self.dirs['path'], timeout=self.timeout, uncompress=True,
-                                              reuseConn=True, urlConn=urlConn, verbose=self.verbose)
+                    urlConn, status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
+                            self.dirs['path'],timeout=self.timeout, uncompress=True,
+                            reuseConn=True, urlConn=urlConn, verbose=self.verbose)
                     gc.collect()
                     if status:
                         print("*** ERROR: The HTTP transfer failed with status code " + str(status) + ".")
@@ -615,67 +634,34 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         NONOPT = ""
         if not self.atteph:
+
             if self.sensor == 'aquarius':
-                if self.db_status & 1:
-                    NONOPT = " ".join([NONOPT, 'MET'])
-                else:
-                    for key in (['met1', 'met2', 'atm1', 'atm2']):
-                        if key not in self.files:
-                            NONOPT = " ".join([NONOPT, 'MET'])
-                            print('*** WARNING: No optimal {0} files found.'.format(key))
-                            break
+                inputs = {'MET': {'bitval': 1, 'required': ['met1', 'met2', 'atm1', 'atm2']},
+                          'SST': {'bitval': 4, 'required': ['sstfile1', 'sstfile2']},
+                          'SeaIce': {'bitval': 16, 'required': ['icefile1', 'icefile2']},
+                          'Salinity': {'bitval': 32, 'required': ['sssfile1', 'sssfile2']},
+                          'XRAY': {'bitval': 64, 'required': ['xrayfile1']},
+                          # 'SCAT': {'bitval': 128, 'required': ['scat']},
+                          'TEC': {'bitval': 256, 'required': ['tecfile']},
+                          'SWH': {'bitval': 512, 'required': ['swhfile1', 'swhfile2']},
+                          'Frozen': {'bitval': 1024, 'required': ['frozenfile1', 'frozenfile2']},
+                          'GEOS': {'bitval': 2048, 'required': ['geosfile']},
+                          'ARGOS': {'bitval': 4096, 'required': ['argosfile1', 'argosfile2']},
+                          'SIF': {'bitval': 8192, 'required': ['sif']},
+                          'PERT': {'bitval': 16384, 'required': ['pert']},
+                          'Matchup': {'bitval': 32768, 'required': ['sssmatchup']},
+                          'Rainfall': {'bitval': 65536, 'required': ['rim_file']}}
+                for anc in inputs:
+                    if self.db_status & inputs[anc]['bitval']:
+                        NONOPT = " ".join([NONOPT, anc])
+                    else:
+                        for ancfile in (inputs[anc]['required']):
+                            if ancfile not in self.files:
+                                NONOPT = " ".join([NONOPT, anc])
+                                print('*** WARNING: No optimal {0} files found.'.format(ancfile))
+                                break
 
-                for key in (['sstfile1', 'sstfile2']):
-                    if key not in self.files or (self.db_status & 4):
-                        NONOPT = " ".join([NONOPT, 'SST'])
-                        print("*** WARNING: No optimal %s files found." % key)
-                        break
-
-                for key in (['icefile1', 'icefile2']):
-                    if key not in self.files or (self.db_status & 16):
-                        NONOPT = " ".join([NONOPT, 'Sea Ice'])
-                        print("*** WARNING: No optimal %s files found." % key)
-                        break
-
-                for key in (['sssfile1', 'sssfile2']):
-                    if key not in self.files or (self.db_status & 32):
-                        NONOPT = " ".join([NONOPT, 'SSS'])
-                        print("*** WARNING: No optimal %s files found." % key)
-                        break
-
-                for key in (['xrayfile1', 'xrayfile2']):
-                    if key not in self.files or (self.db_status & 64):
-                        NONOPT = " ".join([NONOPT, 'X-ray'])
-                        print("*** WARNING: No optimal %s files found." % key)
-                        break
-
-                if 'scat' not in self.files or (self.db_status & 128):
-                    NONOPT = " ".join([NONOPT, 'SCAT'])
-                    print("*** WARNING: No scatterometer file found.")
-
-                if 'tecfile' not in self.files or (self.db_status & 256):
-                    NONOPT = " ".join([NONOPT, 'TEC'])
-                    print("*** WARNING: No TEC file found.")
-
-                if 'swhfile' not in self.files or (self.db_status & 512):
-                    NONOPT = " ".join([NONOPT, 'SWH'])
-                    print("*** WARNING: No Significant Wave Height file found.")
-
-                if 'frozenfile' not in self.files or (self.db_status & 1024):
-                    NONOPT = " ".join([NONOPT, 'Frozen'])
-                    print("*** WARNING: No Frozen file found.")
-
-                if 'geosfile' not in self.files or (self.db_status & 2048):
-                    NONOPT = " ".join([NONOPT, 'GEOS'])
-                    print("*** WARNING: No GEOS file found.")
-
-                for key in (['argosfile1', 'argosfile2']):
-                    if key not in self.files or (self.db_status & 4096):
-                        NONOPT = " ".join([NONOPT, 'ARGOS'])
-                        print("*** WARNING: No optimal %s files found." % key)
-                        break
-
-            else:
+            else:  # not aquarius
 
                 if self.db_status & 1:
                     NONOPT = " ".join([NONOPT, 'MET'])

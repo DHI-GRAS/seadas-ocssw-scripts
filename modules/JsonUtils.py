@@ -213,13 +213,13 @@ class SessionUtils:
         try:
             parts = urlsplit(url)
             outputdir = os.path.dirname(filepath)
-            status = httpdl(parts.netloc, parts.path,
-                            localpath=outputdir, timeout=self.timeout,
-                            reuseConn=True, urlConn=self.session,
-                            verbose=self.verbose)
+            self.session, status = httpdl(parts.netloc, parts.path,
+                                          localpath=outputdir, timeout=self.timeout,
+                                          reuseConn=True, urlConn=self.session,
+                                          verbose=self.verbose)
             if status:
                 self.status = 1
-                print('Error downloading {}.format(filepath)')
+                print('Error downloading {}'.format(filepath))
         except Exception as e:
             self.status = 1
             print('Exception: {:}'.format(e))

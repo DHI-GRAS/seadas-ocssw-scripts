@@ -5,14 +5,14 @@ from MetaUtils import readMetadata
 
 def aquarius_timestamp(arg):
     """
-        Determine the start time, stop time, and platform of a VIIRS hdf5 file.
+        Determine the start time, stop time, and platform of an aquarius L1A file.
     """
 
     meta = readMetadata(arg)
 
     sat_name = meta['Sensor'].lower()
-    stime = meta['Orbit Start Time'][0:13]
-    etime = meta['Orbit Stop Time'][0:13]
+    stime = meta['Start Time'][0:13]
+    etime = meta['End Time'][0:13]
 
     return (stime,
             etime,

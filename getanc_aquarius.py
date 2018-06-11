@@ -7,7 +7,7 @@ import tarfile
 from optparse import OptionParser
 
 from modules.ParamUtils import ParamProcessing
-from modules.ProcUtils import date_convert, addsecs, cat
+from modules.ProcUtils import date_convert, addsecs, cat, httpdl
 from modules.aquarius_utils import aquarius_timestamp
 from modules.setupenv import env
 
@@ -56,23 +56,18 @@ class GetAncAquarius:
         Run mk_aquarius_ancillary_data to create the "y" files
         """
 
+        # start and end of this 24-hour period in yyyymmdd
         dt = self.start
-        atm = 'atm1'
-        met = 'met1'
-
-        if count == 2:
+        if count >= 2:
             dt = self.stop
-            atm = 'atm2'
-            met = 'met2'
-
-        hour = os.path.basename(self.ancfiles[met])[8:10]
-
         sdt = date_convert(dt, 'j', 'd')
-        edt = date_convert(addsecs(dt, 86500, 'j'), 'j', 'd')
+        edt = date_convert(addsecs(dt, 86400, 'j'), 'j', 'd')
 
+        callnum = format(count,'d')
+        hour = os.path.basename(self.ancfiles['met'+callnum])[8:10]
         yancfilename = ''.join(['y', sdt, hour, '.h5'])
 
-        # Make the yancfile
+        # make the yancfile
         if self.verbose:
             print("")
             print("Creating Aquarius yancfile%s %s..." % (count, yancfilename))
@@ -80,10 +75,10 @@ class GetAncAquarius:
         mk_anc_cmd = ' '.join([mk_anc,
                                self.ancfiles['sstfile1'],
                                self.ancfiles['sstfile2'],
-                               self.ancfiles[atm],
-                               self.ancfiles[met],
-                               self.ancfiles['swhfile'],
-                               self.ancfiles['frozenfile'],
+                               self.ancfiles['atm'+callnum],
+                               self.ancfiles['met'+callnum],
+                               self.ancfiles['swhfile'+callnum],
+                               self.ancfiles['frozenfile'+callnum],
                                self.ancfiles['icefile1'],
                                self.ancfiles['icefile2'],
                                self.ancfiles['sssfile1'],
@@ -224,7 +219,7 @@ if __name__ == "__main__":
         getanc_cmd = ' '.join([getanc, '--mission=aquarius --noprint', filename])
     else:
         getanc_cmd = ' '.join([getanc, '--mission=aquarius --noprint', '-s', start])
-        if stop:
+    if stop:
             getanc_cmd += ' -e ' + stop
 
     if verbose:
@@ -237,7 +232,7 @@ if __name__ == "__main__":
     # print(getanc_cmd)
     status = subprocess.call(getanc_cmd, shell=True)
 
-    if status and self.verbose:
+    if status and verbose:
         print('getanc returned with exit status: ' + str(status))
         print('command: ' + getanc_cmd)
 
@@ -256,17 +251,42 @@ if __name__ == "__main__":
         print('ERROR in making yancfiles!')
         exit(1)
 
-    # extract scatterometer files
-    if 'scat' in g.ancfiles:
-        tar = tarfile.open(g.ancfiles['scat'])
+    # make 3rd yancfile, as needed
+    atm3 = g.ancfiles.get('atm3', None)
+    if atm3 and atm3 not in (g.ancfiles['atm1'], g.ancfiles['atm2']):
+        g.ancfiles['yancfile3'] = g.run_mk_anc(3)
+
+    # retrieve and extract scatterometer files
+    gran = os.path.basename(filename).split('.')[0]
+    scatfile = '.'.join([gran, 'L2_SCAT_V5.0.tar'])
+    scatpath = '/'.join(['/cgi/getfile', scatfile])
+    if verbose:
+        print('\nDownloading ' + scatfile + ' to current directory.')
+    status = httpdl('oceandata.sci.gsfc.nasa.gov',
+                    scatpath, uncompress=True, verbose=verbose)
+    if status:
+        print('Error downloading', scatfile)
+    else:
+        tar = tarfile.open(scatfile)
         tar.extractall()
         tar.close()
+
+    # translate anctype to parameter names expected by l2gen_aquarius
+    g.ancfiles['l2_uncertainties_file'] = g.ancfiles.get('pert', '')
+    g.ancfiles['sif_file'] = g.ancfiles.get('sif', '')
+    g.ancfiles['sss_matchup_file'] = g.ancfiles.get('sssmatchup', '')
 
     # clean up anc_filelist to remove files contained in the yancfiles
     for key in anclist:
         if key not in ('xrayfile1', 'xrayfile2',
-                       'l2_uncertainties_file', 'sif_file'):
+                       'l2_uncertainties_file',
+                       'sif_file',
+                       'sss_matchup_file',
+                       'rim_file'):
             del (g.ancfiles[key])
+
+    # add hard-coded suite version number
+    g.ancfiles['suite'] = 'V5.0.0'
 
     # save original
     os.rename(anc_filelist, anc_filelist + '.orig')
