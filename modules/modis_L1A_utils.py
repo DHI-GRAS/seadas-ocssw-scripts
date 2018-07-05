@@ -69,17 +69,17 @@ class modis_l1a:
         check input parameters
         """
         if not os.path.exists(self.file):
-            print "ERROR: File: " + self.file + " does not exist."
+            print("ERROR: File: " + self.file + " does not exist.")
             sys.exit(1)
 
         if self.nextgranule is not None:
             if not os.path.exists(self.nextgranule):
-                print "ERROR: File " + self.nextgranule + " does not exist."
+                print("ERROR: File " + self.nextgranule + " does not exist.")
                 sys.exit(1)
             else:
                 self.stopnudge = 0
                 if self.verbose:
-                    print "* Next L0 granule is specified, therefore setting stopnudge = 0 *"
+                    print("* Next L0 granule is specified, therefore setting stopnudge = 0 *")
 
     def get_constructor(self):
         import subprocess
@@ -101,7 +101,7 @@ class modis_l1a:
 
         # create constructor file
         if self.verbose:
-            print "Determining pass start and stop time...\n"
+            print("Determining pass start and stop time...\n")
 
         self.grantimes = self.l0file + '.grantimes'
         ProcUtils.remove(self.grantimes)
@@ -128,14 +128,14 @@ class modis_l1a:
 
             if self.l1a is not None:
                 if self.verbose:
-                    print "Using specified output L1A filename: %s" % self.l1a
+                    print("Using specified output L1A filename: %s" % self.l1a)
             else:
                 if self.sat_name == "aqua":
                     self.l1a = os.path.join(self.dirs['run'], "A%s.L1A_LAC" % grantime)
                 else:
                     self.l1a = os.path.join(self.dirs['run'], "T%s.L1A_LAC" % grantime)
                 if self.verbose:
-                    print "Using derived output L1A filename: %s" % self.l1a
+                    print("Using derived output L1A filename: %s" % self.l1a)
 
 
     def l0(self):
@@ -158,32 +158,32 @@ class modis_l1a:
 
         if status != 0 and status != 3:
             # bad error - exit now
-            print "l0cnst_write_modis: Unrecoverable error encountered while attempting to generate constructor file."
+            print("l0cnst_write_modis: Unrecoverable error encountered while attempting to generate constructor file.")
             sys.exit(1)
 
         if status == 3:
             # recoverable? try to fix l0
             if self.verbose:
-                print "l0cnst_write_modis: A corrupt packet or a packet of the wrong size"
-                print "                    was detected while generating the constructor file."
+                print("l0cnst_write_modis: A corrupt packet or a packet of the wrong size")
+                print("                    was detected while generating the constructor file.")
             if not self.fix:
-                print "Fixing of Level-0 file is currently disabled."
-                print "Please re-run without the '--disable-fix_L0' option."
+                print("Fixing of Level-0 file is currently disabled.")
+                print("Please re-run without the '--disable-fix_L0' option.")
                 sys.exit(1)
 
             # 1st call to l0fix_modis: get pass times
             if self.verbose:
-                print "Attempting to fix the Level 0 file using l0fix_modis"
+                print("Attempting to fix the Level 0 file using l0fix_modis")
 
             self.l0fix1 = self.l0file + '.l0fix1'
             ProcUtils.remove(self.l0fix1)
             l0fixcmd = ' '.join(
                 [os.path.join(self.dirs['bin'], 'l0fix_modis'), self.l0file, '-1', '-1', '>', self.l0fix1])
             if self.verbose:
-                print l0fixcmd
+                print(l0fixcmd)
             status = subprocess.call(l0fixcmd, shell=True)
             if status:
-                print "l0fix_modis: Unrecoverable error in l0fix_modis!"
+                print("l0fix_modis: Unrecoverable error in l0fix_modis!")
                 sys.exit(1)
 
             # 2nd call to l0fix_modis: fix packets
@@ -200,20 +200,20 @@ class modis_l1a:
                 [os.path.join(self.dirs['bin'], 'l0fix_modis'), self.l0file, self.taitime_start, self.taitime_stop,
                  self.l0file + '.fixed', '>', self.l0fix2])
             if self.verbose:
-                print l0fixcmd
+                print(l0fixcmd)
             status = subprocess.call(l0fixcmd, shell=True)
             if status:
-                print "l0fix_modis: Unrecoverable error in l0fix_modis!"
+                print("l0fix_modis: Unrecoverable error in l0fix_modis!")
                 sys.exit(1)
             if self.verbose:
-                print "New Level 0 file successfully generated. Regenerating constructor file..."
+                print("New Level 0 file successfully generated. Regenerating constructor file...")
             self.l0file += '.fixed'
 
             # try again to make constructor file
             status = self.get_constructor()
             if status:
-                print "Failed to generate constructor file after running l0fix_modis."
-                print "Please examine your Level 0 file to determine if it is completely corrupt."
+                print("Failed to generate constructor file after running l0fix_modis.")
+                print("Please examine your Level 0 file to determine if it is completely corrupt.")
                 sys.exit(1)
 
         # Determine pass start and stop times and duration of pass
@@ -235,13 +235,13 @@ class modis_l1a:
 
         # set output file name
         if self.verbose:
-            print "Input Level 0:", self.file
-            print "Output Level 1A:", self.l1a
-            print "Satellite:", self.sat_name
-            print "Start Time:", self.start
-            print "Stop Time:", self.stop
-            print "Granule Duration:", self.gransec, "seconds"
-            print ""
+            print("Input Level 0:", self.file)
+            print("Output Level 1A:", self.l1a)
+            print("Satellite:", self.sat_name)
+            print("Start Time:", self.start)
+            print("Stop Time:", self.stop)
+            print("Granule Duration:", self.gransec, "seconds")
+            print("")
 
     def run(self):
         """
@@ -262,10 +262,10 @@ class modis_l1a:
             cat.close()
 
         if self.verbose:
-            print "Processing MODIS L0 file to L1A..."
+            print("Processing MODIS L0 file to L1A...")
         status = subprocess.call(os.path.join(self.dirs['bin'], 'l1agen_modis'), shell=True)
         if self.verbose:
-            print 'l1agen_modis exit status:', str(status)
+            print('l1agen_modis exit status:', str(status))
 
         # if next granule is set, move original L0 file back to original name
         if self.nextgranule is not None:
@@ -300,8 +300,8 @@ class modis_l1a:
                 ProcUtils.remove(os.path.join(self.dirs['run'], 'LogUser.' + base))
 
             if self.verbose:
-                print "MODIS L1A processing complete."
+                print("MODIS L1A processing complete.")
         else:
-            print "modis_l1a: ERROR: MODIS L1A processing failed."
-            print "Please examine the LogStatus and LogUser files for more information."
+            print("modis_l1a: ERROR: MODIS L1A processing failed.")
+            print("Please examine the LogStatus and LogUser files for more information.")
             sys.exit(1)

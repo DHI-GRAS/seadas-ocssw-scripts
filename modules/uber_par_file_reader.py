@@ -107,7 +107,7 @@ class ParReader(object):
         sect_key = get_sect_key(hdr_line)
         self.par_results[sect_key] = sect_dict
         if self.section_converter:
-            if not (sect_key in self.section_converter.keys()):
+            if not (sect_key in list(self.section_converter.keys())):
                 err_msg = 'Error! Section name "{0}" is not recognized.'.\
                           format(sect_key)
                 sys.exit(err_msg)
@@ -138,7 +138,7 @@ class ParReader(object):
                                     try:
                                         add_sect_entry(sect_dict, key,
                                                        val.strip().strip('"').strip("'"))
-                                    except DuplicateEntry, dup_exc:
+                                    except DuplicateEntry as dup_exc:
                                         err_msg = 'Duplicate entry found for {0} in {1}'.format(str(dup_exc), self.filename)
                                         sys.exit(err_msg)
                             elif line.strip in self.acceptable_single_keys:

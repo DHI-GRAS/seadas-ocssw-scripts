@@ -128,14 +128,14 @@ if __name__ == "__main__":
     import time
 
     def __dotest(cmd, dict1, dict2):
-        print "\n", cmd
-        print "before: ", dict1
+        print("\n", cmd)
+        print("before: ", dict1)
         start_time = time.time()
-        exec cmd
+        exec(cmd)
         end_time = time.time()
-        print "after:  ", dict1
-        print "target: ", dict2
-        print 1000 * (end_time - start_time), "ms"
+        print("after:  ", dict1)
+        print("target: ", dict2)
+        print(1000 * (end_time - start_time), "ms")
 
     val = 99
 

@@ -39,12 +39,12 @@ class Processor(object):
         """
         self_ndx = self.rule_set.order.index(self.target_type)
         if self_ndx < 0:
-            print 'Error!  Could not locate {0} target type in {1} rule set.'.format(self.target_type, str(self))
+            print('Error!  Could not locate {0} target type in {1} rule set.'.format(self.target_type, str(self)))
             sys.exit(99)
 #        other_ndx = other.rule_set.find_target_type(other.target_type)
         other_ndx = other.rule_set.order.index(other.target_type)
         if other_ndx < 0:
-            print 'Error!  Could not locate {0} target type in {1} rule set.'.format(other.target_type, str(other))
+            print('Error!  Could not locate {0} target type in {1} rule set.'.format(other.target_type, str(other)))
             sys.exit(98)
         if self_ndx < other_ndx:
             return -1

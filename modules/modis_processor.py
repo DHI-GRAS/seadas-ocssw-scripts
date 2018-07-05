@@ -33,28 +33,28 @@ class ModisProcessor():
         """
         create_constructor_cmd = ''.join(['l0cnst_write_modis ',
                                           self.l0_file, ' > ', 'granules.tmp'])
-        print 'Running: ', create_constructor_cmd
+        print('Running: ', create_constructor_cmd)
         try:
             status = subprocess.call(create_constructor_cmd, shell=True)
-            print status
+            print(status)
             if status != 0:
-                print 'Error! Could not run l0const'
+                print('Error! Could not run l0const')
                 sys.exit(41)
             else:
-                print 'l0cnst_write_modis run compleat'
-        except OSError, ose:
-            print ose.errno, ose.strerror
+                print('l0cnst_write_modis run compleat')
+        except OSError as ose:
+            print(ose.errno, ose.strerror)
         with open('granules.tmp') as gran_file:
             lines = gran_file.readlines()
         starttime = None
         for line in lines:
-            print 'processing: ', line
+            print('processing: ', line)
             fields = line.split('=')
             if fields[0].strip() == 'starttime':
                 starttime = fields[1].strip()
                 break
         if starttime is None:
-            print 'Error!  Could not determine start time.'
+            print('Error!  Could not determine start time.')
             sys.exit(42)
         os.remove('granules.tmp')
         granule_time = ProcUtils.date_convert(starttime, 't', 'j')

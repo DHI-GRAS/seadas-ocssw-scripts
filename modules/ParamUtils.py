@@ -54,7 +54,7 @@ class ParamProcessing:
 
         if self.parfile:
             if self.verbose:
-                print "Writing parfile %s" % self.parfile
+                print("Writing parfile %s" % self.parfile)
             logfile = open(self.parfile, 'w')
             logfile.write(self.parstr)
             logfile.write("\n")
@@ -68,11 +68,11 @@ class ParamProcessing:
         """
         try:
             if self.verbose:
-                print 'PAR',self.parfile
+                print('PAR',self.parfile)
             pfile = self.parfile
             par_file = open(pfile,'r')
         except Exception:
-            print "File {0} not found!".format(self.parfile)
+            print("File {0} not found!".format(self.parfile))
             return None
 
         try:

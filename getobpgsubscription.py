@@ -19,9 +19,9 @@ if __name__ == "__main__":
             from sqlite3 import *
             pass
     else:
-        print ('''Your python interpreter is too old.)
-This script requires at least version 2.5.
-Please consider upgrading.'''
+        print("Your python interpreter is too old.")
+        print("This script requires at least version 2.5.")
+        print("Please consider upgrading.")
         sys.exit(1)
 
 
@@ -109,7 +109,7 @@ Please consider upgrading.'''
 
     try:
         files = ftp.nlst(suburl)
-    except ftplib.error_perm, resp:
+    except ftplib.error_perm as resp:
         if str(resp) == "550 No files found":
             print ("no files in this directory")
             exit(1)

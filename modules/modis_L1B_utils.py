@@ -2,11 +2,11 @@
 
 
 import get_obpg_file_type
-import next_level_name_finder
-import obpg_data_file
+from . import next_level_name_finder
+from . import obpg_data_file
 import os
 import platform
-import ProcUtils
+from . import ProcUtils
 import sys
 from modules.ParamUtils import ParamProcessing
 
@@ -62,11 +62,11 @@ class ModisL1B:
 
         if self.parfile:
             if self.verbose:
-                print "Reading parameter file: %s" % self.parfile
+                print("Reading parameter file: %s" % self.parfile)
             param_proc = ParamProcessing(parfile=self.parfile)
             param_proc.parseParFile(prog='l1bgen')
             phash = param_proc.params['l1bgen']
-            for param in (phash.keys()):
+            for param in (list(phash.keys())):
                 if not self[param]:
                     self[param] = phash[param]
 
@@ -91,7 +91,7 @@ class ModisL1B:
                 self.geofile = name_finder.get_next_level_name()
 
             if self.verbose:
-                print "Assuming GEOFILE is %s" % self.geofile
+                print("Assuming GEOFILE is %s" % self.geofile)
 
 
     def __setitem__(self, index, item):
@@ -105,11 +105,11 @@ class ModisL1B:
         check parameters
         """
         if not os.path.exists(self.file):
-            print "ERROR: File", self.file, "does not exist."
+            print("ERROR: File", self.file, "does not exist.")
             sys.exit(1)
 
         if not os.path.exists(self.geofile):
-            print "ERROR: File", self.geofile, "does not exist."
+            print("ERROR: File", self.geofile, "does not exist.")
             sys.exit(1)
 
     def _clean_files(self):
@@ -143,12 +143,12 @@ class ModisL1B:
         import shutil
 
         if self.verbose:
-            print "Processing MODIS L1A file to L1B..."
+            print("Processing MODIS L1A file to L1B...")
         l1bgen = os.path.join(self.dirs['bin'],
                               ''.join(['l1bgen_', self.sensor]))
         status = subprocess.call(l1bgen, shell=True)
         if self.verbose:
-            print l1bgen, "exit status:", str(status)
+            print(l1bgen, "exit status:", str(status))
 
         if not status:
             ProcUtils.remove(os.path.join(self.dirs['run'], "GetAttr.temp"))
@@ -166,9 +166,9 @@ class ModisL1B:
             self._clean_files()
 
             if self.verbose:
-                print "MODIS L1B processing complete."
+                print("MODIS L1B processing complete.")
         # else .. it failed
         else:
-            print "ERROR: MODIS L1B processing failed."
-            print "Please examine the LogStatus and LogUser files for more information."
+            print("ERROR: MODIS L1B processing failed.")
+            print("Please examine the LogStatus and LogUser files for more information.")
             sys.exit(1)

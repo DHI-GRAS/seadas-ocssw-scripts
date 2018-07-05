@@ -91,7 +91,7 @@ class ProcessorConfig(object):
                                     int(cfg_parser.get('main',
                                                        'par_file_age').\
                                     split(' ', 2)[0])
-            except ConfigParser.NoSectionError, nse:
+            except ConfigParser.NoSectionError as nse:
                 print ('nse: ' + str(nse))
                 print ('sys.exc_info(): ')
                 for msg in sys.exc_info():
@@ -207,6 +207,50 @@ def build_general_rules():
     rules = processing_rules.RuleSet('General rules', rules_dict, rules_order)
     return rules
 
+def build_goci_rules():
+    """
+    Builds and returns the rules set for GOCI.
+
+    Rule format:
+    target type (string),  source types (list of strings), batch processing
+    flag (Boolean), action to take (function name)
+    """
+    rules_dict = {
+        'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
+                                                run_bottom_error, False),
+        'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
+                                                run_l1brsgen, False),
+        'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
+                                                run_l2brsgen, False),
+        'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
+                                                run_l1mapgen, False),
+        'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
+                                                run_l2mapgen, False),
+        #'level 1b': processing_rules.build_rule('level 1b', ['level 1a','geo'],
+        #                                    run_l1b, False),
+        'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
+                                                run_l1b, False),
+        # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
+        #                                      False),
+        'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
+                                             False),
+        'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
+                                                 run_l2extract, False),
+        'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
+                                             True),
+        'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
+                                             True),
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l3bin'],
+                                                run_l3mapgen, False),
+        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
+                                              False)
+    }
+    rules_order = ['level 1a', 'l1brsgen', 'l1mapgen', 'level 1b', 'l2gen',
+                   'l2extract', 'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
+                   'l3mapgen', 'smigen']
+    rules = processing_rules.RuleSet('GOCI rules', rules_dict, rules_order)
+    return rules
+
 def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
     """
     Build the parameter file for L2 processing.
@@ -225,6 +269,50 @@ def build_l2gen_par_file(par_contents, input_file, geo_file, output_file):
                     and not l2_opt in FILE_USE_OPTS:
                 par_file.write(l2_opt + '=' + par_contents[l2_opt] + '\n')
     return par_path
+
+def build_meris_rules():
+    """
+    Builds and returns the rules set for MERIS.
+
+    Rule format:
+    target type (string),  source types (list of strings), batch processing
+    flag (Boolean), action to take (function name)
+    """
+    rules_dict = {
+        'level 1a': processing_rules.build_rule('level 1a', ['level 0'],
+                                                run_bottom_error, False),
+        'l1brsgen': processing_rules.build_rule('l1brsgen', ['l1'],
+                                                run_l1brsgen, False),
+        'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
+                                                run_l2brsgen, False),
+        'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
+                                                run_l1mapgen, False),
+        'l2mapgen': processing_rules.build_rule('l2mapgen', ['l2gen'],
+                                                run_l2mapgen, False),
+        #'level 1b': processing_rules.build_rule('level 1b', ['level 1a','geo'],
+        #                                    run_l1b, False),
+        'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
+                                                run_l1b, False),
+        # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
+        #                                      False),
+        'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
+                                             False),
+        'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
+                                                 run_l2extract, False),
+        'l2bin': processing_rules.build_rule('l2bin', ['l2gen'], run_l2bin,
+                                             True),
+        'l3bin': processing_rules.build_rule('l3bin', ['l2bin'], run_l3bin,
+                                             True),
+        'l3mapgen': processing_rules.build_rule('l3mapgen', ['l3bin'],
+                                                run_l3mapgen, False),
+        'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
+                                              False)
+    }
+    rules_order = ['level 1a', 'l1brsgen', 'l1mapgen', 'level 1b', 'l2gen',
+                   'l2extract', 'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
+                   'l3mapgen', 'smigen']
+    rules = processing_rules.RuleSet('MERIS rules', rules_dict, rules_order)
+    return rules
 
 def build_modis_rules():
     """
@@ -359,8 +447,12 @@ def build_rules():
     """
     Build the processing rules.
     """
-    rules = dict(general=build_general_rules(), modis=build_modis_rules(),
-                 seawifs=build_seawifs_rules(), viirs=build_viirs_rules())
+    rules = dict(general=build_general_rules(),
+                 goci=build_goci_rules(),
+                 meris=build_meris_rules(),
+                 modis=build_modis_rules(),
+                 seawifs=build_seawifs_rules(), 
+                 viirs=build_viirs_rules())
     return rules
 
 def check_options(options):
@@ -594,6 +686,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     sys.stdout.flush()
     try:
         for ndx, proc in enumerate(processors):
+            print ('Running {0}: processor {1} of {2}.'.format(
+                 proc.target_type, ndx + 1, len(processors)))
             logging.debug('')
             log_msg = 'Processing for {0}:'.format(proc.target_type)
             logging.debug(log_msg)
@@ -667,8 +761,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                     proc.target_type, proc_timer.get_total_time_str())
                 print (timing_msg)
                 logging.info(timing_msg)
-            print ('{0}: processor {1} of {2} complete.'.format(
-                cfg_data.prog_name, ndx + 1, len(processors)))
+#             print ('{0}: processor {1} of {2} complete.'.format(
+#                 cfg_data.prog_name, ndx + 1, len(processors)))
             sys.stdout.flush()
             logging.debug('Processing complete for "%s".', proc.target_type)
     except Exception:
@@ -1655,7 +1749,7 @@ def run_l2gen(proc):
               format(proc.rule_set.rules[proc.target_type].action))
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
-    print ('L2GEN_FILE=' + proc.output_file)
+    logging.debug('L2GEN_FILE=' + proc.output_file)
     with open('_mp_l2gen_file.out', 'wt') as tmp_file:
         tmp_file.write(proc.output_file)
 
@@ -1972,7 +2066,7 @@ input_file_data = {}
 
 if os.environ['OCSSWROOT']:
     OCSSWROOT_DIR = os.environ['OCSSWROOT']
-    print ('OCSSWROOT -> {0}'.format(OCSSWROOT_DIR))
+    logging.debug('OCSSWROOT -> {0}'.format(OCSSWROOT_DIR))
 else:
     sys.exit('Error! Cannot find OCSSWROOT environment variable.')
 

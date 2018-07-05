@@ -1,12 +1,15 @@
 #!/usr/bin/env python
-from __future__ import print_function
 
 """
 Program to return the name of the next level file that would be created from
 the input file name.
 """
 
-__version__ = '1.0.4-2016-04-28'
+from __future__ import print_function
+import optparse
+import os
+import sys
+import traceback
 
 #import datetime
 import aquarius_next_level_name_finder
@@ -16,26 +19,22 @@ import MetaUtils
 import name_finder_utils
 import next_level_name_finder
 import obpg_data_file
-import optparse
-import os
-import sys
-import traceback
 import viirs_next_level_name_finder
 
+__version__ = '1.0.5-2018-05-08'
 __author__ = 'melliott'
 
 #2345678901234567890123456789012345678901234567890123456789012345678901234567890
 
 #########################################
 
-FILE_TYPES_CONVERTER = { 'Level 0': 'Level 0',
-                         'Level 1A': 'Level 1A',
-                         'l1agen' : 'Level 1A',
-                         'Level 1B': 'Level 1B',
-                         'Level 2': 'Level 2',
-                         'L3bin': 'L3bin',
-                         'Level 3 Binned': 'L3bin'
-}
+FILE_TYPES_CONVERTER = {'Level 0': 'Level 0',
+                        'Level 1A': 'Level 1A',
+                        'l1agen' : 'Level 1A',
+                        'Level 1B': 'Level 1B',
+                        'Level 2': 'Level 2',
+                        'L3bin': 'L3bin',
+                        'Level 3 Binned': 'L3bin'}
 
 #def get_1_file_name(input_name, file_typer, file_type, sensor,
 #                    target_program, clopts):
@@ -44,8 +43,8 @@ def get_1_file_name(data_file, target_program, clopts):
     Return the next level name for a single file.
     """
     level_finder = name_finder_utils.get_level_finder([data_file],
-                                                           target_program,
-                                                           clopts)
+                                                      target_program,
+                                                      clopts)
     next_level_name = level_finder.get_next_level_name()
     return next_level_name
 
@@ -63,7 +62,7 @@ def get_multifile_next_level_name(data_files_list_info, target_program, clopts):
     for file_info in data_files_list_info:
         if file_info.file_type == 'unknown':
             err_msg = 'Error!  File {0} is of unknown type.'.format(
-                                                                 file_info.name)
+                file_info.name)
             sys.exit(err_msg)
     next_level_name = get_multifile_output_name(data_files_list_info,
                                                 target_program, clopts)
@@ -80,8 +79,8 @@ def get_multifile_output_name(data_files_list_info, target_program, clopts):
                       format(data_files_list_info[0].name, data_file.name)
             sys.exit(err_msg)
     level_finder = name_finder_utils.get_level_finder(data_files_list_info,
-                                                           target_program,
-                                                           clopts)
+                                                      target_program,
+                                                      clopts)
     output_name = level_finder.get_next_level_name()
     return output_name
 
@@ -95,7 +94,7 @@ def get_command_line_data():
     use_msg = 'usage: %prog INPUT_FILE TARGET_PROGRAM'
     cl_parser = optparse.OptionParser(usage=use_msg, version=ver_msg)
     cl_parser.add_option('--oformat', dest='oformat', action='store',
-                         type = 'string', help='output format')
+                         type='string', help='output format')
     cl_parser.add_option('--resolution', dest='resolution', action='store',
                          type='string',
                          help='resolution for smigen/l3mapgen')
@@ -181,7 +180,7 @@ def main():
                     data_files_info = get_data_files_info(inp_name)
                     if len(data_files_info) > 0:
                         next_level_name = get_multifile_next_level_name(
-                                            data_files_info, targ_prog, clopts)
+                            data_files_info, targ_prog, clopts)
                     else:
                         err_msg = "Error!  No OBPG files found in {0}".\
                                   format(inp_name)
@@ -199,7 +198,7 @@ def main():
                                                         file_metadata)
                 next_level_name = get_1_file_name(data_file, targ_prog, clopts)
             print ('Output Name: ' + next_level_name)
-        except SystemExit, sys_ex:
+        except SystemExit as sys_ex:
             # The intention here is to catch exit exceptions we throw in other
             # parts of the program and continue with the exit, outputting
             # whatever error message was created for the exit.

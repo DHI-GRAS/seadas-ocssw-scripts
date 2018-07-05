@@ -63,8 +63,8 @@ class GetAncAquarius:
         sdt = date_convert(dt, 'j', 'd')
         edt = date_convert(addsecs(dt, 86400, 'j'), 'j', 'd')
 
-        callnum = format(count,'d')
-        hour = os.path.basename(self.ancfiles['met'+callnum])[8:10]
+        callnum = format(count, 'd')
+        hour = os.path.basename(self.ancfiles['met' + callnum])[8:10]
         yancfilename = ''.join(['y', sdt, hour, '.h5'])
 
         # make the yancfile
@@ -75,10 +75,10 @@ class GetAncAquarius:
         mk_anc_cmd = ' '.join([mk_anc,
                                self.ancfiles['sstfile1'],
                                self.ancfiles['sstfile2'],
-                               self.ancfiles['atm'+callnum],
-                               self.ancfiles['met'+callnum],
-                               self.ancfiles['swhfile'+callnum],
-                               self.ancfiles['frozenfile'+callnum],
+                               self.ancfiles['atm' + callnum],
+                               self.ancfiles['met' + callnum],
+                               self.ancfiles['swhfile' + callnum],
+                               self.ancfiles['frozenfile' + callnum],
                                self.ancfiles['icefile1'],
                                self.ancfiles['icefile2'],
                                self.ancfiles['sssfile1'],
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     if options.printlist is False:
         printlist = options.printlist
 
-    if file is None and start is None:
+    if filename is None and start is None:
         parser.print_help()
         exit(0)
 
@@ -220,7 +220,7 @@ if __name__ == "__main__":
     else:
         getanc_cmd = ' '.join([getanc, '--mission=aquarius --noprint', '-s', start])
     if stop:
-            getanc_cmd += ' -e ' + stop
+        getanc_cmd += ' -e ' + stop
 
     if verbose:
         getanc_cmd += ' --verbose'
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         anc_filelist = '.'.join([os.path.basename(filename), 'anc'])
 
     g.parse_anc(anc_filelist)
-    anclist = g.ancfiles.keys()
+    anclist = list(g.ancfiles.keys())
 
     # create yancfiles
     g.ancfiles['yancfile1'] = g.run_mk_anc(1)

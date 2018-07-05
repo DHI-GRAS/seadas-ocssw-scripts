@@ -179,8 +179,8 @@ def processParFile(parfile=None, params=None, processor=None, sensor=None,
         sys.exit(1)
     else:
         if verbose:
-            print statData
-            print 'Processing successful.'
+            print (statData)
+            print ('Processing successful.')
 
     return status #phash.params[processor]['ofile']
 

@@ -34,7 +34,7 @@ def buildpcf(self):
         if self.entrained:
             self.kinematic_state = "MODIS Packet"
             if self.verbose:
-                print "Using entrained attitude/ephemeris information"
+                print("Using entrained attitude/ephemeris information")
 
     pcf = [line for line in open(self.pcf_template, 'r')]
 
@@ -220,7 +220,7 @@ def modis_env(self):
     """
 
     if not os.path.exists(os.path.join(os.getenv("OCDATAROOT"), "modis")):
-        print "ERROR: The " + os.path.join(os.getenv("OCDATAROOT"), "modis") + "directory does not exist."
+        print("ERROR: The " + os.path.join(os.getenv("OCDATAROOT"), "modis") + "directory does not exist.")
         sys.exit(1)
 
     os.environ["PGSMSG"] = os.path.join(os.getenv("OCDATAROOT"),
@@ -251,13 +251,13 @@ def modis_env(self):
             elif terra.search(os.path.basename(self.file)) is not None:
                 self.sat_name = 'terra'
             else:
-                print "ERROR: Unable to determine platform type for " + self.file
-                print ""
-                print "Please use the '--satellite' argument to specify the platform as 'aqua' or 'terra',"
-                print "or rename your input file to match one of the following formats:"
-                print ""
-                print "\tAqua:  'a*' or 'A*' or 'MOD00.P*' or 'P1540064* or 'MYD*.A*''"
-                print "\tTerra: 't*' or 'T*' or 'MOD00.A*' or 'P0420064*'"
+                print("ERROR: Unable to determine platform type for " + self.file)
+                print("")
+                print("Please use the '--satellite' argument to specify the platform as 'aqua' or 'terra',")
+                print("or rename your input file to match one of the following formats:")
+                print("")
+                print("\tAqua:  'a*' or 'A*' or 'MOD00.P*' or 'P1540064* or 'MYD*.A*''")
+                print("\tTerra: 't*' or 'T*' or 'MOD00.A*' or 'P0420064*'")
                 sys.exit(1)
     else:
         # Determine pass start time and platform
@@ -278,7 +278,7 @@ def modis_env(self):
             self.pgeversion = "6.2.2_obpg"
 
     else:
-        print "ERROR: Unable to determine platform type for", self.file
+        print("ERROR: Unable to determine platform type for", self.file)
         sys.exit(1)
 
     # Static input directories
@@ -294,7 +294,7 @@ def modis_env(self):
     if self.proctype == "modisL1A":
         self.pcf_template = os.path.join(self.dirs['pcf'], 'L1A_template.pcf')
         if not os.path.exists(self.pcf_template):
-            print "ERROR: Could not find the L1A PCF template: " + self.pcf_template
+            print("ERROR: Could not find the L1A PCF template: " + self.pcf_template)
             sys.exit(1)
 
         self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
@@ -308,7 +308,7 @@ def modis_env(self):
     if self.proctype == "modisGEO":
         self.pcf_template = os.path.join(self.dirs['pcf'], 'GEO_template.pcf')
         if not os.path.exists(self.pcf_template):
-            print "ERROR: Could not find GEO PCF template " + self.pcf_template
+            print("ERROR: Could not find GEO PCF template " + self.pcf_template)
             sys.exit(1)
 
         self.l1amcf = ''.join([self.prefix, '01_', self.collection_id, '.mcf'])
@@ -328,20 +328,20 @@ def modis_env(self):
                                            self.planetfile)):
             if not os.path.exists(os.path.join(self.dirs['static'],
                                                'de200.dat')):
-                print "ERROR: File " + os.path.join(self.dirs['static'], self.planetfile) + "does not exist."
-                print "       nor does " + os.path.join(self.dirs['static'], 'de200.dat') + "..."
-                print "       Something is amiss with the environment..."
+                print("ERROR: File " + os.path.join(self.dirs['static'], self.planetfile) + "does not exist.")
+                print("       nor does " + os.path.join(self.dirs['static'], 'de200.dat') + "...")
+                print("       Something is amiss with the environment...")
                 sys.exit(1)
             else:
                 if self.verbose:
-                    print "Creating binary planetary ephemeris file..."
+                    print("Creating binary planetary ephemeris file...")
                 planetfile = os.path.join(self.dirs['static'], 'de200.dat')
                 cmd = ' '.join([os.path.join(self.dirs['bin3'], 'ephtobin'), planetfile])
                 status = subprocess.call(cmd, shell=True)
 
                 if status:
-                    print status
-                    print "Error creating binary planetary ephemeris file"
+                    print(status)
+                    print("Error creating binary planetary ephemeris file")
                     sys.exit(1)
                 else:
                     shutil.move('de200.eos', os.path.join(self.dirs['static'],
@@ -363,7 +363,7 @@ def modis_env(self):
     if self.proctype == "modisL1B":
         self.pcf_template = os.path.join(self.dirs['pcf'], 'L1B_template.pcf')
         if not os.path.exists(self.pcf_template):
-            print "ERROR: Could not find the L1B PCF template", self.pcf_template
+            print("ERROR: Could not find the L1B PCF template", self.pcf_template)
             sys.exit(1)
 
         # Search LUTDIR for lut names
@@ -376,7 +376,7 @@ def modis_env(self):
                 versions = [lut_version(f) for f in os.listdir(self.lutdir) if f.endswith('.hdf')]
                 self.lutversion = sorted(versions)[-1][1:]  # highest version number
             except:
-                print "ERROR: Could not find LUTs in".self.lutdir
+                print("ERROR: Could not find LUTs in".self.lutdir)
                 sys.exit(1)
 
         self.refl_lut = self.prefix + '02_Reflective_LUTs.V' + self.lutversion + '.hdf'
@@ -384,13 +384,13 @@ def modis_env(self):
         self.qa_lut = self.prefix + '02_QA_LUTs.V' + self.lutversion + '.hdf'
 
         if self.verbose:
-            print ""
-            print "LUT directory: %s" % self.lutdir
-            print "LUT version: %s" % self.lutversion
-            print "Reflective LUT: %s" % self.refl_lut
-            print "Emissive LUT: %s" % self.emis_lut
-            print "QA LUT: %s" % self.qa_lut
-            print ""
+            print("")
+            print("LUT directory: %s" % self.lutdir)
+            print("LUT version: %s" % self.lutversion)
+            print("Reflective LUT: %s" % self.refl_lut)
+            print("Emissive LUT: %s" % self.emis_lut)
+            print("QA LUT: %s" % self.qa_lut)
+            print("")
 
         self.qkm_mcf = ''.join([self.prefix, '02QKM_',
                                 self.collection_id, '.mcf'])
@@ -438,11 +438,11 @@ def modis_env(self):
         if not os.path.exists(os.path.join(self.lutdir, self.refl_lut)) \
                 or not os.path.exists(os.path.join(self.lutdir, self.emis_lut)) \
                 or not os.path.exists(os.path.join(self.lutdir, self.qa_lut)):
-            print "ERROR: One or more of the required LUTs does not exist in %s:" % self.lutdir
-            print ""
-            print "Reflective LUT:", self.refl_lut
-            print "Emissive LUT:", self.emis_lut
-            print "QA LUT:", self.qa_lut
+            print("ERROR: One or more of the required LUTs does not exist in %s:" % self.lutdir)
+            print("")
+            print("Reflective LUT:", self.refl_lut)
+            print("Emissive LUT:", self.emis_lut)
+            print("QA LUT:", self.qa_lut)
             sys.exit(1)
 
         self.dirs['rlut'] = os.path.abspath(os.path.dirname(self.refl_lut))

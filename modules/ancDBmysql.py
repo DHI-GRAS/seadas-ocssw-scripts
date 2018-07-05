@@ -64,7 +64,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         Create the ancillary DB
         """
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return 110
 
         c = self.cursor
@@ -98,7 +98,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         Insert record into ancillary DB
         """
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return 110
 
         c = self.cursor
@@ -111,9 +111,9 @@ set of functions to generate, update, and read from a local SQLite database of a
             if atteph:
                 attephstat = dbstat
                 inputdbstat = -1
-            print satfile, starttime, stoptime, inputdbstat, attephstat
+            print(satfile, starttime, stoptime, inputdbstat, attephstat)
             sqlcmd = 'INSERT INTO satfiles VALUES (NULL,"%s",%d,%d,%d,%d)' % (satfile, long(starttime), long(stoptime), int(inputdbstat), int(attephstat))
-            print sqlcmd
+            print(sqlcmd)
             c.execute(sqlcmd)
             self.conn.commit()
             satid = ancDB.check_file(self, satfile)
@@ -150,7 +150,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         If given an ancillary filename and keyword anc is set true, deletes only that ancillary record
         """
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return 110
 
         c = self.cursor
@@ -213,7 +213,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         Check database for existing file, return ID if exists
         """
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return 110
 
         c = self.cursor
@@ -242,7 +242,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         Check the stored database return status
         """
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return 110
 
         c = self.cursor
@@ -264,7 +264,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         return the stored file start and stop times
         """
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return 110
 
         c = self.cursor
@@ -281,7 +281,7 @@ set of functions to generate, update, and read from a local SQLite database of a
         """
         import os
         if self.conn is None:
-            print "No connection to database!"
+            print("No connection to database!")
             return None
 
         c = self.cursor
@@ -316,10 +316,10 @@ if __name__ == "__main__":
     db.insert_record(satfile='A2002365234500.L1A_LAC', starttime='2002365234500', stoptime='2002365235000',
                      ancfile='N200300100_MET_NCEPN_6h.hdf', ancpath='/Users/Shared/python/OCSSW_Scripts',
                      anctype='att1', atteph=True)
-    print db.check_file('A2002365234500.L1A_LAC')
-    print db.check_file('N200236518_MET_NCEPN_6h.hdf', anctype='met1')
+    print(db.check_file('A2002365234500.L1A_LAC'))
+    print(db.check_file('N200236518_MET_NCEPN_6h.hdf', anctype='met1'))
     files = db.get_ancfiles('A2002365234500.L1A_LAC', atteph=True)
-    print files
+    print(files)
     db.delete_record(filename='A2002365234500.L1A_LAC')
-    print db.check_file('N200236518_MET_NCEPN_6h.hdf', anctype='met1')
+    print(db.check_file('N200236518_MET_NCEPN_6h.hdf', anctype='met1'))
     db.closeDB()

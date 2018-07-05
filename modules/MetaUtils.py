@@ -19,7 +19,7 @@ def get_hdf4_content(filename):
     # does executable exist?
     hdp = os.path.join(os.getenv('LIB3_BIN'), 'hdp')
     if not (os.path.isfile(hdp) and os.access(hdp, os.X_OK)):
-        print hdp, "is not executable."
+        print(hdp, "is not executable.")
         return None
 
     # dump file header
@@ -35,7 +35,7 @@ def get_hdf5_header_plaintext(filename):
     """
     h5dump = os.path.join(os.getenv('LIB3_BIN'), 'h5dump')
     if not (os.path.isfile(h5dump) and os.access(h5dump, os.X_OK)):
-        print h5dump, "is not executable."
+        print(h5dump, "is not executable.")
         return None
     cmd = [h5dump, '-H', filename]
     h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
@@ -53,7 +53,7 @@ def get_hdf5_header_xml(filename):
     """
     h5dump = os.path.join(os.getenv('LIB3_BIN'), 'h5dump')
     if not (os.path.isfile(h5dump) and os.access(h5dump, os.X_OK)):
-        print h5dump, "is not executable."
+        print(h5dump, "is not executable.")
         return None
 
     # dump file header
@@ -130,7 +130,7 @@ def dump_metadata(filename):
 
     # does input file exist?
     if not os.path.isfile(filename):
-        print "Can't find input file '" + filename + "'."
+        print("Can't find input file '" + filename + "'.")
         return None
 
     lib3_bin_dir = os.getenv('LIB3_BIN')
@@ -156,7 +156,7 @@ def dump_metadata(filename):
         return content
     elif re.search('NetCDF Data Format', mime):
         if not (os.path.isfile(ncdump_hdf) and os.access(ncdump_hdf, os.X_OK)):
-            print ncdump_hdf, "is not executable."
+            print(ncdump_hdf, "is not executable.")
             return None
         cmd = ' '.join([ncdump_hdf, '-h', filename])
         hdr_content = subprocess.Popen(cmd, shell=True,
@@ -395,7 +395,7 @@ def get_xml_attr(metaxml):
                             attr[str(cur_attr.attrs[0][1]).strip()] = (str(cur_attr.contents[5].contents[1].contents[0]).strip()).strip('"')
     except TypeError:
         for exc_item in sys.exc_info():
-            print exc_item
+            print(exc_item)
     return attr
 
 
