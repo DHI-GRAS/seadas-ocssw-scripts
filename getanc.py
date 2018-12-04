@@ -10,7 +10,13 @@ from optparse import OptionParser
 import modules.anc_utils as ga
 from modules.setupenv import env
 
-if __name__ == "__main__":
+def main():
+    """
+    The main function for the program. Gets and checks command line options, instantiates 
+    a getanc object (from the class defined in anc_utils) and then calls the methods to 
+    get the ancillary data.
+    """
+
     filename = None
     start = None
     stop = None
@@ -184,5 +190,7 @@ if __name__ == "__main__":
     g.locate(forcedl=force)
     g.write_anc_par()
     g.cleanup()
+    return(g.db_status)
 
-    exit(g.db_status)
+if __name__ == "__main__":
+    exit(main())

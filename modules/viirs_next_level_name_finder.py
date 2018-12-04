@@ -21,9 +21,10 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
 
     PROCESSING_LEVELS = {
         'l1agen':         'Level 1A',
-        'Level 1A':             'Level 1A',
-        'l1aextract_viirs' :  'l1aextract_viirs',
+        'Level 1A':            'Level 1A',
+        'l1aextract_viirs' :   'l1aextract_viirs',
         'geolocate_viirs' :    'geo',
+        'geo' :                'geo',
         'calibrate_viirs':     'Level 1B',
         'Level 1B':       'Level 1B',
         'level 1b':       'Level 1B',

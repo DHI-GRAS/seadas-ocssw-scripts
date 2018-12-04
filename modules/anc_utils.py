@@ -284,6 +284,10 @@ class getanc:
                                 self.start = ProcUtils.date_convert(startdate + ' ' + starttime, 'h', 'j')
                                 self.stop = ProcUtils.date_convert(stopdate + ' ' + stoptime, 'h', 'j')
 
+        if self.file and not self.sensor:
+            # Make sure sensor is set (JIRA Ticket #1012)  
+            self.sensor = ProcUtils.check_sensor(self.file)
+
         if self.verbose:
             print()
             print("Input file: " + str(self.file))
@@ -599,7 +603,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                     if self.verbose:
                         print("Downloading '" + FILE + "' to " + self.dirs['path'])
                     urlConn, status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
-                            self.dirs['path'],timeout=self.timeout, uncompress=True,
+                            self.dirs['path'], timeout=self.timeout, uncompress=True,
                             reuseConn=True, urlConn=urlConn, verbose=self.verbose)
                     gc.collect()
                     if status:

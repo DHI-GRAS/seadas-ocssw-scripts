@@ -6,29 +6,11 @@ Program to perform multilevel processing (previously known as the
 seadas_processor and sometimes referred to as the 'uber' processor).
 """
 
-__version__ = '1.0.5'
-
-__author__ = 'melliott'
-
-#import modis_processor
-
 import ConfigParser
 import datetime
 import logging
 import optparse
 import os
-import modules.mlp_utils as mlp_utils
-import modules.benchmark_timer as benchmark_timer
-import get_obpg_file_type
-import modules.MetaUtils as MetaUtils
-import modules.name_finder_utils as name_finder_utils
-import modules.next_level_name_finder as next_level_name_finder
-import modules.obpg_data_file as obpg_data_file
-import modules.ProcUtils as ProcUtils
-import modules.processor as processor
-import modules.processing_rules as processing_rules
-
-#import product
 import re
 import subprocess
 import sys
@@ -36,7 +18,23 @@ import tarfile
 import time
 import traceback
 import types
+
+import get_obpg_file_type
+import modules.mlp_utils as mlp_utils
+import modules.benchmark_timer as benchmark_timer
+import modules.MetaUtils as MetaUtils
+import modules.name_finder_utils as name_finder_utils
+import modules.next_level_name_finder as next_level_name_finder
+import modules.obpg_data_file as obpg_data_file
+import modules.ProcUtils as ProcUtils
+import modules.processor as processor
+import modules.processing_rules as processing_rules
 import modules.uber_par_file_reader as uber_par_file_reader
+#import product
+
+__version__ = '1.0.6'
+
+__author__ = 'melliott'
 
 class ProcessorConfig(object):
     """
@@ -147,7 +145,7 @@ def build_executable_path(prog_name):
     None is returned if the program is not found.
     """
     exe_path = None
-    candidate_subdirs = ['run', 'scripts', 'run/scripts']
+    candidate_subdirs = ['bin', 'run', 'scripts', 'run/scripts']
     for subdir in candidate_subdirs:
         cand_path = os.path.join(OCSSWROOT_DIR, subdir, prog_name)
         if os.path.exists(cand_path):
@@ -379,8 +377,6 @@ def build_seawifs_rules():
                                                 run_l1brsgen, False),
         'l1mapgen': processing_rules.build_rule('l1mapgen', ['l1'],
                                                 run_l1mapgen, False),
-        'geo': processing_rules.build_rule('geo', ['level 1a'], None,
-                                           False),
         'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
                                                 run_l1b, False),
         # 'l2gen': processing_rules.build_rule('l2gen', ['level 1b'], run_l2gen,
@@ -418,10 +414,14 @@ def build_viirs_rules():
         'level 1a': processing_rules.build_rule('level 1a',
                                                 ['nothing lower'],
                                                 run_bottom_error, False),
-        'level 1b': processing_rules.build_rule('level 1b', ['level 1a'],
-                                                run_l1b, False),
-        'l2gen': processing_rules.build_rule('l2gen', ['level 1b'],
-                                             run_l2gen_viirs, True),
+        'geo': processing_rules.build_rule('geo', ['level 1a'],
+                                           run_geolocate_viirs, False),
+        'level 1b': processing_rules.build_rule('level 1b', ['level 1a', 'geo'],
+                                                run_viirs_l1b, False),
+#        'l2gen': processing_rules.build_rule('l2gen', ['level 1a', 'geo'],
+#                                             run_l2gen_viirs, True),
+        'l2gen': processing_rules.build_rule('l2gen', ['level 1a', 'geo'],
+                                             run_l2gen, False),
         'l2extract': processing_rules.build_rule('l2extract', ['l2gen'],
                                                  run_l2extract, False),
         'l2brsgen': processing_rules.build_rule('l2brsgen', ['l2gen'],
@@ -437,7 +437,7 @@ def build_viirs_rules():
         'smigen': processing_rules.build_rule('smigen', ['l3bin'], run_smigen,
                                               False)
     }
-    rules_order = ['level 1a', 'level 1b', 'l2gen', 'l2extract',
+    rules_order = ['level 1a', 'geo', 'level 1b', 'l2gen', 'l2extract',
                    'l2brsgen', 'l2mapgen', 'l2bin', 'l3bin',
                    'l3mapgen', 'smigen']
     rules = processing_rules.RuleSet('VIIRS Rules', rules_dict, rules_order)
@@ -451,7 +451,7 @@ def build_rules():
                  goci=build_goci_rules(),
                  meris=build_meris_rules(),
                  modis=build_modis_rules(),
-                 seawifs=build_seawifs_rules(), 
+                 seawifs=build_seawifs_rules(),
                  viirs=build_viirs_rules())
     return rules
 
@@ -515,7 +515,7 @@ def create_levels_list(rules_sets):
     Returns a list containing all the levels from all the rules sets.
     """
     set_key = rules_sets.keys()[0]
-    logging.debug('set_key = %s' % (set_key))
+    logging.debug('set_key = %s', (set_key))
     lvls_lst = [(lvl, [set_key]) for lvl in rules_sets[set_key].order[1:]]
     for rules_set_name in rules_sets.keys()[1:]:
         for lvl_name in rules_sets[rules_set_name].order[1:]:
@@ -658,14 +658,7 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     instrument = input_file_data[first_file_key][1].split()[0]
     logging.debug("instrument: " + instrument)
     if instrument in rules_sets:
-        if instrument == 'viirs':
-            mime_data = MetaUtils.get_mime_data(input_files_list[0])
-            if mime_data.strip() == 'data':
-                rules = rules_sets['viirs']
-            else:
-                rules = rules_sets['general']
-        else:
-            rules = rules_sets[instrument]
+        rules = rules_sets[instrument]
     else:
         rules = rules_sets['general']
 
@@ -678,8 +671,8 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
         tar_file = tarfile.open(cfg_data.tar_filename, 'w')
     proc_name_list = ', '.join([p.target_type for p in processors])
     print ('{0}: {1} processors to run: {2}'.format(cfg_data.prog_name,
-                                                   len(processors),
-                                                   proc_name_list))
+                                                    len(processors),
+                                                    proc_name_list))
     if 'geofile' in par_contnts['main']:
         for proc in processors:
             proc.geo_file = par_contnts['main']['geofile']
@@ -687,7 +680,7 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     try:
         for ndx, proc in enumerate(processors):
             print ('Running {0}: processor {1} of {2}.'.format(
-                 proc.target_type, ndx + 1, len(processors)))
+                proc.target_type, ndx + 1, len(processors)))
             logging.debug('')
             log_msg = 'Processing for {0}:'.format(proc.target_type)
             logging.debug(log_msg)
@@ -744,16 +737,17 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
                             else:
                                 src_files[proc.target_type] = [out_file]
                     if success_count == 0:
-                        msg = 'The {0} processor produced no output files.'.format()
+                        msg = 'The {0} processor produced no output files.'.format(proc.target_type)
                         logging.info(msg)
                 else:
                     msg = '-I- There is no way to create {0} files for {1}.'.format(proc.target_type, proc.instrument)
                     logging.info(msg)
             if cfg_data.keepfiles or proc.keepfiles:
-                files_to_keep.append(out_file)
-                if cfg_data.tar_filename:
-                    tar_file.add(out_file)
-                logging.debug('Added ' + out_file + ' to tar file list')
+                if out_file:
+                    files_to_keep.append(out_file)
+                    if cfg_data.tar_filename:
+                        tar_file.add(out_file)
+                    logging.debug('Added ' + out_file + ' to tar file list')
             #todo: add "target" files to files_to_keep and other files to files_to_delete, as appropriate
             if cfg_data.timing:
                 proc_timer.end()
@@ -824,10 +818,9 @@ def find_geo_file(inp_file):
     src_base = os.path.basename(inp_file)
     geo_base = src_base.rsplit('.', 1)[0]
     geo_file = os.path.join(src_dir, geo_base + '.GEO')
-    if os.path.exists((geo_file)):
-        return geo_file
-    else:
-        return None
+    if not os.path.exists(geo_file):
+        geo_file = None
+    return geo_file
 
 def find_viirs_geo_file(proc, first_svm_file):
     """
@@ -835,10 +828,9 @@ def find_viirs_geo_file(proc, first_svm_file):
     exists, returns that file name; otherwise, returns None.
     """
     fname = first_svm_file.replace('SVM01', 'GMTCO').rstrip()
-    if os.path.exists(fname):
-        return fname
-    else:
-        return None
+    if not os.path.exists(fname):
+        fname = None
+    return fname
 
 def get_batch_output_name(file_set, suffix):
     """
@@ -976,12 +968,11 @@ def get_input_files(par_data):
                     inp_lines = in_file_list_file.readlines()
                 from_infilelist = [fn.rstrip() for fn in inp_lines
                                    if not re.match(r'^\s*#', fn)]
-    if len(from_ifiles) > 0 or len(from_infilelist) > 0:
-        # Make sure there are no duplicates.  Tests with timeit showed that
-        # list(set()) is much faster than a "uniqify" function.
-        return list(set(from_ifiles + from_infilelist))
-    else:
+    if len(from_ifiles) == 0 and len(from_infilelist) == 0:
         return None
+    # Make sure there are no duplicates.  Tests with timeit showed that
+    # list(set()) is much faster than a "uniqify" function.
+    return list(set(from_ifiles + from_infilelist))
 
 def get_input_files_type_data(input_files_list):
     """
@@ -1098,7 +1089,7 @@ def get_options(par_data):
         if key == 'ofile':
             log_and_exit('Error!  The "ofile" option is not permitted.')
         else:
-            if not (key.lower() in FILE_USE_OPTS):
+            if not key.lower() in FILE_USE_OPTS:
                 if par_data[key]:
                     options += ' ' + key + '=' + par_data[key]
                 else:
@@ -1374,9 +1365,11 @@ def get_traceback_message():
     tb_data = traceback.format_exc()
     tb_line = tb_data.splitlines()[-3]
     line_num = tb_line.split(',')[1]
-    msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3}!'.\
+    st_data = traceback.extract_stack()
+    err_file = os.path.basename(st_data[-1][0])
+    msg = 'Error!  The {0} program encountered an unrecoverable {1}, {2}, at {3} of {4}!'.\
         format(cfg_data.prog_name,
-               err_type, exc_parts[1], line_num.strip())
+               err_type, exc_parts[1], line_num.strip(), err_file)
     return msg
 
 
@@ -1560,6 +1553,25 @@ def run_bottom_error(proc):
     err_msg = 'Error!  Attempting to create {0} product, but no creation program is known.'.format(proc.target_type)
     log_and_exit(err_msg)
 
+def run_geolocate_viirs(proc):
+    """
+    Set up and run the geolocate_viirs program, returning the exit status of the run.
+    """
+    logging.debug('In run_geolocate_viirs')
+    prog = build_executable_path('geolocate_viirs')
+    #### Temporary, until the local environment is set up
+#     prog='/accounts/melliott/seadas/ocssw/bin/geolocate_viirs'
+    # os.path.join(proc.ocssw_root, 'run', 'scripts', 'modis_GEO.py')
+    if not prog:
+        err_msg = 'Error! Cannot find program geolocate_viirs.'
+        logging.info(err_msg)
+        sys.exit(err_msg)
+    args = ''.join(['-ifile=', proc.input_file, ' -geofile_mod=', proc.output_file])
+    args += get_options(proc.par_data)
+    cmd = ' '.join([prog, args])
+    logging.debug("\nRunning: " + cmd)
+    return execute_command(cmd)
+
 def run_l1aextract_modis(proc):
     """
     Set up and run l1aextract_modis.
@@ -1639,7 +1651,7 @@ def run_l1brsgen(proc):
     else:
         # suffix = l1brs_suffixes['0']
         cmd = ' '.join([prog, opts, ' ifile=' + proc.input_file,
-                    'ofile=' + output_name])
+                        'ofile=' + output_name])
     logging.debug('Executing: "%s"', cmd)
     status = execute_command(cmd)
     return status
@@ -1750,8 +1762,6 @@ def run_l2gen(proc):
     par_name = build_l2gen_par_file(proc.par_data, proc.input_file,
                                     proc.geo_file, proc.output_file)
     logging.debug('L2GEN_FILE=' + proc.output_file)
-    with open('_mp_l2gen_file.out', 'wt') as tmp_file:
-        tmp_file.write(proc.output_file)
 
     args = 'par=' + par_name
     l2gen_cmd = ' '.join([l2gen_prog, args])
@@ -1771,15 +1781,15 @@ def run_l2gen_viirs(proc):
     elif MetaUtils.is_ascii_file(proc.input_file):
         with open(proc.input_file, 'rt') as in_file:
             file_names = in_file.readlines()
-    elif re.match('^SVM\d\d_npp_d\d\d\d\d\d\d\d\_.*\.h5', proc.input_file):
+    elif re.match(r'^SVM\d\d_npp_d\d\d\d\d\d\d\d\_.*\.h5', proc.input_file):
         file_names = [proc.input_file]
     if len(file_names) > 0:
         for fname in file_names:
-            if not re.match('^GMTCO_npp_d.*\.h5', fname) and \
-                not re.match('^SVM\d\d_npp_d\d\d\d\d\d\d\d.*\.h5', fname):
+            if not re.match(r'^GMTCO_npp_d.*\.h5', fname) and \
+                not re.match(r'^SVM\d\d_npp_d\d\d\d\d\d\d\d.*\.h5', fname):
                 file_names.remove(fname)
         file_names.sort()
-        if re.match('^GMTCO_npp_d.*\.h5', file_names[0]):
+        if re.match(r'^GMTCO_npp_d.*\.h5', file_names[0]):
             geo_file = file_names[0]
             first_svm_file = file_names[1]
         elif proc.geo_file:
@@ -1804,7 +1814,7 @@ def run_l2mapgen(proc):
     prog = os.path.join(proc.ocssw_bin, 'l2mapgen')
     args = 'ifile=' + proc.input_file
     for opt_name in proc.par_data:
-        if not (opt_name.lower() in FILE_USE_OPTS):
+        if not opt_name.lower() in FILE_USE_OPTS:
             args += ' ' + opt_name + '=' + proc.par_data[opt_name]
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
@@ -1815,8 +1825,7 @@ def run_l2mapgen(proc):
         # A return status of 110 indicates that there was insufficient data
         # to plot.  That status should be handled as a normal condition here.
         return 0
-    else:
-        return status
+    return status
 
 def run_l3bin(proc):
     """
@@ -1828,7 +1837,7 @@ def run_l3bin(proc):
               format(proc.rule_set.rules[proc.target_type].action))
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
-        if not (key.lower() in FILE_USE_OPTS):
+        if not key.lower() in FILE_USE_OPTS:
             args += ' ' + key + '=' + proc.par_data[key]
     args = 'in=' + proc.input_file
     args += ' ' + "out=" + proc.output_file
@@ -1858,7 +1867,7 @@ def run_l3mapgen(proc):
               format(proc.rule_set.rules[proc.target_type].action))
     args = 'ifile=' + proc.input_file
     for key in proc.par_data:
-        if not (key.lower() in FILE_USE_OPTS):
+        if not key.lower() in FILE_USE_OPTS:
             args += ' ' + key + '=' + proc.par_data[key]
     args += ' ofile=' + proc.output_file
     cmd = ' '.join([prog, args])
@@ -2001,6 +2010,25 @@ def run_smigen(proc):
         log_and_exit(err_msg)
     return status
 
+def run_viirs_l1b(proc):
+    logging.debug('In run_viirs_l1b')
+    prog = build_executable_path('calibrate_viirs')
+#     prog='/accounts/melliott/seadas/ocssw/bin/calibrate_viirs'
+
+    args = ''.join(['ifile=', proc.input_file, ' l1bfile_mod=', proc.output_file])
+    args += get_options(proc.par_data)
+    # The following is no longer needed, but kept for reference.
+#    args += ' --lutdir $OCSSWROOT/run/var/modisa/cal/EVAL --lutver=6.1.15.1z'
+#     args += ' ' + proc.input_file
+    if proc.geo_file:
+        pass
+#         args += ' geofile=' + proc.geo_file
+    cmd = ' '.join([prog, args])
+    logging.debug("\nRunning: " + cmd)
+    return execute_command(cmd)
+
+    return
+
 def start_logging(time_stamp):
     """
     Opens log file(s) for debugging.
@@ -2066,7 +2094,7 @@ input_file_data = {}
 
 if os.environ['OCSSWROOT']:
     OCSSWROOT_DIR = os.environ['OCSSWROOT']
-    logging.debug('OCSSWROOT -> {0}'.format(OCSSWROOT_DIR))
+    logging.debug('OCSSWROOT -> %s', OCSSWROOT_DIR)
 else:
     sys.exit('Error! Cannot find OCSSWROOT environment variable.')
 

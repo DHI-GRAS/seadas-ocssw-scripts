@@ -1,6 +1,8 @@
 #! /usr/bin/env python
 
 
+from __future__ import absolute_import
+from __future__ import print_function
 import get_obpg_file_type
 from . import next_level_name_finder
 from . import obpg_data_file
