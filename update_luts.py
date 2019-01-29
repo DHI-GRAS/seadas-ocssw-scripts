@@ -18,8 +18,8 @@ if __name__ == '__main__':
 
     # version = '2.0'
     description = 'Retrieve latest lookup tables for specified sensor.'
-    sensors = ['seawifs', 'aquarius', 'modisa', 'modist', 'viirsn']  #, 'viirsj1']
-    platforms = ['aqua', 'terra', 'npp']  #, 'j1']
+    sensors = ['seawifs', 'aquarius', 'modisa', 'modist', 'viirsn', 'viirsj1']
+    platforms = ['aqua', 'terra', 'npp', 'j1']
 
     # Define commandline options
 
