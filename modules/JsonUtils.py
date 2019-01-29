@@ -1,6 +1,4 @@
-from __future__ import print_function
 
-import httplib
 import os
 import sys
 import time
@@ -13,6 +11,11 @@ try:
     from urllib.parse import urljoin, urlsplit, urlunsplit  # python 3
 except ImportError:
     from urlparse import urljoin, urlsplit, urlunsplit  # python 2
+
+try:
+    import http.client as hclient  # python 3
+except ImportError:
+    import httplib as hclient  # python 2
 
 
 def base_url(url):
@@ -83,7 +86,7 @@ def linkdict(rows):
     keys = ['href', 'mtime', 'size']
     linklist = []
     for row in rows:
-        link = dict(zip(keys, row))
+        link = dict(list(zip(keys, row)))
         link['mtime'] = link_mtime(link['mtime'])
         linklist.append(link)
     return linklist
@@ -160,7 +163,7 @@ class SessionUtils:
         response = None
 
         parts = urlsplit(url)
-        path = urlunsplit((None, None, parts.path, parts.query, None))
+        path = urlunsplit(('', '', parts.path, parts.query, ''))
 
         if not self.session:
             self.session, proxy = httpinit(parts.netloc, timeout=self.timeout)
@@ -172,7 +175,7 @@ class SessionUtils:
                 self.session.request('HEAD', path)
             response = self.session.getresponse()
 
-        except httplib.HTTPException as h:
+        except hclient.HTTPException as h:
             self.status = 1
             print('Networking problem: %s: %s' % (h.__class__, str(h)))
 

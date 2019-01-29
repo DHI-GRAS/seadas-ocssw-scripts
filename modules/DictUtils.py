@@ -1,4 +1,5 @@
 #! /usr/bin/python
+from __future__ import print_function
 
 import re
 
@@ -16,11 +17,11 @@ def promote_value(mydict, keyregex):
     promote_value(mydict, 'IN.*')
     mydict => {'OUTER': val}
     """
-    for k, v in mydict.items():
+    for k, v in list(mydict.items()):
         if isinstance(v, dict):
             promote_value(v, keyregex)
-            if len(v.keys()) == 1 and re.match(keyregex, v.keys()[0]):
-                mydict[k] = v[v.keys()[0]]
+            if len(list(v.keys())) == 1 and re.match(keyregex, list(v.keys())[0]):
+                mydict[k] = v[list(v.keys())[0]]
 
 
 def promote_dict(mydict, keyregex):
@@ -32,12 +33,12 @@ def promote_dict(mydict, keyregex):
     promote_dict(mydict, 'IN.*')
     mydict => {'INNER': val}
     """
-    for k, v in mydict.items():
+    for k, v in list(mydict.items()):
         if isinstance(v, dict):
             promote_dict(v, keyregex)
-            if len(v.keys()) == 1 and re.match(keyregex, v.keys()[0]):
-                key = v.keys()[0]
-                if not mydict.has_key(key):
+            if len(list(v.keys())) == 1 and re.match(keyregex, list(v.keys())[0]):
+                key = list(v.keys())[0]
+                if key not in mydict:
                     mydict[key] = v[key]
                     del mydict[k]
 
@@ -50,14 +51,14 @@ def flatten_dict(mydict):
     flatten_dict(mydict)
     mydict => {'INNER3': val}
     """
-    for k, v in mydict.items():
+    for k, v in list(mydict.items()):
         if isinstance(v, dict):
             flatten_dict(v)
-            for key in v.keys():
-                if not mydict.has_key(key):
+            for key in list(v.keys()):
+                if key not in mydict:
                     mydict[key] = v[key]
                     del v[key]
-            if not len(v.keys()):
+            if not len(list(v.keys())):
                 del mydict[k]
 
 
@@ -69,10 +70,10 @@ def delete_key(mydict, keyregex):
     delete_key(mydict, '*.2')
     mydict => {'OUTER': {'INNER1': {}}}
     """
-    for v in mydict.values():
+    for v in list(mydict.values()):
         if isinstance(v, dict):
             delete_key(v, keyregex)
-    for k in __matches(keyregex, mydict.keys()):
+    for k in __matches(keyregex, list(mydict.keys())):
         del mydict[k]
 
 
@@ -84,10 +85,10 @@ def delete_empty(mydict):
     delete_empty(mydict)
     mydict => {'OUTER': {'INNER': val} }
     """
-    for k, v in mydict.items():
+    for k, v in list(mydict.items()):
         if isinstance(v, dict):
             delete_empty(v)
-            if not len(v.keys()):
+            if not len(list(v.keys())):
                 del mydict[k]
 
 
@@ -99,7 +100,7 @@ def reassign_keys_in_dict(mydict, namekey, valuekey):
     reassign_keys_in_dict(mydict, 'namekey', 'valuekey')
     mydict => {'OUTER': {'key': val}}
     """
-    for v in mydict.values():
+    for v in list(mydict.values()):
         if isinstance(v, dict):
             reassign_keys_in_dict(v, namekey, valuekey)
             try:
@@ -111,7 +112,7 @@ def reassign_keys_in_dict(mydict, namekey, valuekey):
 
 def _allkeys(mydict, myset):
     myset.update(mydict)
-    for d in mydict.itervalues():
+    for d in mydict.values():
         if isinstance(d, dict):
             _allkeys(d, myset)
 

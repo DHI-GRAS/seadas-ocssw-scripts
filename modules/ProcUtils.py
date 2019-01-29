@@ -3,6 +3,7 @@
 SeaDAS library for commonly used functions within other python scripts
 
 """
+from __future__ import print_function
 
 import sys
 
@@ -26,10 +27,17 @@ def httpinit(url, timeout=10, urlConn=None):
     """
     initialize HTTP network connection
     """
-    import httplib
     import os
-    from urlparse import urlparse
+    try:
+        import http.client as hclient  # python 3
+    except ImportError:
+        import httplib as hclient  # python 2
 
+    try:
+        from urllib.parse import urlparse
+    except ImportError:
+        from urlparse import urlparse
+        
     proxy = None
     proxy_set = os.environ.get('https_proxy')
     if proxy_set is None:
@@ -39,12 +47,12 @@ def httpinit(url, timeout=10, urlConn=None):
 
     if urlConn is None:
         if proxy is None:
-            urlConn = httplib.HTTPSConnection(url, timeout=timeout)
+            urlConn = hclient.HTTPSConnection(url, timeout=timeout)
         elif proxy.scheme == 'https':
-            urlConn = httplib.HTTPSConnection(proxy.hostname,
+            urlConn = hclient.HTTPSConnection(proxy.hostname,
                                               proxy.port, timeout=timeout)
         else:
-            urlConn = httplib.HTTPConnection(proxy.hostname,
+            urlConn = hclient.HTTPConnection(proxy.hostname,
                                              proxy.port, timeout=timeout)
 
     return urlConn, proxy
@@ -77,8 +85,8 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
     sleepytime = int(5 + ((30. * (1. / (float(ntries) + 1.)))))
 
     if not os.path.exists(localpath):
-        os.umask(002)
-        os.makedirs(localpath, mode=02775)
+        os.umask(0o02)
+        os.makedirs(localpath, mode=0o2775)
 
     urlConn, proxy = httpinit(url, timeout=timeout, urlConn=urlConn)
 
@@ -105,7 +113,7 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             urlConn.close()
             if ntries > 0:
                 if verbose:
-                    print "Connection interrupted, retrying up to %d more time(s)" % ntries
+                    print("Connection interrupted, retrying up to %d more time(s)" % ntries)
                 sleep(sleepytime)
                 urlConn, status = _httpdl(url, request, localpath=localpath,
                                           outputfilename=outputfilename,
@@ -113,11 +121,11 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                                           uncompress=uncompress, reuseConn=reuseConn,
                                           urlConn=None, verbose=verbose)
             else:
-                print 'We failed to reach a server.'
-                print 'Please retry this request at a later time.'
-                print 'URL attempted: %s' % url
-                print 'HTTP Error: {0} - {1}'.format(response.status,
-                                                     response.reason)
+                print('We failed to reach a server.')
+                print('Please retry this request at a later time.')
+                print('URL attempted: %s' % url)
+                print('HTTP Error: {0} - {1}'.format(response.status,
+                                                     response.reason))
                 status = response.status
                 urlConn = None
 
@@ -126,24 +134,24 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             urlConn.close()
         if ntries > 0:
             if verbose:
-                print 'Connection error, retrying up to {0} more time(s)'. \
-                    format(ntries)
+                print('Connection error, retrying up to {0} more time(s)'. \
+                    format(ntries))
             sleep(sleepytime)
             urlConn, status = _httpdl(url, request, localpath=localpath,
                                       outputfilename=outputfilename, ntries=ntries - 1,
                                       timeout=timeout, uncompress=uncompress,
                                       reuseConn=reuseConn, urlConn=None, verbose=verbose)
         else:
-            print 'URL attempted: %s' % url
-            print 'Well, this is embarrassing...an error occurred that we just cannot get past...'
-            print 'Here is what we know: %s' % socmsg
-            print 'Please retry this request at a later time.'
+            print('URL attempted: %s' % url)
+            print('Well, this is embarrassing...an error occurred that we just cannot get past...')
+            print('Here is what we know: %s' % socmsg)
+            print('Please retry this request at a later time.')
             status = 500
             urlConn = None
     except:
         if response:
-            print 'Well, the server did not like this...reports: {0}'. \
-                format(response.reason)
+            print('Well, the server did not like this...reports: {0}'. \
+                format(response.reason))
             status = response.status
         else:
             err_msg = '\n'.join(['Could not communicate with the server.',
@@ -167,9 +175,9 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                     f.write(data)
 
             headers = dict(response.getheaders())
-            if headers.has_key('content-length'):
+            if 'content-length' in headers:
                 expectedLength = int(headers.get('content-length'))
-                if headers.has_key('content-range'):
+                if 'content-range' in headers:
                     expectedLength = int(headers.get('content-range').split('/')[1])
 
                 actualLength = os.stat(filename).st_size
@@ -178,7 +186,7 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                     # continuation - attempt again where it left off...
                     bytestr = "bytes=%s-" % (actualLength)
                     reqHeader = {'Range': bytestr}
-                    print bytestr, sleepytime
+                    print(bytestr, sleepytime)
                     urlConn.close()
                     sleep(sleepytime)
                     urlConn, status = _httpdl(url, request, localpath=localpath,
@@ -233,7 +241,7 @@ def uncompressFile(compressed_file):
     p = subprocess.Popen(unzip + compressed_file, shell=True)
     status = os.waitpid(p.pid, 0)[1]
     if status:
-        print "Warning! Unable to decompress %s" % compressed_file
+        print("Warning! Unable to decompress %s" % compressed_file)
         return status
     else:
         return 0
@@ -252,7 +260,7 @@ def cleanList(filename, parse=None):
     if parse is None:
         parse = re.compile(r"(?<=(\"|\')>)\S+(\.(hdf|h5|dat|txt))")
     if not os.path.exists(oldfile):
-        print 'Error: ' + oldfile + ' does not exist'
+        print('Error: ' + oldfile + ' does not exist')
         sys.exit(1)
     else:
         of = open(oldfile, 'r')
@@ -367,7 +375,7 @@ def cat(file_to_print):
         line = f.readline()
         if not len(line):
             break
-        print line,
+        print(line, end=' ')
     f.close()
 
 
@@ -393,18 +401,18 @@ def check_sensor(inp_file):
     if not fileattr:
         # sys.stderr.write('empty fileattr found in ' + inp_file + '\n')
         return 'X'
-    if fileattr.has_key('ASSOCIATEDPLATFORMSHORTNAME'):
-        print fileattr['ASSOCIATEDPLATFORMSHORTNAME']
+    if 'ASSOCIATEDPLATFORMSHORTNAME' in fileattr:
+        print(fileattr['ASSOCIATEDPLATFORMSHORTNAME'])
         return fileattr['ASSOCIATEDPLATFORMSHORTNAME']
-    elif fileattr.has_key('Instrument_Short_Name'):
+    elif 'Instrument_Short_Name' in fileattr:
         return senlst[str(fileattr['Instrument_Short_Name'])]
-    elif fileattr.has_key('Sensor'):
+    elif 'Sensor' in fileattr:
         return senlst[(fileattr['Sensor']).strip()]
-    elif fileattr.has_key('PRODUCT') and re.search('MER', fileattr['PRODUCT']):
-        print fileattr['PRODUCT']
+    elif 'PRODUCT' in fileattr and re.search('MER', fileattr['PRODUCT']):
+        print(fileattr['PRODUCT'])
         return 'meris'
-    elif fileattr.has_key('instrument'):
-        print fileattr['instrument']
+    elif 'instrument' in fileattr:
+        print(fileattr['instrument'])
         return senlst[(fileattr['instrument'])].strip()
     else:
         return 'X'

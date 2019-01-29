@@ -9,7 +9,6 @@ import os
 import re
 import subprocess
 import sys
-import types
 
 def get_hdf4_content(filename):
     """
@@ -25,7 +24,7 @@ def get_hdf4_content(filename):
     # dump file header
     cmd = [hdp, 'dumpsds', '-h', '-s', filename]
     hdp_data = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-    contents = hdp_data.read()
+    contents = hdp_data.read().decode("utf-8")
     return contents
 
 def get_hdf5_header_plaintext(filename):
@@ -40,7 +39,7 @@ def get_hdf5_header_plaintext(filename):
     cmd = [h5dump, '-H', filename]
     h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE).stdout
-    content = h5dump_output.read()
+    content = h5dump_output.read().decode("utf-8")
     if content.find('HDF') != -1:
         return content
     else:
@@ -60,7 +59,7 @@ def get_hdf5_header_xml(filename):
     cmd = [h5dump, '-A', '-u', filename]
     h5dump_output = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE).stdout
-    content = h5dump_output.read()
+    content = h5dump_output.read().decode("utf-8")
     if content.find('HDF') != -1:
         return content
     else:
@@ -74,7 +73,7 @@ def get_mime_data(filename):
     mimecmd = ['file', '--brief', filename]
     mime_data = subprocess.Popen(mimecmd,
                                  stdout=subprocess.PIPE).communicate()[0]
-    return mime_data
+    return mime_data.decode("utf-8")
 
 def is_ascii_file(filename):
     """
@@ -85,7 +84,7 @@ def is_ascii_file(filename):
         file_cmd = ' '.join([file_cmd_path, '--brief', filename])
         file_output = subprocess.Popen(file_cmd, shell=True,
                                        stdout=subprocess.PIPE).stdout
-        file_type = file_output.read().strip()
+        file_type = file_output.read().decode("utf-8").strip()
         if file_type.find('ASCII') != -1:
             return True
         else:
@@ -161,32 +160,37 @@ def dump_metadata(filename):
         cmd = ' '.join([ncdump_hdf, '-h', filename])
         hdr_content = subprocess.Popen(cmd, shell=True,
                                        stdout=subprocess.PIPE).communicate()
-        return hdr_content[0].split('\n')
+        return hdr_content[0].decode("utf-8").split('\n')
     else:
         fbuffer = open(filename, 'r', 1)
-        line1 = fbuffer.readline()
-        fbuffer.close()
-
-        if re.search("HDF_UserBlock", line1):
-            content = get_hdf5_header_xml(filename)
-            return content
-        elif line1[0:3] == 'CDF':
-            # For NetCDF files, such as some from MERIS
-            cmd = [ncdump, '-h', filename]
-            hdr_content = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
-            return hdr_content.read()
-        else:
-            header = []
-            fbuffer = open(filename, 'r', 100)
-            for line in fbuffer.readlines(100):
-                line = line.strip()
-                if not len(line):
-                    continue
-                header.append(line)
-                if re.search('LAST_LAST_LONG', line):
-                    break
+        try:
+            line1 = fbuffer.readline()
             fbuffer.close()
-            return header
+    
+            if re.search("HDF_UserBlock", line1):
+                content = get_hdf5_header_xml(filename)
+                return content
+            elif line1[0:3] == 'CDF':
+                # For NetCDF files, such as some from MERIS
+                cmd = [ncdump, '-h', filename]
+                hdr_content = subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout
+                return hdr_content.read().decode("utf-8")
+            else:
+                header = []
+                fbuffer = open(filename, 'r', 100)
+                #for line in fbuffer.readlines(100):
+                line = fbuffer.readline()
+                while line:
+                    line = line.strip()
+                    if len(line):
+                        header.append(line)
+                        if re.search('LAST_LAST_LONG', line):
+                            break
+                    line = fbuffer.readline()
+                fbuffer.close()
+                return header
+        except UnicodeDecodeError:
+            return []
 
 def readMetadata(filename):
     """
@@ -197,14 +201,16 @@ def readMetadata(filename):
     # Added text == [] & changed exit() to sys.exit()    -Matt, Feb. 15, 2012
     # Kept an exit here (instead of making it a return) as already
     # existing programs assume the output from this function is good.
-    if text is None or text == '' or text == []:
+    if text is None or text == '':
         sys.exit("Error!  dump_metadata failed.")
 
     attrs = None
 
     # extract meaningful parts
     if isinstance(text, list):
-        if re.search('PRODUCT', text[0]):
+        if text == []:
+            return attrs
+        elif re.search('PRODUCT', text[0]):
             attrs = {}
             for line in text:
                 (key, value) = str(line).split('=')
@@ -232,7 +238,7 @@ def readMetadata(filename):
                     if line.find('Daily-OI') != -1:
                         # NOAA supplied SST Ancillary files
                         return {'Title': 'Ancillary', 'Data Type': 'SST'}
-    elif isinstance(text, types.StringType) and (text[0:6] == 'netcdf'):
+    elif isinstance(text, bytes) and (text[0:6] == 'netcdf'):
         attrs = {}
         lines = text.split('\n')
         for line in lines:
@@ -245,7 +251,7 @@ def readMetadata(filename):
                     pos += 1
                 attrs[key.strip()] = fields[1].strip()
         return attrs
-    elif isinstance(text, types.StringType) and (text[0:4] == 'HDF5'):
+    elif isinstance(text, bytes) and (text[0:4] == 'HDF5'):
         attrs = get_hdf5_attr(text)
         return attrs
     # elif isinstance(text, types.StringType) and text[0:4] == 'HDF5':
@@ -370,32 +376,28 @@ def get_odl_attr(metatext):
     prune_odl(attrs)
     return attrs
 
+def add_xml_group(group, attr):
+    """
+    add xml attributes to attr and decend groups
+    """
+    for node in group:
+        if node.tag == 'Attribute':
+            key = node.attrib['Name']
+            val = node.find('Data').find('DataFromFile').text.strip().strip('"')
+            attr[key] = val
+        elif node.tag == 'Group' or node.tag == 'Dataset':
+            add_xml_group(node, attr)
+
+
 def get_xml_attr(metaxml):
     """
     parse xml formatted metadata
     """
-    # from BeautifulSoup import BeautifulStoneSoup
-    import modules.BeautifulSoup as BeautifulSoup
-
-    soup_attr = BeautifulSoup.BeautifulStoneSoup(metaxml)
-    raw_attrs = soup_attr.findAll('attribute')
+    import xml.etree.ElementTree as ET
 
     attr = {}
-
-    try:
-        for cur_attr in raw_attrs:
-            if (cur_attr != '\n') and \
-               (isinstance(cur_attr, types.ListType) or
-                isinstance(cur_attr, BeautifulSoup.Tag)):
-                if cur_attr.contents and \
-                   (isinstance(cur_attr.contents[5], types.ListType) or
-                    isinstance(cur_attr.contents[5], BeautifulSoup.Tag)):
-                    if cur_attr.contents[5].contents[1]:
-                        if cur_attr.contents[5].contents[1].contents[0]: #).strip()).strip('"'):
-                            attr[str(cur_attr.attrs[0][1]).strip()] = (str(cur_attr.contents[5].contents[1].contents[0]).strip()).strip('"')
-    except TypeError:
-        for exc_item in sys.exc_info():
-            print(exc_item)
+    root = ET.fromstring(metaxml).find('RootGroup')
+    add_xml_group(root, attr)
     return attr
 
 
@@ -413,7 +415,7 @@ def parse_odl(text):
         items[key] = parse_odl(value)
 
     # get value(s) at innermost level
-    if not len(items.keys()):
+    if not len(list(items.keys())):
         for line in text.splitlines():
             get_value(line, items)
 

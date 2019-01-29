@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 
 """
 A class for determining the OBPG type of a file.
 """
-__version__ = '1.2.2-2017-07-15'
+__version__ = '1.3-2018-12-21'
 
 __author__ = 'melliott'
 
@@ -61,7 +60,7 @@ def get_usage_text():
 
   The following file types are recognized:
     Instruments: CZCS, GOCI, HICO, Landsat OLI, MODIS Aqua,
-                 MODIS Terra, OCM2, OCTS, SeaWiFS, VIIRS
+                 MODIS Terra, OCM2, OCTS, SeaWiFS, VIIRSN, VIIRSJ1
     Processing Levels: L0 (MODIS only), L1A, L1B, L2, L3 binned,
                        L3 mapped """
     return usage_text
@@ -298,7 +297,7 @@ class ObpgFileTyper(object):
         try:
             l0_out = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE,
                                       stderr=subprocess.PIPE).communicate()[0]
-            out_lines = l0_out.split('\n')
+            out_lines = l0_out.decode('utf-8').split('\n')
             is_l0 = False
             for line in out_lines:
                 if line.find('Total packets') != -1:
@@ -438,7 +437,7 @@ class ObpgFileTyper(object):
 #        print 'self.instrument: "' + self.instrument + '"'
         start_time = 'unable to determine start time'
         end_time = 'unable to determine end time'
-        if self.instrument == 'VIIRS' and self.file_type == 'SDR':
+        if 'VIIRS' in self.instrument and self.file_type == 'SDR':
             start_time = get_timestamp_from_month_day(
                                     self.attributes['Beginning_Date'],
                                     self.attributes['Beginning_Time'])
@@ -497,11 +496,89 @@ class ObpgFileTyper(object):
             start_time, end_time = self._get_l0_times()
         return start_time, end_time
 
+    def _get_type_using_platform(self):
+        levelMap = {'L0':'Level 0',
+                    'L1A':'Level 1A',
+                    'L1B':'Level 1B',
+                    'L2':'Level 2',
+                    'L3 Binned':'Level 3 Binned',
+                    'L3 Mapped':'Level 3 SMI'
+                    }
+        instrumentMap = {'SEAWIFS': "SeaWiFS",
+                         "MOS": "MOS",
+                         "OCTS": "OCTS",
+                         "AVHRR":"AVHRR",
+                         "OSMI": "OSMI",
+                         "CZCS": "CZCS",
+                         "OCM1": "OCM1",
+                         "OCM2": "OCM2",
+                         "MERIS":"MERIS",
+                         "OCRVC":"OCRVC",
+                         "HICO": "HICO",
+                         "GOCI": "GOCI",
+                         "OLI": "OLI",
+                         "AQUARIUS": "Aquarius" ,
+                         "OCIA": "OCIA",
+                         "AVIRIS": "AVIRIS",
+                         "PRISM": "PRISM",
+                         "SGLI": "SGLI",
+                         "L5TM": "L5TM",
+                         "L7ETM": "L7ETM",
+                         "HAWKEYE": "HAWKEYE",
+                         "MISR": "MISR",
+                         "OCI": "OCI"
+                         }
+        
+        if self.attributes['processing_level'] in levelMap:
+            self.file_type = levelMap[self.attributes['processing_level']]
+            if self.file_type == 'Level 3 SMI':
+                if self.attributes['title'].find('Standard Mapped Image') == -1:
+                    self.file_type == 'Level 3 Mapped'
+            inst = self.attributes['instrument'].upper()
+            if inst in instrumentMap:
+                self.instrument = instrumentMap[inst]
+                return True
+            plat = self.attributes['platform'].upper()
+            if inst.find('MODIS') != -1:
+                if plat.find('AQUA') != -1:
+                    self.instrument = "MODIS Aqua"
+                    return True
+                elif plat.find('TERRA') != -1:
+                    self.instrument = "MODIS Terra"
+                    return True
+            elif inst.find('VIIRS') != -1:
+                if plat.find('SUOMI-NPP') != -1:
+                    self.instrument = "VIIRS NPP"
+                    return True
+                elif plat.find('JPSS-1') != -1:
+                    self.instrument = "VIIRS J1"
+                    return True
+            elif inst.find('OLCI') != -1:
+                if plat == 'SENTINEL-3' or plat.find('3A') != -1:
+                    self.instrument = "OLCI S3A"
+                    return True
+                elif plat.find('3B') != -1:
+                    self.instrument = "OLCI S3B"
+                    return True
+            elif inst.find('MSI') != -1:
+                if plat == 'SENTINEL-2' or plat.find('2A') != -1:
+                    self.instrument = "MSI S2A"
+                    return True
+                elif plat.find('2B') != -1:
+                    self.instrument = "MSI S2B"
+                    return True
+        return False
+
     def _get_file_type_from_attributes(self):
         """
         Determines the file type and instrument from the file attributes and
         sets those values in the object.
         """
+
+        if ('platform' in self.attributes) and ('instrument' in self.attributes) and ('processing_level' in self.attributes):
+            if self._get_type_using_platform():
+                return
+            
         if 'Title' in self.attributes or 'title' in self.attributes:
             self._get_type_using_title()
         elif 'ASSOCIATEDINSTRUMENTSHORTNAME' in self.attributes:
@@ -513,6 +590,12 @@ class ObpgFileTyper(object):
         elif 'Instrument_Short_Name' in self.attributes:
             self.instrument = self.attributes['Instrument_Short_Name']
             if self.instrument == 'VIIRS':
+                if 'Mission_Name' in self.attributes:
+                    mission = self.attributes['Mission_Name']
+                    if mission == 'NPP':
+                        self.instrument = 'VIIRS NPP'
+                    elif mission == 'JPSS-1':
+                        self.instrument = 'VIIRS J1'
                 if 'N_Dataset_Type_Tag' in self.attributes:
                     self.file_type = self.attributes['N_Dataset_Type_Tag']
         elif 'Product Level' in self.attributes:
@@ -812,7 +895,7 @@ class ObpgFileTyper(object):
         elif title.find('Ancillary') != -1:
             self.file_type, self.instrument = \
             self._get_data_from_anc_attributes()
-        elif title.find('VIIRS') != 1:
+        elif title.find('VIIRS') != -1:
             self.instrument = 'VIIRS'
             if 'processing_level' in self.attributes:
                 if self.attributes['processing_level'].upper().find('L1A') != -1:
@@ -903,7 +986,7 @@ KNOWN_SENSORS = ['Aquarius', 'CZCS', 'HICO',
                  'HMODISA', 'HMODIST', 'MERIS', 'MODISA',
                  'MODIS Aqua', 'MODIST', 'MODIS Terra',
                  'MOS', 'OCM2', 'OCTS',
-                 'OSMI','SeaWiFS', 'VIIRS']
+                 'OSMI','SeaWiFS', 'VIIRSN', 'VIIRSJ1']
 
 MONTH_ABBRS = dict((v.upper(), k) for k, v in enumerate(calendar.month_abbr))
 

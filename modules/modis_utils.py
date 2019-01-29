@@ -2,7 +2,6 @@
 Utility functions for MODIS processing programs.
 """
 
-from exceptions import ValueError
 from MetaUtils import readMetadata
 import get_obpg_file_type
 import next_level_name_finder
@@ -201,8 +200,8 @@ def cmpver(a, b):
         except ValueError:
             return i
 
-    a = map(fixup, re.findall(r'\d+|\w+', a))
-    b = map(fixup, re.findall(r'\d+|\w+', b))
+    a = list(map(fixup, re.findall(r'\d+|\w+', a)))
+    b = list(map(fixup, re.findall(r'\d+|\w+', b)))
     return cmp(b, a)
 
 

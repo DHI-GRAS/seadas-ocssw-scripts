@@ -53,6 +53,24 @@ class Processor(object):
         else:
             return 0
 
+    def __eq__(self, other):
+        return self.__cmp__(other) == 0
+    
+    def __lt__(self, other):
+        return self.__cmp__(other) < 0
+        
+    def __le__(self, other):
+        return self.__cmp__(other) <= 0
+    
+    def __ne__(self, other):
+        return self.__cmp__(other) != 0
+    
+    def __gt__(self, other):
+        return self.__cmp__(other) > 0
+    
+    def __ge__(self, other):
+        return self.__cmp__(other) >= 0
+    
     def _find_required_types(self):
         req_types = []
 

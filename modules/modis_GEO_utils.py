@@ -6,7 +6,7 @@ from modules.ParamUtils import ParamProcessing
 
 class modis_geo:
 
-    def __init__(self, file=file,
+    def __init__(self, file=None,
                  parfile=None,
                  geofile=None,
                  a1=None, a2=None,
@@ -68,7 +68,7 @@ class modis_geo:
             p.parseParFile(prog='geogen')
             print(p.params)
             phash = p.params['geogen']
-            for param in (phash.keys()):
+            for param in (list(phash.keys())):
                 print(phash[param])
                 if not self[param]:
                     self[param] = phash[param]
@@ -210,7 +210,7 @@ class modis_geo:
             if resetVerbose:
                 get.verbose = True
             get.chk()
-            if file and get.finddb():
+            if self.file and get.finddb():
                 get.setup()
             else:
                 get.setup()
@@ -245,25 +245,25 @@ class modis_geo:
                 sys.exit(31)
             else:
                 self.kinematic_state = "SDP Toolkit"
-                if get.files.has_key('att1'):
+                if 'att1' in get.files:
                     self.attfile1 = os.path.basename(get.files['att1'])
                     self.attdir1 = os.path.dirname(get.files['att1'])
                 else:
                     print("Missing attitude files!")
                     sys.exit(31)
-                if get.files.has_key('eph1'):
+                if 'eph1' in get.files:
                     self.ephfile1 = os.path.basename(get.files['eph1'])
                     self.ephdir1 = os.path.dirname(get.files['eph1'])
                 else:
                     print("Missing ephemeris files!")
                     sys.exit(31)
-                if get.files.has_key('att2'):
+                if 'att2' in get.files:
                     self.attfile2 = os.path.basename(get.files['att2'])
                     self.attdir2 = os.path.dirname(get.files['att2'])
                 else:
                     self.attfile2 = "NULL"
                     self.attdir2 = "NULL"
-                if get.files.has_key('eph2'):
+                if 'eph2' in get.files:
                     self.ephfile2 = os.path.basename(get.files['eph2'])
                     self.ephdir2 = os.path.dirname(get.files['eph2'])
                 else:

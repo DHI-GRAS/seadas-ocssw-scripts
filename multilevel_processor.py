@@ -1,12 +1,15 @@
 #!/usr/bin/env python
-from __future__ import print_function
 
 """
 Program to perform multilevel processing (previously known as the
 seadas_processor and sometimes referred to as the 'uber' processor).
 """
 
-import ConfigParser
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
+    
 import datetime
 import logging
 import optparse
@@ -17,14 +20,12 @@ import sys
 import tarfile
 import time
 import traceback
-import types
 
 import get_obpg_file_type
 import modules.mlp_utils as mlp_utils
 import modules.benchmark_timer as benchmark_timer
 import modules.MetaUtils as MetaUtils
 import modules.name_finder_utils as name_finder_utils
-import modules.next_level_name_finder as next_level_name_finder
 import modules.obpg_data_file as obpg_data_file
 import modules.ProcUtils as ProcUtils
 import modules.processor as processor
@@ -82,24 +83,24 @@ class ProcessorConfig(object):
         Gets options stored in the program's configuration file.
         """
         try:
-            cfg_parser = ConfigParser.SafeConfigParser()
+            cfg_parser = configparser.SafeConfigParser()
             cfg_parser.read(cfg_path)
             try:
                 self.max_file_age = ProcessorConfig.SECS_PER_DAY * \
                                     int(cfg_parser.get('main',
                                                        'par_file_age').\
                                     split(' ', 2)[0])
-            except ConfigParser.NoSectionError as nse:
+            except configparser.NoSectionError as nse:
                 print ('nse: ' + str(nse))
                 print ('sys.exc_info(): ')
                 for msg in sys.exc_info():
                     print ('  ' +  str(msg))
                 log_and_exit('Error!  Configuration file has no "main" ' +
                              'section.')
-            except ConfigParser.NoOptionError:
+            except configparser.NoOptionError:
                 log_and_exit('Error! The "main" section of the configuration ' +
                              'file does not specify a "par_file_age".')
-        except ConfigParser.MissingSectionHeaderError:
+        except configparser.MissingSectionHeaderError:
             log_and_exit('Error! Bad configuration file, no section headers ' +
                          'found.')
 
@@ -514,10 +515,10 @@ def create_levels_list(rules_sets):
     """
     Returns a list containing all the levels from all the rules sets.
     """
-    set_key = rules_sets.keys()[0]
+    set_key = list(rules_sets.keys())[0]
     logging.debug('set_key = %s', (set_key))
     lvls_lst = [(lvl, [set_key]) for lvl in rules_sets[set_key].order[1:]]
-    for rules_set_name in rules_sets.keys()[1:]:
+    for rules_set_name in list(rules_sets.keys())[1:]:
         for lvl_name in rules_sets[rules_set_name].order[1:]:
             names_list = [lst_item[0] for lst_item in lvls_lst]
             if lvl_name in names_list:
@@ -653,7 +654,7 @@ def do_processing(rules_sets, par_file, cmd_line_ifile=None):
     if not input_file_data:
         log_and_exit('No valid data files were specified for processing.')
     logging.debug("input_file_data: " + str(input_file_data))
-    first_file_key = input_file_data.keys()[0]
+    first_file_key = list(input_file_data.keys())[0]
     logging.debug("first_file_key: " + first_file_key)
     instrument = input_file_data[first_file_key][1].split()[0]
     logging.debug("instrument: " + instrument)
@@ -805,7 +806,7 @@ def extract_par_section(par_contents, section):
     Returns a single section (e.g. L1a, GEO, L1B, L2, etc.) from the "par" file.
     """
     sect_dict = {}
-    for key in par_contents[section].keys():
+    for key in list(par_contents[section].keys()):
         sect_dict[key] = par_contents[section][key]
     return sect_dict
 
@@ -1043,7 +1044,7 @@ def get_intermediate_products(existing_prod_names, ruleset,
     for prog in existing_prod_names:
         candidate_progs = get_required_programs(prog, ruleset,
                                                 lowest_source_level)
-        if not isinstance(candidate_progs, types.NoneType):
+        if not isinstance(candidate_progs, type(None)):
             for candidate_prog in candidate_progs:
                 required_progs.append(candidate_prog)
     required_progs = uniqify_list(required_progs)
@@ -1071,10 +1072,10 @@ def get_lowest_source_level(source_files):
     Find the level of the lowest level source file to be processed.
     """
     if len(source_files) == 1:
-        return source_files.keys()[0]
+        return list(source_files.keys())[0]
     else:
-        lowest = source_files.keys()[0]
-        for key in source_files.keys()[1:]:
+        lowest = list(source_files.keys())[0]
+        for key in list(source_files.keys())[1:]:
             if key < lowest:
                 lowest = key
         return lowest
@@ -1187,14 +1188,14 @@ def get_par_file_contents(par_file, acceptable_single_keys):
                                                 acceptable_single_keys,
                                                 acceptable_par_keys)
     par_contents = par_reader.read_par_file()
-    ori_keys = par_contents.keys()
+    ori_keys = list(par_contents.keys())
     for key in ori_keys:
         if key in acceptable_par_keys:
             if key != acceptable_par_keys[key]:
                 par_contents[acceptable_par_keys[key]] = par_contents[key]
                 del par_contents[key]
         else:
-            acc_key_str = ', '.join(acceptable_par_keys.keys())
+            acc_key_str = ', '.join(list(acceptable_par_keys.keys()))
             err_msg = """Error!  Parameter file {0} contains a section titled "{1}", which is not a recognized program.
 The recognized programs are: {2}""".format(par_file, key, acc_key_str)
 
@@ -1211,7 +1212,7 @@ def get_processors(instrument, par_contents, rules, lowest_source_level):
     Determine the processors which are needed.
     """
     processors = []
-    for key in par_contents.keys():
+    for key in list(par_contents.keys()):
         if key != 'main':
             section_contents = extract_par_section(par_contents, key)
             proc = processor.Processor(instrument, rules, key, section_contents,
@@ -1291,14 +1292,14 @@ def get_source_file_sets(proc_src_types, source_files, src_key, requires_all_sou
             if len(proc_src_types) == 2:
                 if proc_src_types[0] in source_files \
                         and proc_src_types[1] in source_files:
-                    src_file_sets = zip(source_files[proc_src_types[0]],
-                                        source_files[proc_src_types[1]])
+                    src_file_sets = list(zip(source_files[proc_src_types[0]],
+                                        source_files[proc_src_types[1]]))
                 else:
                     if proc_src_types[0] in source_files:
                         if proc_src_types[1] == 'geo':
                             geo_files = get_source_geo_files(source_files, proc_src_types, 0)
-                            src_file_sets = zip(source_files[proc_src_types[0]],
-                                                geo_files)
+                            src_file_sets = list(zip(source_files[proc_src_types[0]],
+                                                geo_files))
                         else:
                             err_msg = 'Error! Cannot find all {0} and' \
                                       ' {1} source files.'.format(proc_src_types[0],
@@ -1307,8 +1308,8 @@ def get_source_file_sets(proc_src_types, source_files, src_key, requires_all_sou
                     elif proc_src_types[1] in source_files:
                         if proc_src_types[0] == 'geo':
                             geo_files = get_source_geo_files(source_files, proc_src_types, 1)
-                            src_file_sets = zip(source_files[proc_src_types[1]],
-                                                geo_files)
+                            src_file_sets = list(zip(source_files[proc_src_types[1]],
+                                                geo_files))
                         else:
                             err_msg = 'Error! Cannot find all {0} and' \
                                       ' {1} source files.'.format(proc_src_types[0],
@@ -1347,7 +1348,7 @@ def get_source_products_types(targt_prod, ruleset):
     src_prod_names = [targt_prod]
     targt_pos = ruleset.order.index(targt_prod)
     new_prod_names = []
-    for pos in xrange(targt_pos, 1, -1):
+    for pos in range(targt_pos, 1, -1):
         for prod_name in src_prod_names:
             if ruleset.rules[ruleset.order[pos]].target_type == prod_name:
                 for src_typ in ruleset.rules[ruleset.order[pos]].src_file_types:
@@ -2039,7 +2040,7 @@ def start_logging(time_stamp):
     info_log_path = os.path.join(cfg_data.output_dir, info_log_name)
     debug_log_path = os.path.join(cfg_data.output_dir, debug_log_name)
     mlp_logger = logging.getLogger()
-    mlp_logger.setLevel(logging.DEBUG)
+    #mlp_logger.setLevel(logging.DEBUG)
 
     info_hndl = logging.FileHandler(info_log_path)
     info_hndl.setLevel(logging.INFO)

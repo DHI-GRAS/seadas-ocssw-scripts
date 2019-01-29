@@ -114,12 +114,12 @@ def get_l0_timestamp(l0_file_name):
 def get_end_day_year(metadata):
     """
     Returns the end day and year for a file, determined from the contents of
-    metadata.
+    metadata as ints.
     """
     if 'End Day' in metadata:
-        eday = int(metadata['End Day'])
+        eday = convert_str_to_int(metadata['End Day'])
     elif 'Period End Day' in metadata:
-        eday = int(metadata['Period End Day'])
+        eday = convert_str_to_int(metadata['Period End Day'])
     elif 'time_coverage_end' in metadata:
         eday = time_utils.convert_month_day_to_doy(
             metadata['time_coverage_end'][5:7],
@@ -129,11 +129,11 @@ def get_end_day_year(metadata):
         err_msg = 'Error! Cannot determine end day.'
         sys.exit(err_msg)
     if 'End Year' in metadata:
-        eyear = int(metadata['End Year'])
+        eyear = convert_str_to_int(metadata['End Year'])
     elif 'Period End Year' in metadata:
-        eyear = int(metadata['Period End Year'])
+        eyear = convert_str_to_int(metadata['Period End Year'])
     elif 'time_coverage_end' in metadata:
-        eyear = int(metadata['time_coverage_end'][0:4])
+        eyear = convert_str_to_int(metadata['time_coverage_end'][0:4])
     else:
         err_msg = 'Error! Cannot determine end year.'
         sys.exit(err_msg)
@@ -142,12 +142,12 @@ def get_end_day_year(metadata):
 def get_start_day_year(metadata):
     """
     Returns the start day and year for a file, determined from the contents of
-    metadata.
+    metadata as ints.
     """
     if 'Start Day' in metadata:
-        sday = int(metadata['Start Day'])
+        sday = convert_str_to_int(metadata['Start Day'])
     elif 'Period Start Day' in metadata:
-        sday = int(metadata['Period Start Day'])
+        sday = convert_str_to_int(metadata['Period Start Day'])
     elif 'time_coverage_start' in metadata:
         sday = time_utils.convert_month_day_to_doy(
             metadata['time_coverage_start'][5:7],
@@ -157,11 +157,11 @@ def get_start_day_year(metadata):
         err_msg = 'Error! Cannot determine start day.'
         sys.exit(err_msg)
     if 'Start Year' in metadata:
-        syear = int(metadata['Start Year'])
+        syear = convert_str_to_int(metadata['Start Year'])
     elif 'Period Start Year' in metadata:
-        syear = int(metadata['Period Start Year'])
+        syear = convert_str_to_int(metadata['Period Start Year'])
     elif 'time_coverage_start' in metadata:
-        syear = int(metadata['time_coverage_start'][0:4])
+        syear = convert_str_to_int(metadata['time_coverage_start'][0:4])
     else:
         err_msg = 'Error! Cannot determine start year.'
         sys.exit(err_msg)
@@ -319,7 +319,7 @@ class NextLevelNameFinder(object):
         basename = os.path.split(self.data_files[0].name)[1]
         basename_parts = basename.rsplit('.', 2)
         suffix = 'unk'
-        keys_list = self.next_suffix.keys()
+        keys_list = list(self.next_suffix.keys())
         for key in keys_list:
             if basename_parts[1].find(key) != -1:
                 if self.transition_sequence.index(key) <\
@@ -335,12 +335,12 @@ class NextLevelNameFinder(object):
         """
         An internal method to extract the date/time stamp from L1 files.
         """
-        year = int(date_str[0:4])
-        mon = int(date_str[5:7])
-        dom = int(date_str[8:10])
-        hour = int(time_str[0:2])
-        mins = int(time_str[3:5])
-        secs = int(time_str[6:8])
+        year = convert_str_to_int(date_str[0:4])
+        mon = convert_str_to_int(date_str[5:7])
+        dom = convert_str_to_int(date_str[8:10])
+        hour = convert_str_to_int(time_str[0:2])
+        mins = convert_str_to_int(time_str[3:5])
+        secs = convert_str_to_int(time_str[6:8])
         dt_obj = datetime.datetime(year, mon, dom, hour, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
 
@@ -359,8 +359,8 @@ class NextLevelNameFinder(object):
         them as integer values .
         """
         if self.data_files[-1].end_time:
-            year = self.data_files[-1].end_time[0:4]
-            day = self.data_files[-1].end_time[4:7]
+            year = convert_str_to_int(self.data_files[-1].end_time[0:4])
+            day = convert_str_to_int(self.data_files[-1].end_time[4:7])
         elif self.data_files[-1].metadata:
             day_str = 'End Day'
             yr_str = 'End Year'
@@ -530,10 +530,9 @@ class NextLevelNameFinder(object):
             sys.exit(err_msg)
         days_diff = _get_days_diff(edate, sdate)
         if days_diff == 0:
-            basename = ''.join([first_char, str(syear), str(sday)])
+            basename = '%s%d%03d' % (first_char, syear, sday)
         else:
-            basename = ''.join([first_char, str(syear), str(sday), str(eyear),
-                                str(eday)])
+            basename = '%s%d%03d%d%03d' % (first_char, syear, sday, eyear, eday)
         return basename
 
     def _get_l3bin_name(self):
@@ -563,15 +562,14 @@ class NextLevelNameFinder(object):
             self.suite = '_OC'
         if days_diff == 0:
             extension = '.L3b_DAY'
-            next_lvl_name = first_char + str(syear) + str(sday) + extension +\
-                            self.suite
+            next_lvl_name = '%s%d%03d%s%s' % (first_char, syear, sday, extension, self.suite)
         else:
             if days_diff == 7:
                 extension = '.L3b_8D'
             else:
                 extension = '.L3b_CU'
-            next_lvl_name = first_char + str(syear) + str(sday) +\
-                            str(eyear) + str(eday) + extension + self.suite
+            next_lvl_name = '%s%d%03d%d%03d%s%s' % (first_char, syear, sday, 
+                                                    eyear, eday, extension, self.suite)
         return next_lvl_name
 
     def _get_l3gen_name(self):
@@ -624,8 +622,8 @@ class NextLevelNameFinder(object):
             if isinstance(self.transition_functions[self.data_files[0].file_type], types.FunctionType) \
                or isinstance(self.transition_functions[self.data_files[0].file_type], types.MethodType):
                 next_level_name = self.transition_functions[self.data_files[0].file_type]()
-            elif self.next_level in self.transition_functions[
-                    self.data_files[0].file_type].keys():
+            elif self.next_level in list(self.transition_functions[
+                    self.data_files[0].file_type].keys()):
                 next_level_name = self.transition_functions[\
                                   self.data_files[0].file_type]\
                 [self.next_level]()
@@ -732,10 +730,6 @@ class NextLevelNameFinder(object):
         else:
             sday, syear = self._get_start_doy_year()
             eday, eyear = self._get_end_doy_year()
-            sday = int(sday)
-            syear = int(syear)
-            eday = int(eday)
-            eyear = int(eyear)
             suite = ''
 
         sdate = datetime.datetime.strptime(str(syear)+'-'+str(sday), '%Y-%j')
@@ -772,8 +766,8 @@ class NextLevelNameFinder(object):
         them as integer values .
         """
         if self.data_files[0].end_time:
-            year = self.data_files[0].start_time[0:4]
-            day = self.data_files[0].start_time[4:7]
+            year = convert_str_to_int(self.data_files[0].start_time[0:4])
+            day = convert_str_to_int(self.data_files[0].start_time[4:7])
         elif self.data_files[0].metadata:
             day_str = 'Start Day'
             yr_str = 'Start Year'
@@ -895,11 +889,11 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
         """
         An internal method to extract the date/time stamp from L1 files.
         """
-        year = int(date_str[0:4])
-        mon = int(date_str[5:7])
-        dom = int(date_str[8:10])
-        hour = int(time_str[0:2])
-        mins = int(time_str[3:5])
+        year = convert_str_to_int(date_str[0:4])
+        mon = convert_str_to_int(date_str[5:7])
+        dom = convert_str_to_int(date_str[8:10])
+        hour = convert_str_to_int(time_str[0:2])
+        mins = convert_str_to_int(time_str[3:5])
         secs = 0
         dt_obj = datetime.datetime(year, mon, dom, hour, mins, secs)
         return dt_obj.strftime('%Y%j%H%M%S')
@@ -1025,8 +1019,8 @@ class ModisNextLevelNameFinder(NextLevelNameFinder):
                                 types.MethodType):
                     next_level_name = self.transition_functions[self.data_files[0].file_type]()
 
-                elif self.next_level in self.transition_functions[
-                        self.data_files[0].file_type].keys():
+                elif self.next_level in list(self.transition_functions[
+                        self.data_files[0].file_type].keys()):
                     next_level_name = self.transition_functions[\
                                       self.data_files[0].file_type]\
                                       [self.next_level]()

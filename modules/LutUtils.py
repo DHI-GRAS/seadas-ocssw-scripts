@@ -92,7 +92,11 @@ class LutUtils:
 
         # add calibration dirs for MODIS and VIIRS
         if self.sensor['instrument'] in ['MODIS', 'VIIRS']:
-            for caldir in ('cal', 'xcal'):
+            if sensor  == 'viirsj1':
+                caldirs = ['cal']
+            else:
+                caldirs = ['cal', 'xcal']
+            for caldir in caldirs:
                 dirs.append(os.path.join(sensor, caldir, 'OPER'))
                 if self.evalluts:
                     dirs.append(os.path.join(sensor, caldir, 'EVAL'))

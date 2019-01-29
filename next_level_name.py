@@ -5,7 +5,6 @@ Program to return the name of the next level file that would be created from
 the input file name.
 """
 
-from __future__ import print_function
 import optparse
 import os
 import sys
@@ -216,11 +215,11 @@ def main():
 DEBUG = False
 DEBUG = True  # Comment out for production use
 PROCESSABLE_PROGRAMS = \
-    set(next_level_name_finder.NextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-        next_level_name_finder.ModisNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-        next_level_name_finder.SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-        aquarius_next_level_name_finder.AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys() +\
-        viirs_next_level_name_finder.ViirsNextLevelNameFinder.PROCESSING_LEVELS.keys())
+    set(list(next_level_name_finder.NextLevelNameFinder.PROCESSING_LEVELS.keys()) +\
+        list(next_level_name_finder.ModisNextLevelNameFinder.PROCESSING_LEVELS.keys()) +\
+        list(next_level_name_finder.SeawifsNextLevelNameFinder.PROCESSING_LEVELS.keys()) +\
+        list(aquarius_next_level_name_finder.AquariusNextLevelNameFinder.PROCESSING_LEVELS.keys()) +\
+        list(viirs_next_level_name_finder.ViirsNextLevelNameFinder.PROCESSING_LEVELS.keys()))
 
 if __name__ == '__main__':
     sys.exit(main())
