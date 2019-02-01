@@ -382,9 +382,12 @@ def add_xml_group(group, attr):
     """
     for node in group:
         if node.tag == 'Attribute':
-            key = node.attrib['Name']
-            val = node.find('Data').find('DataFromFile').text.strip().strip('"')
-            attr[key] = val
+            try:
+                key = node.attrib['Name']
+                val = node.find('Data').find('DataFromFile').text.strip().strip('"')
+                attr[key] = val
+            except:
+                pass
         elif node.tag == 'Group' or node.tag == 'Dataset':
             add_xml_group(node, attr)
 

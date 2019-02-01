@@ -54,9 +54,19 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
 
     def _get_geo_extension(self):
         """
-        Returns the file extension for GEO files.
+        Returns the file extension for GEO MOD files.
         """
-        return '.GEO'
+        if 'J1' in self.data_files[0].sensor:
+            return '.GEO-M_JPSS1'
+        return '.GEO-M_SNPP'
+
+    def _get_l1b_extension(self):
+        """
+        Returns the file extension for L1B MOD files.
+        """
+        if 'J1' in self.data_files[0].sensor:
+            return '.L1B-M_JPSS1'
+        return '.L1B-M_SNPP'
 
     def _get_geo_name(self):
         """
@@ -97,6 +107,8 @@ class ViirsNextLevelNameFinder(next_level_name_finder.NextLevelNameFinder):
         """
         Return the appropriate extension for an L2 file.
         """
+        if 'J1' in self.data_files[0].sensor:
+            return '.L2_JPSS1'
         return '.L2_SNPP'
 
     def _get_transition_functions(self):

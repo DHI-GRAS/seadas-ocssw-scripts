@@ -499,6 +499,7 @@ class ObpgFileTyper(object):
     def _get_type_using_platform(self):
         levelMap = {'L0':'Level 0',
                     'L1A':'Level 1A',
+                    'GEO':'GEO',
                     'L1B':'Level 1B',
                     'L2':'Level 2',
                     'L3 Binned':'Level 3 Binned',
