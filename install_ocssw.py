@@ -408,6 +408,8 @@ if __name__ == "__main__":
                       default=False, help="install VIIRS NPP files")
     parser.add_option("--viirsj1", action="store_true", dest="viirsj1",
                       default=False, help="install VIIRS JPSS1 files")
+    parser.add_option("--viirsdem", action="store_true", dest="viirsdem",
+                      default=False, help="install VIIRS digital elevation map (DEM) files")
     parser.add_option("--direct-broadcast", action="store_true",
                       dest='direct_broadcast',
                       default=False, help="install direct broadcast files")
@@ -612,7 +614,7 @@ if __name__ == "__main__":
         numThings += 1     # seawifs
         if not doNotUpdateRepos:
             numThings += 1 # luts
-    if options.viirsn or options.viirsj1:
+    if options.viirsn or options.viirsj1 or options.viirsdem:
         numThings += 1     # viirs
     if options.viirsn:
         numThings += 1     # viirs/npp
@@ -622,6 +624,8 @@ if __name__ == "__main__":
         numThings += 1     # viirs/j1
         if not doNotUpdateRepos:
             numThings += 1 # luts
+    if options.viirsdem:
+        numThings += 1     # viirs/dem
     numThings += 1         # bin
     numThings += 1         # opt (or bin3)
     if options.src:
@@ -773,7 +777,7 @@ if __name__ == "__main__":
         installGitRepo('seawifs', shareDir + 'seawifs')
 
     # install share/viirs
-    if options.viirsn or options.viirsj1:
+    if options.viirsn or options.viirsj1 or options.viirsdem:
         printProgress('viirs')
         if newDirStructure:
             installGitRepo('viirs', shareDir + 'viirs')
@@ -793,6 +797,25 @@ if __name__ == "__main__":
             installGitRepo('viirsj1', shareDir + 'viirs/j1')
         else:
             print("Error - Must install v7.5 or greater for VIIRS J1")
+            exit(1)
+
+    # install share/viirs/dem
+    if options.viirsdem:
+        printProgress('viirs/dem')
+        if newDirStructure:
+            if not os.path.isdir(os.path.join(installDir, 'share', 'viirs', 'dem')):
+                srcFileName = 'dem.tar.gz'
+                installFile(srcFileName)
+                commandStr = 'cd ' +  os.path.join(installDir, 'share', 'viirs') + '; tar xzf ../../' + srcFileName
+                retval = os.system(commandStr)
+                deleteFile(srcFileName)
+                if retval:
+                    print('Error - Can not expand share/viirs/dem directory')
+                    exit(1)
+            else:
+                print('  skipping... share/viirs/dem already exists.')
+        else:
+            print("Error - Must install v7.5 or greater for VIIRS DEM")
             exit(1)
 
     # download bin dir
