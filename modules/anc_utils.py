@@ -1,8 +1,9 @@
-from __future__ import print_function
+
 
 import gc
 import xml.etree.ElementTree as ElementTree
 from operator import sub
+from collections import OrderedDict
 
 import modules.MetaUtils as MetaUtils
 import modules.ProcUtils as ProcUtils
@@ -285,7 +286,7 @@ class getanc:
                                 self.stop = ProcUtils.date_convert(stopdate + ' ' + stoptime, 'h', 'j')
 
         if self.file and not self.sensor:
-            # Make sure sensor is set (JIRA Ticket #1012)  
+            # Make sure sensor is set (JIRA Ticket #1012)
             self.sensor = ProcUtils.check_sensor(self.file)
 
         if self.verbose:
@@ -352,7 +353,7 @@ Using current working directory for storing the ancillary database file: %s''' %
             if not self.refreshDB:
                 self.files = ancdatabase.get_ancfiles(filekey, self.atteph)
                 if self.curdir:
-                    for anckey in self.files.keys():
+                    for anckey in list(self.files.keys()):
                         self.files[anckey] = os.path.basename(self.files[anckey])
                 self.db_status = ancdatabase.get_status(filekey, self.atteph)
                 self.start, self.stop = ancdatabase.get_filetime(filekey)
@@ -472,7 +473,7 @@ Using current working directory for storing the ancillary database file: %s''' %
             sys.exit(31)
 
         # extra checks
-        for f in (self.files.keys()):
+        for f in (list(self.files.keys())):
             if not len(self.files[f]):
                 print("ERROR: display_ancillary_files.cgi script returned blank entry for %s. Exiting." % f)
                 sys.exit(99)
@@ -551,7 +552,7 @@ Using current working directory for storing the ancillary database file: %s''' %
         import sys
 
         FILES = []
-        for f in (self.files.keys()):
+        for f in (list(self.files.keys())):
             if self.atteph:
                 if re.search('scat|atm|met|ozone|file', f):
                     continue
@@ -564,7 +565,7 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         urlConn, proxy = ProcUtils.httpinit(self.data_site, timeout=self.timeout)
 
-        for FILE in FILES:
+        for FILE in list(OrderedDict.fromkeys(FILES)):
             year, day = self.yearday(FILE)
 
             # First check hard disk...unless forcedl is set
@@ -618,7 +619,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                         ProcUtils.remove(self.server_file)
                         sys.exit(1)
 
-            for f in (self.files.keys()):
+            for f in (list(self.files.keys())):
                 if self.atteph:
                     if re.search('met|ozone|file', f):
                         continue
@@ -699,7 +700,7 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         ancpar = open(self.anc_file, 'w')
 
-        for key in sorted(self.files.iterkeys()):
+        for key in sorted(self.files.keys()):
             ancpar.write('='.join([key, self.files[key]]) + '\n')
 
         ancpar.close()
