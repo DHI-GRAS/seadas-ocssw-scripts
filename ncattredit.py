@@ -5,6 +5,7 @@ import os
 import time
 import datetime
 import netCDF4 as nc
+import numpy as np
 
 if len(sys.argv) != 3:
     print('Usage:')
@@ -24,42 +25,48 @@ inFile = sys.argv[1]
 attrFile = sys.argv[2]
 rootgrp = nc.Dataset(inFile, 'a')
 
-attrs = open(attrFile,'r')
+# update the history
+processtime = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S')
+history = nc.Dataset.getncattr(rootgrp,'history').rstrip() + '\n'+'['+processtime+'] '+os.path.basename(sys.argv[0])+ ' ' + sys.argv[1] + ' ' + sys.argv[2]
+nc.Dataset.setncattr(rootgrp,'history', history)
 
-isModified=False
+
+attrs = open(attrFile,'r')
 
 for attr in attrs:
     attrName,attrValue = attr.split('=')
     attrValue = attrValue.rstrip()
-# Check to see if the attribute exists,
-# if it does, modify accordingly
+    
+    # Check to see if the attribute exists,
+    # if it does, delete it
     try:
         attrValueExisting = nc.Dataset.getncattr(rootgrp,attrName)
-        if (not attrValue == attrValueExisting):
-            if (not len(attrValue)):
-                nc.Dataset.delncattr(rootgrp,attrName)
-            else:
-                nc.Dataset.setncattr(rootgrp,attrName,list(attrValue))
-
-            isModified=True 
-
-# If it doesn't, add it
+        nc.Dataset.delncattr(rootgrp,attrName)
     except:
-        if (len(attrValue)):
-            nc.Dataset.setncattr(rootgrp,attrName,list(attrValue))
-            isModified=True
+        pass
 
-# If we modified something, update the history
-if (isModified):
-    processtime = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%dT%H:%M:%S')
-
-    history = nc.Dataset.getncattr(rootgrp,'history').rstrip() + '\n'+'['+processtime+'] '+os.path.basename(sys.argv[0])+ ' ' + sys.argv[1] + ' ' + sys.argv[2]
-    nc.Dataset.setncattr(rootgrp,'history', history)
-    rootgrp.close()
-    sys.exit(0)
-else:
-    rootgrp.close()
-    print("Attributes to modify do not differ from values desired...File not modified")
-    sys.exit(100)
-
-
+    # if starts with a quote it is a string
+    if len(attrValue):
+        if attrValue.startswith('"'):
+            attrValue = attrValue.strip('"').encode('ascii')
+            nc.Dataset.setncattr(rootgrp,attrName,attrValue)
+        else:
+            # if has a comma it is an array
+            if "," in attrValue:
+                if attrValue.startswith('['):
+                    attrValue = attrValue.lstrip('[').rstrip(']')
+                partsStr = attrValue.split(',')
+                if '.' in attrValue:
+                    parts = np.array(partsStr).astype(np.dtype('f4'))
+                else:
+                    parts = np.array(partsStr).astype(np.dtype('i4'))
+                nc.Dataset.setncattr(rootgrp,attrName,parts)
+    
+            else:
+                if '.' in attrValue:
+                    nc.Dataset.setncattr(rootgrp,attrName,np.array(attrValue).astype(np.dtype('f4')))
+                else:
+                    nc.Dataset.setncattr(rootgrp,attrName,np.array(attrValue).astype(np.dtype('i4')))
+        
+        
+rootgrp.close()

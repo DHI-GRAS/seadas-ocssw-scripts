@@ -76,7 +76,7 @@ class ancDB:
             return 110
 
         c = self.cursor
-        satid = self.check_file(satfile)
+        satid = self.check_file(satfile, starttime=starttime)
         ancid = self.check_file(ancfile, anctype=anctype)
 
         if satid is None:
@@ -89,13 +89,15 @@ class ancDB:
             c.execute('INSERT INTO satfiles VALUES (NULL,?,?,?,?,?)',
                 [satfile, starttime, stoptime, inputdbstat, attephstat])
             self.conn.commit()
-            satid = ancDB.check_file(self, satfile)
+            satid = ancDB.check_file(self, satfile, starttime=starttime)
 
         else:
             if atteph:
-                c.execute('UPDATE satfiles set attephstat = ?', [dbstat])
+                c.execute('''UPDATE satfiles SET attephstat = ?
+                                 WHERE satid = ?''', [dbstat, satid])
             else:
-                c.execute('UPDATE satfiles set status = ?', [dbstat])
+                c.execute('''UPDATE satfiles SET status = ?
+                                 WHERE satid = ?''', [dbstat, satid])
 
             self.conn.commit()
 
@@ -113,7 +115,7 @@ class ancDB:
             c.execute('INSERT INTO satancinfo VALUES (?,?,?)', [satid, ancid, opt])
 
 
-    def delete_record(self, filename, anctype=None):
+    def delete_record(self, filename, anctype=None, starttime=None):
         """
         Deletes records from ancillary DB
         If given a satellite filename, deletes all records associated with it
@@ -132,7 +134,7 @@ class ancDB:
             c.execute('DELETE from ancfiles where ancid = ?', [ancid])
 
         else:
-            satid = self.check_file(filename)
+            satid = self.check_file(filename, starttime=starttime)
             ancids = conn.execute('select ancid from satancinfo where satid = ?', [satid])
             for a in ancids:
                 c.execute('DELETE from satancinfo where ancid = ?', [a[0]])
@@ -192,7 +194,7 @@ class ancDB:
             return 1
 
 
-    def check_file(self, filename, anctype=None):
+    def check_file(self, filename, anctype=None, starttime=None):
         """
         Check database for existing file, return ID if exists
         """
@@ -205,7 +207,11 @@ class ancDB:
         table = 'satfiles'
         id = 'satid'
         if anctype is None:
-            query = ' '.join(['select', id, 'from', table, 'where filename =', '"' + filename + '"'])
+            if filename:
+                query = ' '.join(['select', id, 'from', table, 'where filename =', '"' + filename + '"'])
+            else:
+                query = ' '.join(['select', id, 'from', table, 'where starttime =', '"' + starttime + '"'])
+
         else:
             table = 'ancfiles'
             id = 'ancid'
@@ -218,9 +224,11 @@ class ancDB:
         if r is None:
             return None
         else:
+            if len(r) > 1:
+                print('more than one entry for this starttime - this may be a problem.?')
             return r[0]
 
-    def get_status(self, filename, atteph=False):
+    def get_status(self, filename, atteph=False, starttime=None):
         """
         Check the stored database return status
         """
@@ -230,9 +238,15 @@ class ancDB:
 
         c = self.cursor
         if atteph:
-            query = ' '.join(['select attephstat from satfiles where filename =', '"' + filename + '"'])
+            if filename:
+                query = ' '.join(['select attephstat from satfiles where filename =', '"' + filename + '"'])
+            else:
+                query = ' '.join(['select attephstat from satfiles where starttime =', '"' + starttime + '"'])
         else:
-            query = ' '.join(['select status from satfiles where filename =', '"' + filename + '"'])
+            if filename:
+                query = ' '.join(['select status from satfiles where filename =', '"' + filename + '"'])
+            else:
+                query = ' '.join(['select status from satfiles where starttime =', '"' + starttime + '"'])
 
         result = c.execute(query)
         r = result.fetchone()
@@ -242,7 +256,7 @@ class ancDB:
         else:
             return r[0]
 
-    def get_filetime(self, filename):
+    def get_filetime(self, filename, starttime=None):
         """
         return the stored file start and stop times
         """
@@ -251,13 +265,16 @@ class ancDB:
             return 110
 
         c = self.cursor
-        query = ' '.join(['select starttime,stoptime from satfiles where filename =', '"' + filename + '"'])
+        if filename:
+            query = ' '.join(['select starttime,stoptime from satfiles where filename =', '"' + filename + '"'])
+        else:
+            query = ' '.join(['select starttime,stoptime from satfiles where starttime =', '"' + starttime + '"'])
 
         result = c.execute(query)
         r = result.fetchone()
         return [r[0],r[1]]
 
-    def get_ancfiles(self, filename, atteph=False):
+    def get_ancfiles(self, filename, atteph=False, starttime=None):
         """
         Return the ancillary files associated with a given input file
         """
@@ -268,7 +285,7 @@ class ancDB:
 
         c = self.cursor
 
-        satID = self.check_file(filename)
+        satID = self.check_file(filename, starttime=starttime)
         if satID is None:
             return None
 

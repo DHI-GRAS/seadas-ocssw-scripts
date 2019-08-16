@@ -125,23 +125,35 @@ class LutUtils:
                 print()
                 print('Downloading files into ' + dirpath)
 
-            # check times for non-versioned files
-            new1 = self.session.download_allfiles(
-                url, dirpath,
-                dry_run=self.dry_run, clobber=self.clobber,
-                regex='^((?!\d+).)*' + suffix, check_times=True)
-            if self.session.status:
-                self.status = 1
+            newfiles = []
+            if self.mission == "common":
+                newfiles = self.session.download_allfiles(
+                    url, dirpath,
+                    dry_run=self.dry_run, clobber=self.clobber,
+                    regex="(?m)^(?!.*(?:gbr100|gbrReflectance|LandWater15ARC|VIIRS_DARKTARGET_LUT)).*$", 
+                    check_times=True)
+                if self.session.status:
+                    self.status = 1
+            else:
+                # check times for non-versioned files
+                new1 = self.session.download_allfiles(
+                    url, dirpath,
+                    dry_run=self.dry_run, clobber=self.clobber,
+                    regex='^((?!\d+).)*' + suffix, check_times=True)
+                if self.session.status:
+                    self.status = 1
+    
+                # check only filesize for others
+                new2 = self.session.download_allfiles(
+                    url, dirpath,
+                    dry_run=self.dry_run, clobber=self.clobber,
+                    regex=suffix, check_times=False)
+                if self.session.status:
+                    self.status = 1
+    
+                newfiles = new1 + new2
 
-            # check only filesize for others
-            new2 = self.session.download_allfiles(
-                url, dirpath,
-                dry_run=self.dry_run, clobber=self.clobber,
-                regex=suffix, check_times=False)
-            if self.session.status:
-                self.status = 1
 
-            newfiles = new1 + new2
             if len(newfiles) == 0:
                 if self.verbose:
                     print('...no new files.')

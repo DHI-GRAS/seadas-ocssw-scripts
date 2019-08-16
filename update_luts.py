@@ -55,6 +55,18 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG,
                             format='%(levelname)s:%(message)s')
 
+    # always update the common directory
+    luts = Lut.LutUtils(verbose=args.verbose,
+                        mission='common',
+                        evalluts=False,
+                        timeout=args.timeout,
+                        dry_run=args.dry_run)
+    luts.get_luts()
+    if luts.status != 0:
+        parser.exit(luts.status)
+
+
+    # on to the requested sensor
     luts = Lut.LutUtils(verbose=args.verbose,
                         mission=args.mission.lower(),
                         evalluts=args.evalluts,

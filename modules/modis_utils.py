@@ -375,7 +375,7 @@ def modis_env(self):
                 versions = [lut_version(f) for f in os.listdir(self.lutdir) if f.endswith('.hdf')]
                 self.lutversion = sorted(versions)[-1][1:]  # highest version number
             except:
-                print("ERROR: Could not find LUTs in".self.lutdir)
+                print("ERROR: Could not find LUTs in", self.lutdir)
                 sys.exit(1)
 
         self.refl_lut = self.prefix + '02_Reflective_LUTs.V' + self.lutversion + '.hdf'

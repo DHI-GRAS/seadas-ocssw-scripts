@@ -8,6 +8,23 @@ from __future__ import print_function
 import sys
 
 
+#  ------------------ DANGER -------------------
+#
+# The next 4 functions:
+#    get_url_file_name
+#    _httpdl
+#    httpdl
+#    uncompressFile
+#
+# exist in two places:
+#    OCSSWROOT/src/manifest/manifest.py
+#    OCSSWROOT/scripts/modules/ProcUtils.py
+#
+# Make sure changes get into both files.
+#
+
+DEFAULT_CHUNK_SIZE = 131072
+
 def get_url_file_name(openUrl, request):
     """
     get filename from URL - use content-disposition if provided
@@ -22,7 +39,8 @@ def get_url_file_name(openUrl, request):
         # if no filename was found above, parse it out of the final URL.
         return os.path.basename(request)
 
-
+#  ------------------ DANGER -------------------
+# See comment above
 def httpinit(url, timeout=10, urlConn=None):
     """
     initialize HTTP network connection
@@ -37,7 +55,7 @@ def httpinit(url, timeout=10, urlConn=None):
         from urllib.parse import urlparse
     except ImportError:
         from urlparse import urlparse
-        
+
     proxy = None
     proxy_set = os.environ.get('https_proxy')
     if proxy_set is None:
@@ -48,19 +66,23 @@ def httpinit(url, timeout=10, urlConn=None):
     if urlConn is None:
         if proxy is None:
             urlConn = hclient.HTTPSConnection(url, timeout=timeout)
-        elif proxy.scheme == 'https':
-            urlConn = hclient.HTTPSConnection(proxy.hostname,
-                                              proxy.port, timeout=timeout)
         else:
-            urlConn = hclient.HTTPConnection(proxy.hostname,
+            if proxy.scheme == 'https':
+                urlConn = hclient.HTTPSConnection(proxy.hostname,
+                                              proxy.port, timeout=timeout)
+            else:
+                urlConn = hclient.HTTPConnection(proxy.hostname,
                                              proxy.port, timeout=timeout)
+            urlConn.set_tunnel(url)
 
     return urlConn, proxy
 
 
+#  ------------------ DANGER -------------------
+# See comment above
 def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             uncompress=False, timeout=30., reqHeaders={}, verbose=False,
-            reuseConn=False, urlConn=None):
+            reuseConn=False, urlConn=None, chunk_size=DEFAULT_CHUNK_SIZE):
     """
     Copy the contents of a file from a given URL to a local file
     Inputs:
@@ -79,6 +101,10 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
     import os
     import re
     import socket
+    try:
+        import http.client as hclient  # python 3
+    except ImportError:
+        import httplib as hclient  # python 2
 
     from time import sleep
 
@@ -90,13 +116,8 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
 
     urlConn, proxy = httpinit(url, timeout=timeout, urlConn=urlConn)
 
-    if proxy is None:
-        full_request = request
-    else:
-        full_request = ''.join(['https://', url, request])
-
     try:
-        req = urlConn.request('GET', full_request, headers=reqHeaders)
+        urlConn.request('GET', request, headers=reqHeaders)
     except:
         err_msg = '\n'.join(['Error! could not establish a network connection. Check your network connection.',
                              'If you do not find a problem, please try again later.'])
@@ -119,7 +140,7 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                                           outputfilename=outputfilename,
                                           ntries=ntries - 1, timeout=timeout,
                                           uncompress=uncompress, reuseConn=reuseConn,
-                                          urlConn=None, verbose=verbose)
+                                          urlConn=None, verbose=verbose, chunk_size=chunk_size)
             else:
                 print('We failed to reach a server.')
                 print('Please retry this request at a later time.')
@@ -140,7 +161,8 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
             urlConn, status = _httpdl(url, request, localpath=localpath,
                                       outputfilename=outputfilename, ntries=ntries - 1,
                                       timeout=timeout, uncompress=uncompress,
-                                      reuseConn=reuseConn, urlConn=None, verbose=verbose)
+                                      reuseConn=reuseConn, urlConn=None, verbose=verbose,
+                                      chunk_size=chunk_size)
         else:
             print('URL attempted: %s' % url)
             print('Well, this is embarrassing...an error occurred that we just cannot get past...')
@@ -165,20 +187,32 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                 ofile = os.path.join(localpath, get_url_file_name(response,
                                                                   request))
             filename = ofile
-            data = response.read()
-
-            if response.status == 200:
-                with open(ofile, 'wb') as f:
-                    f.write(data)
-            else:
-                with open(ofile, 'ab') as f:
-                    f.write(data)
+            try:
+                data = response.read(chunk_size)
+                if response.status == 200:
+                    f = open(ofile, 'wb')
+                else:
+                    f = open(ofile, 'ab')
+                f.write(data)
+                while True:
+                    data = response.read(chunk_size)
+                    if data:
+                        f.write(data)
+                    else:
+                        break;
+            except hclient.HTTPException as e:
+                f.close()
+                sys.exit("Error during download (%s)" % e)
+            f.close()
 
             headers = dict(response.getheaders())
-            if 'content-length' in headers:
-                expectedLength = int(headers.get('content-length'))
-                if 'content-range' in headers:
-                    expectedLength = int(headers.get('content-range').split('/')[1])
+            headers = dict((k.lower(), v) for k,v in headers.items())
+            str1 = headers.get('content-length')
+            if str1:
+                expectedLength = int(str1)
+                str1 = headers.get('content-range')
+                if str1:
+                    expectedLength = int(str1.split('/')[1])
 
                 actualLength = os.stat(filename).st_size
 
@@ -193,7 +227,7 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
                                               outputfilename=outputfilename,
                                               timeout=timeout, uncompress=uncompress,
                                               reqHeaders=reqHeader, reuseConn=reuseConn,
-                                              urlConn=None, verbose=verbose)
+                                              urlConn=None, verbose=verbose, chunk_size=chunk_size)
 
             if not reuseConn:
                 urlConn.close()
@@ -212,18 +246,22 @@ def _httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
     return (urlConn, status)
 
 
+#  ------------------ DANGER -------------------
+# See comment above
 def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
            uncompress=False, timeout=30., reqHeaders={}, verbose=False,
-           reuseConn=False, urlConn=None):
+           reuseConn=False, urlConn=None, chunk_size=DEFAULT_CHUNK_SIZE):
     urlConn, status = _httpdl(url, request, localpath, outputfilename, ntries,
                               uncompress, timeout, reqHeaders, verbose,
-                              reuseConn, urlConn)
+                              reuseConn, urlConn, chunk_size)
     if reuseConn:
         return (urlConn, status)
     else:
         return status
 
 
+#  ------------------ DANGER -------------------
+# See comment above
 def uncompressFile(compressed_file):
     """
     uncompress file
@@ -313,16 +351,35 @@ def date_convert(datetime_i, in_datetype=None, out_datetype=None):
         return dateobj.strftime(date_time_format[out_datetype])
 
 
-def addsecs(datetime_i, dsec, datetype):
+def addsecs(datetime_i, dsec, datetype=None):
     """
     Offset datetime_i by dsec seconds.
     """
     import datetime
-
     dateobj = date_convert(datetime_i, datetype)
     delta = datetime.timedelta(seconds=dsec)
     return date_convert(dateobj + delta, out_datetype=datetype)
 
+def diffsecs(time0, time1, datetype=None):
+    """
+    Return difference in seconds.
+    """
+    import datetime
+    t0 = date_convert(time0, datetype)
+    t1 = date_convert(time1, datetype)
+    return (t1-t0).total_seconds()
+
+def round_minutes(datetime_i, resolution=5, datetype=None):
+    """
+    Round to nearest "resolution" minutes, preserving format.
+    """
+    import datetime
+    dateobj = date_convert(datetime_i, datetype)
+    dateobj += datetime.timedelta(minutes=resolution/2.0)
+    dateobj -= datetime.timedelta(minutes=dateobj.minute % resolution,
+                                  seconds=dateobj.second,
+                                  microseconds=dateobj.microsecond)
+    return date_convert(dateobj, out_datetype=datetype)
 
 def remove(file_to_delete):
     """

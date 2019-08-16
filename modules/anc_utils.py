@@ -347,22 +347,25 @@ Using current working directory for storing the ancillary database file: %s''' %
             if self.verbose:
                 print("Searching database: %s " % self.ancdb)
 
-        filekey = os.path.basename(self.file)
-        status = ancdatabase.check_file(filekey)
+        if self.file:
+            filekey = os.path.basename(self.file)
+        else:
+            filekey = None
+        status = ancdatabase.check_file(filekey,starttime=self.start)
         if status:
             if not self.refreshDB:
-                self.files = ancdatabase.get_ancfiles(filekey, self.atteph)
+                self.files = ancdatabase.get_ancfiles(filekey, self.atteph, starttime=self.start)
                 if self.curdir:
                     for anckey in list(self.files.keys()):
                         self.files[anckey] = os.path.basename(self.files[anckey])
-                self.db_status = ancdatabase.get_status(filekey, self.atteph)
-                self.start, self.stop = ancdatabase.get_filetime(filekey)
+                self.db_status = ancdatabase.get_status(filekey, self.atteph, starttime=self.start)
+                self.start, self.stop = ancdatabase.get_filetime(filekey, starttime=self.start)
             else:
-                ancdatabase.delete_record(filekey)
+                ancdatabase.delete_record(filekey, starttime=self.start)
 
             ancdatabase.closeDB()
 
-        if status and not self.db_status < 0:
+        if status and self.db_status:
             if not self.refreshDB:
                 if self.db_status > 0:
                     print("Warning! Non-optimal data exist in local repository.")
@@ -492,13 +495,16 @@ Using current working directory for storing the ancillary database file: %s''' %
             if self.files[anctype] == 'missing':
                 missing.append(anctype)
                 continue
-            if self.file and self.dl:
+            if (self.file and self.dl) or (self.start and self.dl):
                 path = self.dirs['anc']
                 if not self.curdir:
                     year, day = self.yearday(self.files[anctype])
                     path = os.path.join(path, year, day)
 
-                filekey = os.path.basename(self.file)
+                if self.file:
+                    filekey = os.path.basename(self.file)
+                else:
+                    filekey = None
                 ancdatabase.insert_record(satfile=filekey, starttime=self.start, stoptime=self.stop, anctype=anctype,
                                           ancfile=self.files[anctype], ancpath=path, dbstat=self.db_status,
                                           atteph=self.atteph)
@@ -563,7 +569,7 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         dl_msg = 1
 
-        urlConn, proxy = ProcUtils.httpinit(self.data_site, timeout=self.timeout)
+        download_count = 0
 
         for FILE in list(OrderedDict.fromkeys(FILES)):
             year, day = self.yearday(FILE)
@@ -578,6 +584,7 @@ Using current working directory for storing the ancillary database file: %s''' %
                         print("  Found: %s" % FILE)
                 else:
                     download = 1
+                    download_count += 1
             else:
                 ancdir = self.dirs['anc']
 
@@ -588,10 +595,14 @@ Using current working directory for storing the ancillary database file: %s''' %
                         print("  Found: %s/%s" % (self.dirs['path'], FILE))
                 else:
                     download = 1
+                    download_count += 1
 
             # Not on hard disk, download the file
 
             if download == 1:
+                if download_count == 1:
+                    urlConn, proxy = ProcUtils.httpinit(self.data_site, timeout=self.timeout)
+
                 if self.dl is False:
                     if dl_msg == 1:
                         if self.verbose:
@@ -629,7 +640,8 @@ Using current working directory for storing the ancillary database file: %s''' %
                 if FILE == self.files[f]:
                     self.files[f] = os.path.join(self.dirs['path'], FILE)
 
-        urlConn.close()
+        if download_count:
+            urlConn.close()
 
     def write_anc_par(self):
         """

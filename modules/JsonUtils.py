@@ -202,7 +202,7 @@ class SessionUtils:
             # give up if bad response
             else:
                 self.status = 1
-                print('Bad response for {}: {}  {}'.
+                print('Warning for {}: {}  {}'.
                       format(url, response.status, response.reason))
 
         except Exception as e:

@@ -143,13 +143,6 @@ def main():
         parser.print_help()
         exit(0)
 
-    # Set stacksize - if able to (Mac can't, but code is compiled to use a
-    # larger stack on the Mac...)
-    try:
-        resource.setrlimit(resource.RLIMIT_STACK, (33554432, 33554432))
-    except Exception:
-        pass
-
     m = modisGEO.modis_geo(file=l1a_file,
                            parfile=parfile,
                            geofile=geofile,

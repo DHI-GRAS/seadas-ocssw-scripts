@@ -77,9 +77,9 @@ class modis_l1a:
                 print("ERROR: File " + self.nextgranule + " does not exist.")
                 sys.exit(1)
             else:
-                self.stopnudge = 0
-                if self.verbose:
+                if self.verbose and self.stopnudge != 0:
                     print("* Next L0 granule is specified, therefore setting stopnudge = 0 *")
+                self.stopnudge = 0
 
     def get_constructor(self):
         import subprocess
@@ -220,17 +220,25 @@ class modis_l1a:
         self.l1a_name()
 
         for line in open(self.grantimes, 'r'):
-            if "starttime" in line:
-                self.start = line[10:].rstrip()
-            if "stoptime" in line:
-                self.stop = line[10:].rstrip()
-            if "length" in line:
-                self.gransec = line[16:].rstrip()
+            try:
+                key, val = line.split('=')
+            except ValueError:
+                continue  # line doesn't contain '='
+            if 'start' in key:
+                self.start = val.strip()
+            elif 'stop' in key:
+                self.stop = val.strip()
+            elif 'length' in key:
+                self.gransec = val.strip()
+
+        # Adjust times to nominal 5-minute granule
+        self.start = ProcUtils.round_minutes(self.start,5,'t')
+        self.stop  = ProcUtils.round_minutes(self.stop, 5,'t')
 
         # Adjust starttime, stoptime, and gransec for L0 processing
         self.start = ProcUtils.addsecs(self.start, self.startnudge, 't')
         self.stop = ProcUtils.addsecs(self.stop, -1 * self.stopnudge, 't')
-        self.gransec = float(self.gransec) - self.startnudge - self.stopnudge
+        self.gransec = ProcUtils.diffsecs(self.start, self.stop, 't')
         self.granmin = str(float(self.gransec) / 60.0)
 
         # set output file name
@@ -245,7 +253,7 @@ class modis_l1a:
 
     def run(self):
         """
-        Run l1agen_modis (MOD_PRO01)
+        Run l1agen_modis (MOD_PR01)
         """
         import os
         import shutil

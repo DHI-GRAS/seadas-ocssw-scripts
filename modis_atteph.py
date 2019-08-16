@@ -118,6 +118,8 @@ if __name__ == "__main__":
         m.sensor = check_sensor(filename)
     if filename and m.finddb():
         m.setup()
+    elif start and m.finddb():
+        m.setup()
     else:
         m.setup()
         m.findweb()

@@ -182,7 +182,7 @@ def main():
 
     env(g)
     g.chk()
-    if filename and g.finddb():
+    if (filename and g.finddb()) or (start and g.finddb()):
         g.setup()
     else:
         g.setup()

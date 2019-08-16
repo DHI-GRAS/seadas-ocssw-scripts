@@ -112,14 +112,6 @@ def main():
         parser.print_help()
         exit(0)
 
-    # Set stacksize - if able to (Mac can't, but code is compiled to use a
-    # larger stack on the Mac...)
-    try:
-        resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
-    except Exception:
-        pass
-
-
     l1b_instance = modisL1B.ModisL1B(inp_file=l1a_file,
                                    parfile=parfile,
                                    geofile=geofile,
