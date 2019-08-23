@@ -28,8 +28,10 @@ if __name__ == "__main__":
     version = "%prog 1.0"
     att1 = None
     att2 = None
+    att3 = None
     eph1 = None
     eph2 = None
+    eph3 = None
 
     # Read commandline options...
     #Usage: modis_L1A_extract.csh L1A_file GEO_file SWlon SWlat NElon NElat Output_L1A_file [Output_GEO_file]
@@ -63,10 +65,14 @@ if __name__ == "__main__":
         help="Input attitude  file 1 (chronological)", metavar="ATT1")
     parser.add_option("--att2", dest='att2',
         help="Input attitude  file 2 (chronological)", metavar="ATT2")
+    parser.add_option("--att3", dest='att3',
+        help="Input attitude  file 3 (chronological)", metavar="ATT3")
     parser.add_option("--eph1", dest='eph1',
         help="Input ephemeris file 1 (chronological)", metavar="EPH1")
     parser.add_option("--eph2", dest='eph2',
         help="Input ephemeris file 2 (chronological)", metavar="EPH2")
+    parser.add_option("--eph3", dest='eph3',
+        help="Input ephemeris file 3 (chronological)", metavar="EPH3")
     ancdb_help_text = "Use a custom file for ancillary database. If " \
                       "full path not given, ANCDB is assumed to exist "\
                       "(or will be created) under " + \
@@ -123,10 +129,14 @@ if __name__ == "__main__":
         att1 = options.att1
     if options.att2:
         att2 = options.att2
+    if options.att3:
+        att3 = options.att3
     if options.eph1:
         eph1 = options.eph1
     if options.eph2:
         eph2 = options.eph2
+    if options.eph3:
+        eph3 = options.eph3
 
 
     # Set stacksize - if able to (Mac can't, but code is compiled to use a
@@ -159,8 +169,10 @@ if __name__ == "__main__":
                          ancdir=ancdir,
                          a1=att1,
                          a2=att2,
+                         a3=att3,
                          e1=eph1,
                          e2=eph2,
+                         e3=eph3,
                          log=log,
                          verbose=verbose)
 

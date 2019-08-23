@@ -84,25 +84,33 @@ def buildpcf(self):
                     continue
             else:
                 if "ATTDIR" in line:
+                    if self.attdir1 == 'NULL' and re.search('1$', line):
+                        continue
                     if self.attdir2 == "NULL" and re.search('2$', line):
                         continue
-                    if self.attdir1 == 'NULL' and re.search('1$', line):
+                    if self.attdir3 == "NULL" and re.search('3$', line):
                         continue
 
                 if "EPHDIR" in line:
-                    if self.ephdir2 == "NULL" and re.search('2$', line):
-                        continue
                     if self.ephdir1 == 'NULL' and re.search('1$', line):
                         continue
+                    if self.ephdir2 == "NULL" and re.search('2$', line):
+                        continue
+                    if self.ephdir3 == "NULL" and re.search('3$', line):
+                        continue
 
-                line = line.replace("ATTDIR1", self.attdir2)
-                line = line.replace("ATTFILE1", self.attfile2)
-                line = line.replace("ATTDIR2", self.attdir1)
-                line = line.replace("ATTFILE2", self.attfile1)
-                line = line.replace("EPHDIR1", self.ephdir2)
-                line = line.replace("EPHFILE1", self.ephfile2)
-                line = line.replace("EPHDIR2", self.ephdir1)
-                line = line.replace("EPHFILE2", self.ephfile1)
+                line = line.replace("ATTDIR1", self.attdir1)
+                line = line.replace("ATTDIR2", self.attdir2)
+                line = line.replace("ATTDIR3", self.attdir3)
+                line = line.replace("ATTFILE1", self.attfile1)
+                line = line.replace("ATTFILE2", self.attfile2)
+                line = line.replace("ATTFILE3", self.attfile3)
+                line = line.replace("EPHDIR1", self.ephdir1)
+                line = line.replace("EPHDIR2", self.ephdir2)
+                line = line.replace("EPHDIR3", self.ephdir3)
+                line = line.replace("EPHFILE1", self.ephfile1)
+                line = line.replace("EPHFILE2", self.ephfile2)
+                line = line.replace("EPHFILE3", self.ephfile3)
 
         if self.proctype == "modisL1B":
             line = line.replace('L1BDIR', self.dirs['run'])

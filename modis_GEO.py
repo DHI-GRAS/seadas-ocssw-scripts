@@ -22,8 +22,10 @@ def main():
     geofile = None
     att1 = None
     att2 = None
+    att3 = None
     eph1 = None
     eph2 = None
+    eph3 = None
     entrained = False
     dem = False
     refresh_db = False
@@ -57,12 +59,18 @@ def main():
     parser.add_option("-A", "--att2", dest='att2',
                       help="Input attitude  file 2 (chronological)",
                       metavar="ATT2")
+    parser.add_option("--att3", dest='att3',
+                      help="Input attitude  file 3 (chronological)",
+                      metavar="ATT3")
     parser.add_option("-e", "--eph1", dest='eph1',
                       help="Input ephemeris file 1 (chronological)",
                       metavar="EPH1")
     parser.add_option("-E", "--eph2", dest='eph2',
                       help="Input ephemeris file 2 (chronological)",
                       metavar="EPH2")
+    parser.add_option("--eph3", dest='eph3',
+                      help="Input ephemeris file 3 (chronological)",
+                      metavar="EPH3")
     parser.add_option("--ancdir", dest='ancdir',
                       help="Use a custom directory tree for ancillary files",
                       metavar="ANCDIR")
@@ -112,10 +120,14 @@ def main():
         att1 = options.att1
     if options.att2:
         att2 = options.att2
+    if options.att3:
+        att3 = options.att3
     if options.eph1:
         eph1 = options.eph1
     if options.eph2:
         eph2 = options.eph2
+    if options.eph3:
+        eph3 = options.eph3
     if options.dem:
         dem = options.dem
     if options.geothresh:
@@ -148,8 +160,10 @@ def main():
                            geofile=geofile,
                            a1=att1,
                            a2=att2,
+                           a3=att3,
                            e1=eph1,
                            e2=eph2,
+                           e3=eph3,
                            terrain=dem,
                            geothresh=geothresh,
                            ancdir=ancdir,
