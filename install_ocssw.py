@@ -398,6 +398,8 @@ if __name__ == "__main__":
                       help="install OCTS files")
     parser.add_option("--olcis3a", action="store_true", dest="olcis3a", default=False,
                       help="install OLCI Sentinel 3A files")
+    parser.add_option("--olcis3b", action="store_true", dest="olcis3b", default=False,
+                      help="install OLCI Sentinel 3B files")
     parser.add_option("--oli", action="store_true", dest="oli", default=False,
                       help="install Landsat 8 OLI files")
     parser.add_option("--osmi", action="store_true", dest="osmi", default=False,
@@ -604,8 +606,12 @@ if __name__ == "__main__":
         numThings += 1     # ocm2
     if options.octs:
         numThings += 1     # octs
+    if options.olcis3a or options.olcis3b:
+        numThings += 1     # olci
     if options.olcis3a:
         numThings += 1     # olci s3a
+    if options.olcis3b:
+        numThings += 1     # olci s3b
     if options.osmi:
         numThings += 1     # osmi
     if options.oli:
@@ -757,9 +763,23 @@ if __name__ == "__main__":
         installGitRepo('octs', shareDir + 'octs')
 
     # install share/olci
+    if options.olcis3a or options.olcis3b:
+        if newDirStructure:
+            printProgress('olci')
+            installGitRepo('olci', shareDir + 'olci')
+        else:
+            print("Error - Must install v7.5 or greater for OLCI")
+            exit(1)
+        
+    # install share/olci/s3a
     if options.olcis3a:
-        printProgress('olcis3a')
-        installGitRepo('olci', shareDir + 'olci')
+        printProgress('olci/s3a')
+        installGitRepo('olcis3a', shareDir + 'olci/s3a')
+
+    # install share/olci/s3b
+    if options.olcis3b:
+        printProgress('olci/s3b')
+        installGitRepo('olcis3b', shareDir + 'olci/s3b')
 
     # install share/osmi
     if options.osmi:
