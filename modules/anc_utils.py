@@ -336,6 +336,10 @@ Using current working directory for storing the ancillary database file: %s''' %
         if not os.path.exists(self.ancdb):
             return 0
 
+        anctype = 'anc'
+        if self.atteph:
+            anctype = 'atteph'
+
         ancdatabase = db.ancDB(dbfile=self.ancdb)
         if not os.path.getsize(self.ancdb):
             if self.verbose:
@@ -351,7 +355,7 @@ Using current working directory for storing the ancillary database file: %s''' %
             filekey = os.path.basename(self.file)
         else:
             filekey = None
-        status = ancdatabase.check_file(filekey,starttime=self.start)
+        status = ancdatabase.check_file(filekey,anctype=anctype,starttime=self.start)
         if status:
             if not self.refreshDB:
                 self.files = ancdatabase.get_ancfiles(filekey, self.atteph, starttime=self.start)
