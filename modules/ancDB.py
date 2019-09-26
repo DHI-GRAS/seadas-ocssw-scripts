@@ -215,8 +215,11 @@ class ancDB:
         else:
             table = 'ancfiles'
             id = 'ancid'
-            query = ' '.join(['select', id, 'from', table, 'where filename =', '"' + filename + '"', " and type = ",
+            if filename:
+                query = ' '.join(['select', id, 'from', table, 'where filename =', '"' + filename + '"', " and type = ",
                               '"' + anctype + '"'])
+            else:
+                return None
 
         result = c.execute(query)
         r = result.fetchone()
