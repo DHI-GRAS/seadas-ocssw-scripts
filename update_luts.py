@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--eval', action='store_true', dest='evalluts',
                         help='also download evaluation LUTs')
 
-    parser.add_argument('-v', '--verbose', action='store_true',
+    parser.add_argument('-v', '--verbose', action='count',default=0,
                         help='print status messages')
 
     parser.add_argument('-n', '--dry-run', action='store_true', dest='dry_run',

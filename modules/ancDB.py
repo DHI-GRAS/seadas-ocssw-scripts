@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-__author__ = 'sbailey'
 
 import sqlite3
 import re

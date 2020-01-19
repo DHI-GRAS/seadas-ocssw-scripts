@@ -3,8 +3,8 @@
 from modules.ParamUtils import ParamProcessing
 
 class extract:
-    def __init__(self, file=file, parfile=None, outfile=None, geofile=None, north=None, south=None, west=None, east=None
-    ,
+    def __init__(self, file, parfile=None, outfile=None, geofile=None,
+                 north=None, south=None, west=None, east=None,
                  log=False, sensor=None, verbose=False):
         # defaults
         self.file = file
@@ -107,7 +107,7 @@ class extract:
         lonlat2pixline = os.path.join(self.dirs['bin'], 'lonlat2pixline')
         pixlincmd = [lonlat2pixline, self.geofile, str(self.west), str(self.south), str(self.east), str(self.north)]
         p = subprocess.Popen(pixlincmd, stdout=subprocess.PIPE)
-        line = p.communicate()[0]
+        line = p.communicate()[0].decode("utf-8")
         if not p.returncode:
             pixlin = line.splitlines()[0][2:].split()
 

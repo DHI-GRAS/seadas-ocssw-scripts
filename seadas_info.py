@@ -33,10 +33,12 @@ def get_cleaned_python_version():
 
 def get_command_output(command):
 
+    cmd_output = None
     try:
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
-        cmd_output, _ = process.communicate()
+        stdout, stderr = process.communicate()
+        cmd_output = stdout.decode("utf-8") + stderr.decode("utf-8")
     except:
         cmd_output = None
     return cmd_output
@@ -75,19 +77,11 @@ def get_java_version():
     via subprocess.
     """
     java_ver = 'Not installed'
-    try:
-        cmd = 'java'
-        args = '-version'
-        cmd_line = ' '.join([cmd, args])
-        process = subprocess.Popen(cmd_line, shell=True, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        # Java prints the version info to stderr, rather than stdout
-        _, err_txt = process.communicate()
-        if err_txt.upper().find('RUNTIME') != -1:
-            err_lines = err_txt.split('\n')
-            java_ver = re.sub('(^[^"]+|(?<=")[^"]+$)', '', err_lines[0]).strip('"')
-    except:
-        java_ver = 'Not installed'
+    cmd = 'java -version'
+    output = get_command_output(cmd)
+    if output and output.upper().find('RUNTIME') != -1:
+        lines = output.split('\n')
+        java_ver = re.sub('(^[^"]+|(?<=")[^"]+$)', '', lines[0]).strip('"')
     return java_ver
 
 def get_os_distribution():
@@ -142,7 +136,7 @@ def handle_command_line():
     """
     Handle help or version being requested on the command line.
     """
-    parser = argparse.ArgumentParser(version=__version__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--directory", "--dir", "-d", \
                         help="SeaDAS installation directory", \
                         type=str)

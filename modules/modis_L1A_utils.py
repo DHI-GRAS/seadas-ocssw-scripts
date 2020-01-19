@@ -21,6 +21,7 @@ class modis_l1a:
                  stopnudge=10,
                  satellite=None,
                  fix=True,
+                 rounding=True,
                  lutver=None,
                  lutdir=None,
                  log=False,
@@ -35,6 +36,7 @@ class modis_l1a:
         self.sat_name = satellite
         self.verbose = verbose
         self.fix = fix
+        self.rounding = rounding
         self.lutversion = lutver
         self.lutdir = lutdir
         self.log = log
@@ -231,9 +233,16 @@ class modis_l1a:
             elif 'length' in key:
                 self.gransec = val.strip()
 
-        # Adjust times to nominal 5-minute granule
-        self.start = ProcUtils.round_minutes(self.start,5,'t')
-        self.stop  = ProcUtils.round_minutes(self.stop, 5,'t')
+        # Adjust end time to nominal 5-minute boundary to ensure processing of final scan
+        if self.rounding:
+            starttime = ProcUtils.round_minutes(self.start,'t',5)
+            stoptime  = ProcUtils.round_minutes(self.stop, 't',5)
+            if starttime == stoptime:
+                if self.verbose:
+                    print("Short granule: extending end time to 5-min boundary")
+                stoptime  = ProcUtils.round_minutes(self.stop, 't',5,rounding=1)
+            if starttime != stoptime:
+                self.stop = stoptime  # don't change self.start
 
         # Adjust starttime, stoptime, and gransec for L0 processing
         self.start = ProcUtils.addsecs(self.start, self.startnudge, 't')

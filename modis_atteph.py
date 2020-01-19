@@ -12,7 +12,7 @@ if __name__ == "__main__":
     mission = None
     start = None
     stop = None
-    verbose = False
+    verbose = 0
     ancdir = None
     ancdb = 'ancillary_data.db'
     curdir = False
@@ -63,8 +63,8 @@ if __name__ == "__main__":
     parser.add_option("-r", "--refreshDB", action="store_true",
                       dest='refreshDB', default=False,
                       help="Remove existing database records and re-query for ancillary files")
-    parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
-                      default=False, help="print status messages")
+    parser.add_option("-v", "--verbose", action="count", dest='verbose',
+                      default=0, help="print status messages")
     parser.add_option("--timeout", dest='timeout', metavar="TIMEOUT",
                       help="set the network timeout in seconds")
 

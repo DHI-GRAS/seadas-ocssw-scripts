@@ -18,13 +18,24 @@ def env(self):
         print("Please make sure you have downloaded and installed the SeaDAS processing data support file (seadas_processing.tar.gz).")
         sys.exit(1)
 
-    self.dirs['scripts'] = os.path.join(os.getenv("OCSSWROOT"), "scripts")
-    self.dirs['var'] = os.path.join(os.getenv("OCSSWROOT"), "var")
+    self.dirs['scripts'] = None
+    if os.getenv("OCSSW_SCRIPTS"):
+        self.dirs['scripts'] = os.getenv("OCSSW_SCRIPTS")
+    else:
+        self.dirs['scripts'] = os.path.join(os.getenv("OCSSWROOT"), "scripts")
+
+    self.dirs['var'] = None
+    if os.getenv("OCVARROOT"):
+        self.dirs['var'] = os.getenv("OCVARROOT")
+    else:
+        self.dirs['var'] = os.path.join(os.getenv("OCSSWROOT"), "var")
+
     self.dirs['bin'] = os.getenv("OCSSW_BIN")
     self.dirs['bin3'] = os.getenv("LIB3_BIN")
-    self.dirs['log'] = os.path.join(os.getenv("OCSSWROOT"), "log")
-    if not os.path.exists(self.dirs['log']):
-        self.dirs['log'] = self.dirs['var']
+    self.dirs['log'] = os.getenv("OCVARROOT")
+    if os.getenv("OCSSWROOT"):
+        if os.path.exists(os.path.join(os.getenv("OCSSWROOT"), "log")):
+            self.dirs['log'] =os.path.join(os.getenv("OCSSWROOT"), "log")
 
     if os.getenv("OCSSW_DEBUG") is not None and int(os.getenv("OCSSW_DEBUG")) > 0:
         if not os.path.exists(self.dirs['bin']):

@@ -4,7 +4,7 @@
 Program to check for updated ancillary data files and download them
 as appropriate.
 """
-
+import sys
 from optparse import OptionParser
 
 import modules.anc_utils as ga
@@ -118,8 +118,8 @@ def main():
     parser.add_option("-t", "--sst", action="store_false", dest='sst',
                       default=True,
                       help="Do not search for SST ancillary data")
-    parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
-                      default=False, help="print status messages")
+    parser.add_option("-v", "--verbose", action="count", dest='verbose',
+                      default=0, help="print status messages")
     parser.add_option("--noprint", action="store_false", dest='printlist',
                       default=True,
                       help="Suppress printing the resulting list of files to the screen")
@@ -157,7 +157,7 @@ def main():
 
     if filename is None and start is None:
         parser.print_help()
-        exit(0)
+        sys.exit(0)
 
     g = ga.getanc(file=filename,
                   start=start,
@@ -193,4 +193,4 @@ def main():
     return(g.db_status)
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

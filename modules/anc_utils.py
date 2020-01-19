@@ -25,7 +25,7 @@ class getanc:
                  atteph=False,
                  sensor=None,
                  opt_flag=None,
-                 verbose=False,
+                 verbose=0,
                  printlist=True,
                  download=True,
                  timeout=10,
@@ -99,7 +99,7 @@ class getanc:
         stoptime = None
         startdate = None
         stopdate = None
-        for line in info[0].splitlines():
+        for line in info[0].decode("utf-8").splitlines():
             if line.find("Start_Time") != -1:
                 starttime = line.split('=')[1]
             if line.find("End_Time") != -1:
@@ -573,8 +573,6 @@ Using current working directory for storing the ancillary database file: %s''' %
 
         dl_msg = 1
 
-        download_count = 0
-
         for FILE in list(OrderedDict.fromkeys(FILES)):
             year, day = self.yearday(FILE)
 
@@ -588,7 +586,6 @@ Using current working directory for storing the ancillary database file: %s''' %
                         print("  Found: %s" % FILE)
                 else:
                     download = 1
-                    download_count += 1
             else:
                 ancdir = self.dirs['anc']
 
@@ -599,14 +596,10 @@ Using current working directory for storing the ancillary database file: %s''' %
                         print("  Found: %s/%s" % (self.dirs['path'], FILE))
                 else:
                     download = 1
-                    download_count += 1
 
             # Not on hard disk, download the file
 
             if download == 1:
-                if download_count == 1:
-                    urlConn, proxy = ProcUtils.httpinit(self.data_site, timeout=self.timeout)
-
                 if self.dl is False:
                     if dl_msg == 1:
                         if self.verbose:
@@ -618,18 +611,26 @@ Using current working directory for storing the ancillary database file: %s''' %
 
                     if self.verbose:
                         print("Downloading '" + FILE + "' to " + self.dirs['path'])
-                    urlConn, status = ProcUtils.httpdl(self.data_site, ''.join(['/cgi/getfile/', FILE]),
+                    status = ProcUtils.httpdl(self.data_site, ''.join(['/ob/getfile/', FILE]),
                             self.dirs['path'], timeout=self.timeout, uncompress=True,
-                            reuseConn=True, urlConn=urlConn, verbose=self.verbose)
+                            verbose=self.verbose)
                     gc.collect()
                     if status:
-                        print("*** ERROR: The HTTP transfer failed with status code " + str(status) + ".")
-                        print("*** Please check your network connection and for the existence of the remote file:")
-                        print("*** " + '/'.join([self.data_site, 'cgi/getfile', FILE]))
-                        print("***")
-                        print("*** Also check to make sure you have write permissions under the directory:")
-                        print("*** " + self.dirs['path'])
-                        print()
+                        if status == 401:
+                            print("*** ERROR: Authentication Failue retrieving:")
+                            print("*** " + '/'.join([self.data_site, 'ob/getfile', FILE]))
+                            print("*** Please check that your ~/.netrc file is setup correctly and has proper permissions.")
+                            print("***")
+                            print("*** see: https://oceancolor.gsfc.nasa.gov/data/download_methods/")
+                            print("***\n")
+                        else:
+                            print("*** ERROR: The HTTP transfer failed with status code " + str(status) + ".")
+                            print("*** Please check your network connection and for the existence of the remote file:")
+                            print("*** " + '/'.join([self.data_site, 'ob/getfile', FILE]))
+                            print("***")
+                            print("*** Also check to make sure you have write permissions under the directory:")
+                            print("*** " + self.dirs['path'])
+                            print()
                         ProcUtils.remove(os.path.join(self.dirs['path'], FILE))
                         ProcUtils.remove(self.server_file)
                         sys.exit(1)
@@ -643,9 +644,6 @@ Using current working directory for storing the ancillary database file: %s''' %
                         continue
                 if FILE == self.files[f]:
                     self.files[f] = os.path.join(self.dirs['path'], FILE)
-
-        if download_count:
-            urlConn.close()
 
     def write_anc_par(self):
         """

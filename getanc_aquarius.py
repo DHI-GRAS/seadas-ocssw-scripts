@@ -23,7 +23,7 @@ class GetAncAquarius:
                  ancdir=None,
                  ancdb='ancillary_data.db',
                  curdir=False,
-                 verbose=False,
+                 verbose=0,
                  printlist=True,
                  download=True,
                  refreshDB=False):
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     download = True
     force = False
     refreshDB = False
-    verbose = False
+    verbose = 0
     printlist = True
     anc_filelist = None
 
@@ -163,8 +163,8 @@ if __name__ == "__main__":
     parser.add_option("-r", "--refreshDB", action="store_true", dest='refreshDB',
                       default=False, help="Remove existing database records and re-query for ancillary files")
 
-    parser.add_option("-v", "--verbose", action="store_true", dest='verbose',
-                      default=False, help="print status messages")
+    parser.add_option("-v", "--verbose", action="count", dest='verbose',
+                      default=0, help="print status messages")
     parser.add_option("--noprint", action="store_false", dest='printlist',
                       default=True, help="Supress printing the resulting list of files to the screen")
 

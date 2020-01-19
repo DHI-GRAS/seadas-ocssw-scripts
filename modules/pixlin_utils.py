@@ -89,7 +89,7 @@ class pixlin:
                      str(self.west), str(self.south),
                      str(self.east), str(self.north)]
         p = subprocess.Popen(pixlincmd, stdout=subprocess.PIPE)
-        line = p.communicate()[0]
+        line = p.communicate()[0].decode("utf-8")
 
         if p.returncode in (0, 110):
 
