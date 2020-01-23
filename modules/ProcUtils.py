@@ -57,52 +57,51 @@ def getSession(verbose=0, ntries=5):
     return obpgSession
 
 
-def httpdl(url, request, localpath='.', outputfilename=None, ntries=5,
-           uncompress=False, timeout=30., verbose=0,existing_session=None,
+#  ------------------ DANGER -------------------
+# See comment above
+def httpdl(server, request, localpath='.', outputfilename=None, ntries=5,
+           uncompress=False, timeout=30., verbose=0, 
            chunk_size=DEFAULT_CHUNK_SIZE):
 
-    urlStr = 'https://' + url + request
+    status = 0
+    urlStr = 'https://' + server + request
 
     global obpgSession
 
-    if not obpgSession:
-        if existing_session:
-            obpgSession = existing_session
+    getSession(verbose=verbose, ntries=ntries)
+
+    with obpgSession.get(urlStr, stream=True, timeout=timeout) as req:
+
+        ctype = req.headers.get('Content-Type')
+        if req.status_code in (400, 401, 403, 404, 416):
+            status = req.status_code
+        elif ctype and ctype.startswith('text/html'):
+            status = 401
         else:
-            obpgSession = getSession(verbose=verbose, ntries=ntries)
-
-    r = obpgSession.get(urlStr, stream=True, timeout=timeout)
-
-    ctype = r.headers.get('Content-Type')
-    status = 0
-    if r.status_code in (400, 401, 403, 404, 416):
-        status = r.status_code
-    elif ctype and ctype.startswith('text/html'):
-        status = 401
-    else:
-        if not os.path.exists(localpath):
-            os.umask(0o02)
-            os.makedirs(localpath, mode=0o2775)
-
-        if not outputfilename:
-            cd = r.headers.get('Content-Disposition')
-            if cd:
-                outputfilename = re.findall("filename=(.+)", cd)[0]
+            if not os.path.exists(localpath):
+                os.umask(0o02)
+                os.makedirs(localpath, mode=0o2775)
+    
+            if not outputfilename:
+                cd = req.headers.get('Content-Disposition')
+                if cd:
+                    outputfilename = re.findall("filename=(.+)", cd)[0]
+                else:
+                    outputfilename = urlStr.split('/')[-1]
+    
+            ofile = os.path.join(localpath, outputfilename)
+        
+            with open(ofile, 'wb') as fd:
+                for chunk in req.iter_content(chunk_size=chunk_size):
+                    if chunk: # filter out keep-alive new chunks
+                        fd.write(chunk)
+    
+            if uncompress and re.search(".(Z|gz|bz2)$", ofile):
+                compressStatus = uncompressFile(ofile)
+                if compressStatus:
+                    status = compressStatus
             else:
-                outputfilename = urlStr.split('/')[-1]
-
-        ofile = os.path.join(localpath, outputfilename)
-
-        with open(ofile, 'wb') as fd:
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                fd.write(chunk)
-
-        if uncompress and re.search(".(Z|gz|bz2)$", ofile):
-            compressStatus = uncompressFile(ofile)
-            if compressStatus:
-                status = compressStatus
-        else:
-            status = 0
+                status = 0
 
     return status
 

@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import json
 
 from ProcUtils import getSession, httpdl
 
@@ -46,13 +47,12 @@ def retry(func, *args, **kwargs):
     """
     Retry specified function call after a short delay
     """
-    from time import sleep
     ntries = kwargs.get('ntries')
     if ntries:
         delay = int(5 + (30. * (1. / (float(ntries) + 1.))))
         if kwargs.get('verbose'):
             print('Sleeping {}s; {} tries left.'.format(delay, ntries - 1))
-        sleep(delay)
+        time.sleep(delay)
         kwargs['ntries'] = ntries - 1
     return func(*args, **kwargs)
 
@@ -99,7 +99,6 @@ def link_mtime(mtime):
 
 
 def getlinks_json(content):
-    import json
     return linkdict(json.loads(content)['rows'])
 
 
@@ -144,7 +143,6 @@ class SessionUtils:
         self.max_tries = max_tries
         self.verbose = verbose
         self.clobber = clobber
-        self.session = None
         self.status = 0
 
     def download_file(self, url, filepath):
@@ -152,8 +150,7 @@ class SessionUtils:
             parts = urlsplit(url)
             outputdir = os.path.dirname(filepath)
             status = httpdl(parts.netloc, parts.path, localpath=outputdir,
-                            timeout=self.timeout, verbose=self.verbose,
-                            existing_session=self.session)
+                            timeout=self.timeout, ntries=self.max_tries, verbose=self.verbose)
             if status:
                 self.status = 1
                 print('Error downloading {}'.format(filepath))
@@ -168,14 +165,13 @@ class SessionUtils:
         Optionally specify regex to filter for acceptable files;
         default is to list only links starting with url.
         """
-        self.session = getSession(verbose=self.verbose)
-        response = self.session.get(url, stream=True, timeout=self.timeout)
-        content = response.content
-
-        if is_json(response):
-            linklist = getlinks_json(content)
-        else:
-            return []
+        linklist = []
+        session = getSession(verbose=self.verbose, ntries=self.max_tries)
+        with session.get(url, stream=True, timeout=self.timeout) as response:
+            if is_json(response):
+                linklist = getlinks_json(response.content)
+            else:
+                return []
 
         # make relative urls fully-qualified
         for link in linklist:
@@ -229,10 +225,7 @@ if __name__ == '__main__':
     else:
         url = 'https://oceandata.sci.gsfc.nasa.gov/Ancillary/LUTs/?format=json'
 
-    # logging
-    # debug = False
-    debug = True
-    if debug:
-        import logging
+    sessionUtil = SessionUtils()
+    links = sessionUtil.get_links(url)
+    print(links)
 
-        logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.DEBUG)

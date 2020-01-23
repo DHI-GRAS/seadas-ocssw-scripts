@@ -27,7 +27,7 @@ def main():
     download = True
     force = False
     refreshDB = False
-    verbose = False
+    verbose = 0
     printlist = True
     sensor = None
     timeout = 10.
